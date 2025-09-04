@@ -1,0 +1,231 @@
+# 🔥 Firebase Setup Guide
+
+Hướng dẫn chi tiết để setup Firebase cho ứng dụng Quản lý Cầu lông.
+
+## 📋 Bước 1: Tạo Firebase Project
+
+1. Truy cập [Firebase Console](https://console.firebase.google.com)
+2. Click **"Add project"** hoặc **"Create a project"**
+3. Nhập tên project: `badminton-management` (hoặc tên bạn muốn)
+4. Chọn **"Continue"**
+5. Tắt Google Analytics (không bắt buộc cho ứng dụng này)
+6. Click **"Create project"**
+
+## 🔧 Bước 2: Cấu hình Authentication
+
+1. Trong Firebase Console, chọn **"Authentication"** từ sidebar
+2. Click tab **"Sign-in method"**
+3. Enable **"Email/Password"**:
+   - Click vào **"Email/Password"**
+   - Bật **"Enable"**
+   - Click **"Save"**
+
+## 🗄️ Bước 3: Tạo Firestore Database
+
+1. Chọn **"Firestore Database"** từ sidebar
+2. Click **"Create database"**
+3. Chọn **"Start in test mode"** (tạm thời)
+4. Chọn location gần nhất (ví dụ: `asia-southeast1`)
+5. Click **"Done"**
+
+### Cập nhật Firestore Rules
+Sau khi tạo xong, cập nhật rules:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Authenticated users can read all data
+    match /{collection=**} {
+      allow read: if request.auth != null;
+    }
+    
+    // Only admins can write to most collections
+    match /courts/{document=**} {
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    match /members/{document=**} {
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    match /groups/{document=**} {
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Sessions can be created/updated by authenticated users
+    match /sessions/{sessionId} {
+      allow create, update: if request.auth != null;
+      allow delete: if request.auth != null && 
+        (resource.data.createdBy == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+    }
+  }
+}
+```
+
+## 📱 Bước 4: Tạo Web App
+
+1. Trong Firebase Console, click vào icon **"Web"** (`</>`)
+2. Nhập tên app: `Badminton PWA`
+3. Tích **"Also set up Firebase Hosting"** (tùy chọn)
+4. Click **"Register app"**
+5. **Copy thông tin cấu hình Firebase** hiển thị
+
+## 🔐 Bước 5: Cấu hình Environment Variables
+
+1. Tạo file `.env` từ `.env.example`:
+```bash
+cp .env.example .env
+```
+
+2. Điền thông tin Firebase vào file `.env`:
+```bash
+# Từ Firebase Config Object
+VITE_FIREBASE_API_KEY=AIzaSyXXXXXXXXXXXXXXXXXXXXXXXXXXX
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=123456789012
+VITE_FIREBASE_APP_ID=1:123456789012:web:abc123def456
+
+# App Configuration
+VITE_APP_NAME="Quản Lý Cầu Lông"
+VITE_APP_VERSION="1.0.0"
+VITE_DEV_MODE=false
+VITE_USE_EMULATORS=false
+```
+
+## 🏪 Bước 6: Cấu hình Storage (Tùy chọn)
+
+1. Chọn **"Storage"** từ sidebar
+2. Click **"Get started"**
+3. Chọn **"Start in test mode"**
+4. Chọn location giống Firestore
+5. Click **"Done"**
+
+## 👤 Bước 7: Tạo Admin User đầu tiên
+
+Sau khi chạy ứng dụng lần đầu:
+
+1. Đăng ký tài khoản đầu tiên qua giao diện
+2. Vào Firebase Console → Authentication → Users
+3. Tìm user vừa tạo, copy UID
+4. Vào Firestore Database
+5. Tạo collection `users` với document có ID = UID
+6. Thêm field `role` = `admin`
+
+Ví dụ document structure:
+```javascript
+{
+  displayName: "Your Name",
+  email: "your@email.com",
+  role: "admin",  // QUAN TRỌNG: Set thành admin
+  createdAt: firestore.Timestamp.now(),
+  updatedAt: firestore.Timestamp.now()
+}
+```
+
+## ✅ Bước 8: Test Configuration
+
+Chạy ứng dụng để test:
+
+```bash
+npm run dev
+```
+
+Kiểm tra trong Console (F12):
+- ✅ "Firebase app initialized successfully"
+- ✅ "Firebase config loaded"
+- ❌ Không có lỗi "network-request-failed"
+
+## 🚨 Troubleshooting
+
+### Lỗi "auth/network-request-failed"
+
+**Nguyên nhân thường gặp:**
+
+1. **Sai cấu hình Firebase**:
+   ```bash
+   # Kiểm tra file .env có đúng format không
+   # Đảm bảo không có dấu cách thừa
+   # Project ID phải chính xác
+   ```
+
+2. **Firebase project chưa enable Authentication**:
+   - Vào Authentication → Sign-in method
+   - Enable Email/Password
+
+3. **Firestore chưa được tạo**:
+   - Vào Firestore Database
+   - Create database nếu chưa có
+
+4. **Domain chưa được authorize**:
+   - Vào Authentication → Settings → Authorized domains
+   - Thêm `localhost` và domain production
+
+5. **Billing chưa được setup** (cho production):
+   - Một số tính năng cần Blaze plan
+
+### Lỗi "auth/operation-not-allowed"
+
+```bash
+# Vào Firebase Console
+# Authentication → Sign-in method
+# Enable Email/Password provider
+```
+
+### Lỗi CORS hoặc network
+
+```bash
+# Thêm domain vào Authorized domains:
+# Authentication → Settings → Authorized domains
+# Thêm: localhost, 127.0.0.1, domain-production.com
+```
+
+## 🚀 Production Setup
+
+Khi deploy lên production:
+
+1. **Update Authorized Domains**:
+   - Thêm domain production vào Authentication → Settings
+
+2. **Update Firestore Rules**:
+   - Chuyển từ test mode sang production rules
+
+3. **Environment Variables**:
+   ```bash
+   VITE_DEV_MODE=false
+   VITE_USE_EMULATORS=false
+   ```
+
+4. **Firebase Hosting** (tùy chọn):
+   ```bash
+   npm run build
+   firebase deploy
+   ```
+
+## 📞 Support
+
+Nếu vẫn gặp lỗi:
+
+1. Kiểm tra Firebase Console có báo lỗi không
+2. Xem Network tab trong DevTools
+3. Kiểm tra file .env có đúng format không
+4. Thử tạo Firebase project mới
+5. Contact support với log chi tiết
+
+---
+
+**Lưu ý**: Thay thế tất cả `your-project-id` bằng Project ID thực tế từ Firebase Console.

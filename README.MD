@@ -355,5 +355,5 @@ MIT License - see LICENSE file for details
 
 ---
 
-**Phát triển bởi**: Your Team Name
-**Liên hệ**: your-email@example.com
+**Phát triển bởi**: Chien Nguyen
+**Liên hệ**: chiennq.dev@gmail.com
