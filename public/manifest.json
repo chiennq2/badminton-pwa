@@ -1,0 +1,96 @@
+{
+  "name": "Quản Lý Cầu Lông",
+  "short_name": "CầuLông",
+  "description": "Ứng dụng quản lý lịch đánh cầu lông chuyên nghiệp",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4caf50",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "vi",
+  "categories": ["sports", "productivity", "utilities"],
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-1.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard chính của ứng dụng"
+    },
+    {
+      "src": "/screenshots/mobile-1.png", 
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Giao diện mobile"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/pwa-64x64.png",
+      "sizes": "64x64",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192", 
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/maskable-icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Tạo lịch mới",
+      "short_name": "Tạo lịch",
+      "description": "Tạo lịch đánh cầu lông mới",
+      "url": "/sessions?action=create",
+      "icons": [
+        {
+          "src": "/icons/add-session.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Xem lịch hôm nay",
+      "short_name": "Lịch hôm nay", 
+      "description": "Xem các lịch đánh trong ngày",
+      "url": "/sessions?filter=today",
+      "icons": [
+        {
+          "src": "/icons/today-sessions.png",
+          "sizes": "96x96"
+        }
+      ]
+    },
+    {
+      "name": "Báo cáo",
+      "short_name": "Báo cáo",
+      "description": "Xem báo cáo và thống kê",
+      "url": "/reports",
+      "icons": [
+        {
+          "src": "/icons/reports.png", 
+          "sizes": "96x96"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
+}
