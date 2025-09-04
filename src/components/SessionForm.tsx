@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -26,38 +26,71 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  Tab,
+  Tabs,
+  Divider,
+  Paper,
+  Avatar,
+  ButtonGroup,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
-import { Add, Remove, Delete } from '@mui/icons-material';
+import { Add, Remove, Delete, PersonAdd, Groups, Edit } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import dayjs, { Dayjs } from 'dayjs';
-import { useCourts, useMembers, useCreateSession } from '../hooks';
-import { Session, SessionExpense, Member, Court } from '../types';
-import { formatCurrency, calculateSessionDuration, calculateSessionCost } from '../utils';
+import dayjs from 'dayjs';
+import { useCourts, useMembers, useGroups, useCreateSession, useUpdateSession } from '../hooks';
+import { Session, SessionExpense, Member, Court, Group } from '../types';
+import { formatCurrency, calculateSessionDuration } from '../utils';
 
 interface SessionFormProps {
   open: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  editingSession?: Session | null;
+}
+
+interface CustomMember {
+  id: string;
+  name: string;
+  isCustom: boolean;
+}
+
+interface SessionExpenseExtended extends SessionExpense {
+  memberIds: string[]; // Danh sách member chia tiền
 }
 
 const steps = [
   'Thông tin cơ bản',
-  'Chọn thành viên',
+  'Thành viên tham gia',
   'Sảnh chờ',
   'Chi phí'
 ];
 
-const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) => {
+const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess, editingSession }) => {
   const { data: courts } = useCourts();
   const { data: members } = useMembers();
+  const { data: groups } = useGroups();
   const createSessionMutation = useCreateSession();
+  const updateSessionMutation = useUpdateSession();
 
   const [activeStep, setActiveStep] = useState(0);
-  const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
-  const [waitingList, setWaitingList] = useState<Member[]>([]);
-  const [expenses, setExpenses] = useState<SessionExpense[]>([]);
+  const [selectedMembers, setSelectedMembers] = useState<CustomMember[]>([]);
+  const [waitingList, setWaitingList] = useState<CustomMember[]>([]);
+  const [expenses, setExpenses] = useState<SessionExpenseExtended[]>([]);
+  const [memberTabValue, setMemberTabValue] = useState(0);
+  const [waitingTabValue, setWaitingTabValue] = useState(0);
+  const [customMemberName, setCustomMemberName] = useState('');
+  const [customWaitingName, setCustomWaitingName] = useState('');
+
+  // Court cost settings
+  const [useAutoCourt, setUseAutoCourt] = useState(true);
+  const [manualCourtCost, setManualCourtCost] = useState(0);
+
+  // Shuttlecock settings
+  const [shuttlecockCount, setShuttlecockCount] = useState(2);
+  const [shuttlecockPrice, setShuttlecockPrice] = useState(25000);
 
   const validationSchemas = [
     // Step 1: Basic Info
@@ -72,12 +105,9 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
         .max(20, 'Tối đa 20 người')
         .required('Số người tối đa là bắt buộc'),
     }),
-    // Step 2: Members - No validation needed
-    Yup.object({}),
-    // Step 3: Waiting List - No validation needed
-    Yup.object({}),
-    // Step 4: Expenses - No validation needed
-    Yup.object({}),
+    Yup.object({}), // Step 2
+    Yup.object({}), // Step 3
+    Yup.object({}), // Step 4
   ];
 
   const formik = useFormik({
@@ -95,22 +125,121 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
       if (activeStep < steps.length - 1) {
         setActiveStep(activeStep + 1);
       } else {
-        await handleCreateSession(values);
+        await handleSaveSession(values);
       }
     },
   });
 
-  const handleCreateSession = async (values: any) => {
+  // Load editing session data
+  useEffect(() => {
+    if (editingSession && open) {
+      formik.setValues({
+        name: editingSession.name,
+        courtId: editingSession.courtId,
+        date: editingSession.date,
+        startTime: editingSession.startTime,
+        endTime: editingSession.endTime,
+        maxParticipants: editingSession.maxParticipants,
+        notes: editingSession.notes || '',
+      });
+
+      // Load members
+      const sessionMembers = editingSession.members.map(sm => {
+        const member = members?.find(m => m.id === sm.memberId);
+        return {
+          id: sm.memberId,
+          name: member?.name || 'Thành viên tùy chỉnh',
+          isCustom: !member,
+        };
+      });
+      setSelectedMembers(sessionMembers);
+
+      // Load waiting list
+      const waitingMembers = editingSession.waitingList.map(wm => {
+        const member = members?.find(m => m.id === wm.memberId);
+        return {
+          id: wm.memberId,
+          name: member?.name || 'Thành viên tùy chỉnh',
+          isCustom: !member,
+        };
+      });
+      setWaitingList(waitingMembers);
+
+      // Load expenses
+      const sessionExpenses: SessionExpenseExtended[] = editingSession.expenses
+        .filter(exp => exp.type !== 'court' && exp.type !== 'shuttlecock')
+        .map(exp => ({
+          ...exp,
+          memberIds: sessionMembers.map(m => m.id), // Default all members
+        }));
+      setExpenses(sessionExpenses);
+
+      // Load court and shuttlecock settings
+      const courtExpense = editingSession.expenses.find(exp => exp.type === 'court');
+      const shuttlecockExpense = editingSession.expenses.find(exp => exp.type === 'shuttlecock');
+      
+      if (courtExpense) {
+        setManualCourtCost(courtExpense.amount);
+        setUseAutoCourt(courtExpense.amount === 0);
+      }
+      
+      if (shuttlecockExpense) {
+        const count = parseInt(shuttlecockExpense.description?.split(' ')[0] || '2');
+        setShuttlecockCount(count);
+        setShuttlecockPrice(shuttlecockExpense.amount / count);
+      }
+    }
+  }, [editingSession, open, members]);
+
+  const handleSaveSession = async (values: any) => {
     try {
       const selectedCourt = courts?.find(c => c.id === values.courtId);
       if (!selectedCourt) return;
 
       const duration = calculateSessionDuration(values.startTime, values.endTime);
-      const courtCost = selectedCourt.pricePerHour * duration;
-      const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-      const totalCost = courtCost + totalExpenses;
+      const courtCost = useAutoCourt ? selectedCourt.pricePerHour * duration : manualCourtCost;
+      const shuttlecockCost = shuttlecockCount * shuttlecockPrice;
+      const additionalCosts = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const totalCost = courtCost + shuttlecockCost + additionalCosts;
 
-      const sessionData: Omit<Session, 'id' | 'createdAt' | 'updatedAt'> = {
+      const sessionExpenses: SessionExpense[] = [];
+      
+      // Add court cost
+      if (courtCost > 0) {
+        sessionExpenses.push({
+          id: 'court-cost',
+          name: 'Tiền sân',
+          amount: courtCost,
+          type: 'court',
+          description: useAutoCourt 
+            ? `${duration} giờ x ${formatCurrency(selectedCourt.pricePerHour)}`
+            : 'Nhập thủ công',
+        });
+      }
+
+      // Add shuttlecock cost
+      if (shuttlecockCost > 0) {
+        sessionExpenses.push({
+          id: 'shuttlecock-cost',
+          name: 'Tiền cầu',
+          amount: shuttlecockCost,
+          type: 'shuttlecock',
+          description: `${shuttlecockCount} quả x ${formatCurrency(shuttlecockPrice)}`,
+        });
+      }
+
+      // Add additional expenses
+      sessionExpenses.push(...expenses.map(exp => ({
+        id: exp.id,
+        name: exp.name,
+        amount: exp.amount,
+        type: exp.type,
+        description: `Chia cho ${exp.memberIds.length} người`,
+      })));
+
+      const baseSharedCost = (courtCost + shuttlecockCost) / Math.max(selectedMembers.length, 1);
+      
+      const sessionData = {
         name: values.name,
         courtId: values.courtId,
         date: values.date,
@@ -118,38 +247,37 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
         endTime: values.endTime,
         maxParticipants: values.maxParticipants,
         currentParticipants: selectedMembers.length,
-        status: 'scheduled',
+        status: editingSession?.status || 'scheduled',
         members: selectedMembers.map(member => ({
           memberId: member.id,
-          isPresent: false,
+          isPresent: editingSession?.members.find(m => m.memberId === member.id)?.isPresent || false,
         })),
         waitingList: waitingList.map((member, index) => ({
           memberId: member.id,
           addedAt: new Date(),
           priority: index + 1,
         })),
-        expenses: [
-          {
-            id: 'court-cost',
-            name: 'Tiền sân',
-            amount: courtCost,
-            type: 'court',
-            description: `${duration} giờ x ${formatCurrency(selectedCourt.pricePerHour)}`,
-          },
-          ...expenses,
-        ],
+        expenses: sessionExpenses,
         totalCost,
-        costPerPerson: selectedMembers.length > 0 ? totalCost / selectedMembers.length : 0,
-        settlements: [],
+        costPerPerson: baseSharedCost,
+        settlements: editingSession?.settlements || [],
         notes: values.notes,
-        createdBy: 'current-user', // Will be replaced with actual user ID
+        createdBy: editingSession?.createdBy || 'current-user',
       };
 
-      await createSessionMutation.mutateAsync(sessionData);
+      if (editingSession) {
+        await updateSessionMutation.mutateAsync({
+          id: editingSession.id,
+          data: sessionData,
+        });
+      } else {
+        await createSessionMutation.mutateAsync(sessionData);
+      }
+
       onSuccess();
       handleClose();
     } catch (error) {
-      console.error('Error creating session:', error);
+      console.error('Error saving session:', error);
     }
   };
 
@@ -166,44 +294,105 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
     setSelectedMembers([]);
     setWaitingList([]);
     setExpenses([]);
+    setCustomMemberName('');
+    setCustomWaitingName('');
+    setUseAutoCourt(true);
+    setManualCourtCost(0);
+    setShuttlecockCount(2);
+    setShuttlecockPrice(25000);
     formik.resetForm();
     onClose();
   };
 
-  const addMember = (member: Member) => {
+  const addMemberFromList = (member: Member) => {
+    const customMember: CustomMember = {
+      id: member.id,
+      name: member.name,
+      isCustom: false,
+    };
+    
     if (selectedMembers.length < formik.values.maxParticipants) {
-      setSelectedMembers([...selectedMembers, member]);
+      if (!selectedMembers.some(m => m.id === member.id)) {
+        setSelectedMembers([...selectedMembers, customMember]);
+      }
     } else {
-      setWaitingList([...waitingList, member]);
+      if (!waitingList.some(m => m.id === member.id) && !selectedMembers.some(m => m.id === member.id)) {
+        setWaitingList([...waitingList, customMember]);
+      }
     }
   };
 
-  const removeMember = (member: Member) => {
+  const addMemberFromGroup = (group: Group) => {
+    const groupMembers = members?.filter(member => group.memberIds.includes(member.id)) || [];
+    groupMembers.forEach(member => addMemberFromList(member));
+  };
+
+  const addCustomMember = () => {
+    if (!customMemberName.trim()) return;
+    
+    const customMember: CustomMember = {
+      id: `custom-${Date.now()}`,
+      name: customMemberName.trim(),
+      isCustom: true,
+    };
+
+    if (selectedMembers.length < formik.values.maxParticipants) {
+      setSelectedMembers([...selectedMembers, customMember]);
+    } else {
+      setWaitingList([...waitingList, customMember]);
+    }
+    
+    setCustomMemberName('');
+  };
+
+  const addCustomWaitingMember = () => {
+    if (!customWaitingName.trim()) return;
+    
+    const customMember: CustomMember = {
+      id: `custom-waiting-${Date.now()}`,
+      name: customWaitingName.trim(),
+      isCustom: true,
+    };
+
+    setWaitingList([...waitingList, customMember]);
+    setCustomWaitingName('');
+  };
+
+  const removeMember = (member: CustomMember) => {
     setSelectedMembers(selectedMembers.filter(m => m.id !== member.id));
-    // Move first waiting member to main list
+    
+    // Move first waiting member to main list if there's space
     if (waitingList.length > 0) {
       const firstWaiting = waitingList[0];
       setWaitingList(waitingList.slice(1));
-      setSelectedMembers([...selectedMembers.filter(m => m.id !== member.id), firstWaiting]);
+      setSelectedMembers(prev => [...prev.filter(m => m.id !== member.id), firstWaiting]);
     }
   };
 
-  const removeFromWaitingList = (member: Member) => {
+  const removeFromWaitingList = (member: CustomMember) => {
     setWaitingList(waitingList.filter(m => m.id !== member.id));
   };
 
+  const moveFromWaitingToMain = (member: CustomMember) => {
+    if (selectedMembers.length >= formik.values.maxParticipants) return;
+    
+    setWaitingList(waitingList.filter(m => m.id !== member.id));
+    setSelectedMembers([...selectedMembers, member]);
+  };
+
   const addExpense = () => {
-    const newExpense: SessionExpense = {
+    const newExpense: SessionExpenseExtended = {
       id: Date.now().toString(),
       name: '',
       amount: 0,
       type: 'other',
       description: '',
+      memberIds: selectedMembers.map(m => m.id), // Default all members
     };
     setExpenses([...expenses, newExpense]);
   };
 
-  const updateExpense = (id: string, field: keyof SessionExpense, value: any) => {
+  const updateExpense = (id: string, field: keyof SessionExpenseExtended, value: any) => {
     setExpenses(expenses.map(exp => 
       exp.id === id ? { ...exp, [field]: value } : exp
     ));
@@ -335,26 +524,101 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
         return (
           <Box sx={{ pt: 2 }}>
             <Typography variant="h6" gutterBottom>
-              Chọn thành viên tham gia ({selectedMembers.length}/{formik.values.maxParticipants})
+              Thành viên tham gia ({selectedMembers.length}/{formik.values.maxParticipants})
             </Typography>
-            
-            <Autocomplete
-              options={members?.filter(member => 
-                member.isActive && 
-                !selectedMembers.some(sm => sm.id === member.id) &&
-                !waitingList.some(wm => wm.id === member.id)
-              ) || []}
-              getOptionLabel={(option) => `${option.name} (${option.skillLevel})`}
-              onChange={(_, value) => {
-                if (value) {
-                  addMember(value);
-                }
-              }}
-              renderInput={(params) => (
-                <TextField {...params} label="Tìm và thêm thành viên" />
-              )}
-              sx={{ mb: 2 }}
-            />
+
+            <Tabs value={memberTabValue} onChange={(_, newValue) => setMemberTabValue(newValue)} sx={{ mb: 2 }}>
+              <Tab label="Từ danh sách" />
+              <Tab label="Từ nhóm" />
+              <Tab label="Tùy chỉnh" />
+            </Tabs>
+
+            {memberTabValue === 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Autocomplete
+                  options={members?.filter(member => 
+                    member.isActive && 
+                    !selectedMembers.some(sm => sm.id === member.id) &&
+                    !waitingList.some(wm => wm.id === member.id)
+                  ) || []}
+                  getOptionLabel={(option) => `${option.name} (${option.skillLevel})`}
+                  onChange={(_, value) => {
+                    if (value) {
+                      addMemberFromList(value);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Chọn từ danh sách thành viên" />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                        {option.name.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Box>
+                        <Typography variant="body2">{option.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.skillLevel}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                />
+              </Box>
+            )}
+
+            {memberTabValue === 1 && (
+              <Box sx={{ mb: 2 }}>
+                <FormControl fullWidth>
+                  <InputLabel>Chọn nhóm</InputLabel>
+                  <Select
+                    value=""
+                    onChange={(e) => {
+                      const group = groups?.find(g => g.id === e.target.value);
+                      if (group) {
+                        addMemberFromGroup(group);
+                      }
+                    }}
+                    label="Chọn nhóm"
+                  >
+                    {groups?.map(group => (
+                      <MenuItem key={group.id} value={group.id}>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Groups sx={{ mr: 1 }} />
+                          {group.name} ({group.memberIds.length} thành viên)
+                        </Box>
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
+
+            {memberTabValue === 2 && (
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <TextField
+                    fullWidth
+                    label="Nhập tên thành viên"
+                    value={customMemberName}
+                    onChange={(e) => setCustomMemberName(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        addCustomMember();
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={addCustomMember}
+                    disabled={!customMemberName.trim()}
+                    startIcon={<PersonAdd />}
+                  >
+                    Thêm
+                  </Button>
+                </Box>
+              </Box>
+            )}
 
             <Card>
               <CardContent>
@@ -369,9 +633,12 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
                   <List dense>
                     {selectedMembers.map((member) => (
                       <ListItem key={member.id}>
+                        <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                          {member.name.charAt(0).toUpperCase()}
+                        </Avatar>
                         <ListItemText
                           primary={member.name}
-                          secondary={member.skillLevel}
+                          secondary={member.isCustom ? 'Tùy chỉnh' : 'Từ danh sách'}
                         />
                         <ListItemSecondaryAction>
                           <IconButton
@@ -397,24 +664,63 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
             <Typography variant="h6" gutterBottom>
               Sảnh chờ ({waitingList.length} người)
             </Typography>
-            
-            <Autocomplete
-              options={members?.filter(member => 
-                member.isActive && 
-                !selectedMembers.some(sm => sm.id === member.id) &&
-                !waitingList.some(wm => wm.id === member.id)
-              ) || []}
-              getOptionLabel={(option) => `${option.name} (${option.skillLevel})`}
-              onChange={(_, value) => {
-                if (value) {
-                  setWaitingList([...waitingList, value]);
-                }
-              }}
-              renderInput={(params) => (
-                <TextField {...params} label="Thêm vào sảnh chờ" />
-              )}
-              sx={{ mb: 2 }}
-            />
+
+            <Tabs value={waitingTabValue} onChange={(_, newValue) => setWaitingTabValue(newValue)} sx={{ mb: 2 }}>
+              <Tab label="Từ danh sách" />
+              <Tab label="Tùy chỉnh" />
+            </Tabs>
+
+            {waitingTabValue === 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Autocomplete
+                  options={members?.filter(member => 
+                    member.isActive && 
+                    !selectedMembers.some(sm => sm.id === member.id) &&
+                    !waitingList.some(wm => wm.id === member.id)
+                  ) || []}
+                  getOptionLabel={(option) => `${option.name} (${option.skillLevel})`}
+                  onChange={(_, value) => {
+                    if (value) {
+                      const customMember: CustomMember = {
+                        id: value.id,
+                        name: value.name,
+                        isCustom: false,
+                      };
+                      setWaitingList([...waitingList, customMember]);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Thêm vào sảnh chờ từ danh sách" />
+                  )}
+                />
+              </Box>
+            )}
+
+            {waitingTabValue === 1 && (
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <TextField
+                    fullWidth
+                    label="Nhập tên thành viên chờ"
+                    value={customWaitingName}
+                    onChange={(e) => setCustomWaitingName(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        addCustomWaitingMember();
+                      }
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={addCustomWaitingMember}
+                    disabled={!customWaitingName.trim()}
+                    startIcon={<PersonAdd />}
+                  >
+                    Thêm
+                  </Button>
+                </Box>
+              </Box>
+            )}
 
             <Card>
               <CardContent>
@@ -429,18 +735,30 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
                   <List dense>
                     {waitingList.map((member, index) => (
                       <ListItem key={member.id}>
+                        <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                          {(index + 1)}
+                        </Avatar>
                         <ListItemText
                           primary={`${index + 1}. ${member.name}`}
-                          secondary={member.skillLevel}
+                          secondary={member.isCustom ? 'Tùy chỉnh' : 'Từ danh sách'}
                         />
                         <ListItemSecondaryAction>
-                          <IconButton
-                            edge="end"
-                            onClick={() => removeFromWaitingList(member)}
-                            size="small"
-                          >
-                            <Delete />
-                          </IconButton>
+                          <ButtonGroup size="small">
+                            {selectedMembers.length < formik.values.maxParticipants && (
+                              <Button
+                                onClick={() => moveFromWaitingToMain(member)}
+                                startIcon={<Add />}
+                              >
+                                Vào danh sách
+                              </Button>
+                            )}
+                            <IconButton
+                              onClick={() => removeFromWaitingList(member)}
+                              size="small"
+                            >
+                              <Delete />
+                            </IconButton>
+                          </ButtonGroup>
                         </ListItemSecondaryAction>
                       </ListItem>
                     ))}
@@ -454,9 +772,10 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
       case 3:
         const selectedCourt = courts?.find(c => c.id === formik.values.courtId);
         const duration = calculateSessionDuration(formik.values.startTime, formik.values.endTime);
-        const courtCost = selectedCourt ? selectedCourt.pricePerHour * duration : 0;
-        const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-        const totalCost = courtCost + totalExpenses;
+        const courtCost = useAutoCourt ? (selectedCourt ? selectedCourt.pricePerHour * duration : 0) : manualCourtCost;
+        const shuttlecockCost = shuttlecockCount * shuttlecockPrice;
+        const additionalCosts = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+        const totalCost = courtCost + shuttlecockCost + additionalCosts;
 
         return (
           <Box sx={{ pt: 2 }}>
@@ -467,11 +786,69 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
             {/* Court Cost */}
             <Card sx={{ mb: 2 }}>
               <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="subtitle1">Tiền sân</Typography>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={useAutoCourt}
+                        onChange={(e) => setUseAutoCourt(e.target.checked)}
+                      />
+                    }
+                    label="Tự động tính"
+                  />
+                </Box>
+                
+                {useAutoCourt ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {duration} giờ x {formatCurrency(selectedCourt?.pricePerHour || 0)} = {formatCurrency(courtCost)}
+                  </Typography>
+                ) : (
+                  <TextField
+                    fullWidth
+                    label="Nhập tiền sân thủ công"
+                    type="number"
+                    value={manualCourtCost}
+                    onChange={(e) => setManualCourtCost(Number(e.target.value))}
+                    size="small"
+                    inputProps={{ min: 0 }}
+                  />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Shuttlecock Cost */}
+            <Card sx={{ mb: 2 }}>
+              <CardContent>
                 <Typography variant="subtitle1" gutterBottom>
-                  Tiền sân
+                  Tiền cầu
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {duration} giờ x {formatCurrency(selectedCourt?.pricePerHour || 0)} = {formatCurrency(courtCost)}
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <TextField
+                      fullWidth
+                      label="Số lượng quả"
+                      type="number"
+                      value={shuttlecockCount}
+                      onChange={(e) => setShuttlecockCount(Number(e.target.value))}
+                      size="small"
+                      inputProps={{ min: 0 }}
+                    />
+                  </Grid>
+                  <Grid item xs={6}>
+                    <TextField
+                      fullWidth
+                      label="Giá mỗi quả"
+                      type="number"
+                      value={shuttlecockPrice}
+                      onChange={(e) => setShuttlecockPrice(Number(e.target.value))}
+                      size="small"
+                      inputProps={{ min: 0 }}
+                    />
+                  </Grid>
+                </Grid>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Tổng: {shuttlecockCount} quả x {formatCurrency(shuttlecockPrice)} = {formatCurrency(shuttlecockCost)}
                 </Typography>
               </CardContent>
             </Card>
@@ -493,50 +870,93 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
                 </Box>
 
                 {expenses.map((expense) => (
-                  <Grid container spacing={2} key={expense.id} sx={{ mb: 2 }}>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Tên chi phí"
-                        value={expense.name}
-                        onChange={(e) => updateExpense(expense.id, 'name', e.target.value)}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={3}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Số tiền"
-                        type="number"
-                        value={expense.amount}
-                        onChange={(e) => updateExpense(expense.id, 'amount', Number(e.target.value))}
-                      />
-                    </Grid>
-                    <Grid item xs={12} sm={3}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Loại</InputLabel>
-                        <Select
-                          value={expense.type}
-                          onChange={(e) => updateExpense(expense.id, 'type', e.target.value)}
-                          label="Loại"
+                  <Paper key={expense.id} sx={{ p: 2, mb: 2, backgroundColor: 'action.hover' }}>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} sm={6}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Tên chi phí"
+                          value={expense.name}
+                          onChange={(e) => updateExpense(expense.id, 'name', e.target.value)}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={3}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          label="Số tiền"
+                          type="number"
+                          value={expense.amount}
+                          onChange={(e) => updateExpense(expense.id, 'amount', Number(e.target.value))}
+                          inputProps={{ min: 0 }}
+                        />
+                      </Grid>
+                      <Grid item xs={12} sm={3}>
+                        <IconButton
+                          onClick={() => removeExpense(expense.id)}
+                          color="error"
+                          size="small"
                         >
-                          <MenuItem value="shuttlecock">Tiền cầu</MenuItem>
-                          <MenuItem value="other">Khác</MenuItem>
-                        </Select>
-                      </FormControl>
+                          <Delete />
+                        </IconButton>
+                      </Grid>
+                      
+                      <Grid item xs={12}>
+                        <Typography variant="body2" gutterBottom>
+                          Chia tiền cho:
+                        </Typography>
+                        <Autocomplete
+                          multiple
+                          options={[...selectedMembers, ...waitingList]}
+                          getOptionLabel={(option) => option.name}
+                          value={[...selectedMembers, ...waitingList].filter(m => expense.memberIds.includes(m.id))}
+                          onChange={(_, newValue) => {
+                            updateExpense(expense.id, 'memberIds', newValue.map(m => m.id));
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              variant="outlined"
+                              size="small"
+                              placeholder="Chọn thành viên chia tiền"
+                            />
+                          )}
+                          renderTags={(value, getTagProps) =>
+                            value.map((option, index) => (
+                              <Chip
+                                variant="outlined"
+                                label={option.name}
+                                size="small"
+                                {...getTagProps({ index })}
+                              />
+                            ))
+                          }
+                          renderOption={(props, option) => (
+                            <Box component="li" {...props}>
+                              <Avatar sx={{ mr: 1, width: 24, height: 24 }}>
+                                {option.name.charAt(0).toUpperCase()}
+                              </Avatar>
+                              <Typography variant="body2">{option.name}</Typography>
+                            </Box>
+                          )}
+                        />
+                        <Typography variant="caption" color="text.secondary">
+                          {expense.amount > 0 && expense.memberIds.length > 0
+                            ? `${formatCurrency(expense.amount / expense.memberIds.length)}/người`
+                            : 'Chưa có thành viên nào được chọn'
+                          }
+                        </Typography>
+                      </Grid>
                     </Grid>
-                    <Grid item xs={12} sm={2}>
-                      <IconButton
-                        onClick={() => removeExpense(expense.id)}
-                        color="error"
-                        size="small"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Grid>
-                  </Grid>
+                  </Paper>
                 ))}
+
+                {expenses.length === 0 && (
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
+                    Chưa có chi phí bổ sung nào
+                  </Typography>
+                )}
               </CardContent>
             </Card>
 
@@ -551,21 +971,47 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
                   <Typography>{formatCurrency(courtCost)}</Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography>Chi phí khác:</Typography>
-                  <Typography>{formatCurrency(totalExpenses)}</Typography>
+                  <Typography>Tiền cầu:</Typography>
+                  <Typography>{formatCurrency(shuttlecockCost)}</Typography>
                 </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', pt: 1, borderTop: 1, borderColor: 'divider' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography>Chi phí khác:</Typography>
+                  <Typography>{formatCurrency(additionalCosts)}</Typography>
+                </Box>
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
                   <Typography fontWeight="bold">Tổng cộng:</Typography>
-                  <Typography fontWeight="bold">{formatCurrency(totalCost)}</Typography>
+                  <Typography fontWeight="bold" color="primary.main">
+                    {formatCurrency(totalCost)}
+                  </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Chi phí/người ({selectedMembers.length} người):
+                    Chi phí cơ bản/người ({selectedMembers.length} người):
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {formatCurrency(selectedMembers.length > 0 ? totalCost / selectedMembers.length : 0)}
+                    {formatCurrency(selectedMembers.length > 0 ? (courtCost + shuttlecockCost) / selectedMembers.length : 0)}
                   </Typography>
                 </Box>
+
+                {/* Additional cost breakdown */}
+                {expenses.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      Chi phí bổ sung:
+                    </Typography>
+                    {expenses.map((expense) => (
+                      <Box key={expense.id} sx={{ display: 'flex', justifyContent: 'space-between', ml: 2, mb: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {expense.name} ({expense.memberIds.length} người):
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {formatCurrency(expense.memberIds.length > 0 ? expense.amount / expense.memberIds.length : 0)}/người
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
               </CardContent>
             </Card>
           </Box>
@@ -577,8 +1023,10 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>Tạo lịch đánh mới</DialogTitle>
+    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth>
+      <DialogTitle>
+        {editingSession ? 'Chỉnh sửa lịch đánh' : 'Tạo lịch đánh mới'}
+      </DialogTitle>
       
       <DialogContent>
         <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
@@ -601,12 +1049,12 @@ const SessionForm: React.FC<SessionFormProps> = ({ open, onClose, onSuccess }) =
         <Button
           variant="contained"
           onClick={handleNext}
-          disabled={createSessionMutation.isPending}
+          disabled={createSessionMutation.isPending || updateSessionMutation.isPending}
         >
-          {createSessionMutation.isPending ? (
+          {(createSessionMutation.isPending || updateSessionMutation.isPending) ? (
             <CircularProgress size={20} />
           ) : activeStep === steps.length - 1 ? (
-            'Tạo lịch'
+            editingSession ? 'Cập nhật lịch' : 'Tạo lịch'
           ) : (
             'Tiếp theo'
           )}
