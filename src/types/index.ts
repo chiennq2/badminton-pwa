@@ -51,13 +51,17 @@ export interface SessionExpense {
 
 export interface SessionMember {
   memberId: string;
+  memberName?: string;
   isPresent: boolean;
+  isCustom?: boolean;
   joinedAt?: Date;
   leftAt?: Date;
 }
 
 export interface WaitingListMember {
   memberId: string;
+  memberName?: string;
+  isCustom?: boolean;
   addedAt: Date;
   priority: number;
 }
@@ -78,6 +82,7 @@ export interface Session {
   totalCost: number;
   costPerPerson: number;
   notes?: string;
+  qrImage?: string;
   settlements: Settlement[];
   createdBy: string;
   createdAt: Date;

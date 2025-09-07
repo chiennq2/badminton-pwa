@@ -9,10 +9,10 @@ import {
   Snackbar,
   CircularProgress,
   Fab,
-  DialogContent,
   Dialog,
-  DialogTitle,
   DialogActions,
+  DialogContent,
+  DialogTitle,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem } from '@mui/x-data-grid';
 import { Add, Edit, Delete, Visibility, PlayArrow, Stop } from '@mui/icons-material';
@@ -254,6 +254,21 @@ const Sessions: React.FC = () => {
           showSnackbar('Tạo lịch thành công!', 'success');
         }}
       />
+
+      {/* Session Edit Form */}
+      {/* <SessionForm
+        open={editFormOpen}
+        onClose={() => {
+          setEditFormOpen(false);
+          setEditingSession(null);
+        }}
+        onSuccess={() => {
+          setEditFormOpen(false);
+          setEditingSession(null);
+          showSnackbar('Cập nhật lịch thành công!', 'success');
+        }}
+        editingSession={editingSession}
+      /> */}
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>

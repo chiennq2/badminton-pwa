@@ -267,6 +267,22 @@ const SessionDetail: React.FC = () => {
                 <strong>Số người tham gia:</strong> {session.currentParticipants}/{session.maxParticipants}
               </Typography>
             </Grid>
+
+            {/* QR Code Display */}
+            {session.qrImage && (
+              <Grid item xs={12}>
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <Typography variant="h6" gutterBottom>
+                    QR Code thanh toán
+                  </Typography>
+                  <img 
+                    src={session.qrImage} 
+                    alt="QR Code thanh toán" 
+                    style={{ maxWidth: 300, maxHeight: 300, border: '1px solid #ccc' }} 
+                  />
+                </Box>
+              </Grid>
+            )}
           </Grid>
         </CardContent>
       </Card>
