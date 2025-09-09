@@ -201,6 +201,36 @@ export const useCreateGroup = () => {
   });
 };
 
+export const useUpdateGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Group> }) => {
+      const docRef = doc(db, 'groups', id);
+      await updateDoc(docRef, {
+        ...data,
+        updatedAt: serverTimestamp(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+};
+
+export const useDeleteGroup = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      await deleteDoc(doc(db, 'groups', id));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+    },
+  });
+};
+
 // Sessions hooks
 export const useSessions = (filters?: { startDate?: Date; endDate?: Date; status?: string }) => {
   return useQuery({
@@ -266,9 +296,8 @@ export const useUpdateSession = () => {
         updatedAt: serverTimestamp(),
       });
     },
-    onSuccess: (_, { id }) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      queryClient.invalidateQueries({ queryKey: ['session', id] });
     },
   });
 };

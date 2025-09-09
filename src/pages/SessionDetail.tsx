@@ -24,6 +24,16 @@ import {
   CircularProgress,
   Alert,
   Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Avatar,
+  Tooltip,
+  LinearProgress,
 } from '@mui/material';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import {
@@ -37,9 +47,16 @@ import {
   Schedule,
   Groups,
   Receipt,
+  Payment,
+  Edit,
+  RadioButtonUnchecked,
+  AccountBalance,
+  TrendingUp,
+  Warning,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+
 import { useSession, useUpdateSession, useMembers, useCourt } from '../hooks';
 import { Settlement, WaitingListMember } from '../types';
 import { 
@@ -49,8 +66,10 @@ import {
   getSessionStatusText, 
   getSessionStatusColor,
   exportSessionImage,
-  generateSettlements 
+  generateDetailedSettlements,
+  calculateMemberSettlement
 } from '../utils';
+import SessionEditForm from '../components/SessionEditForm';
 
 const SessionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -61,6 +80,7 @@ const SessionDetail: React.FC = () => {
   const updateSessionMutation = useUpdateSession();
 
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+  const [editFormOpen, setEditFormOpen] = useState(false);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [snackbar, setSnackbar] = useState({ 
     open: false, 
@@ -84,6 +104,9 @@ const SessionDetail: React.FC = () => {
     session.waitingList.some(wm => wm.memberId === member.id)
   ) || [];
 
+  const presentMembers = session.members.filter(m => m.isPresent);
+  const currentSettlements = session.settlements || [];
+
   const handleAttendanceChange = async (memberId: string, isPresent: boolean) => {
     try {
       const updatedMembers = session.members.map(member =>
@@ -92,17 +115,41 @@ const SessionDetail: React.FC = () => {
       
       const currentParticipants = updatedMembers.filter(m => m.isPresent).length;
       
+      // Regenerate settlements when attendance changes
+      const newSettlements = generateDetailedSettlements(
+        { ...session, members: updatedMembers },
+        members || []
+      );
+      
       await updateSessionMutation.mutateAsync({
         id: session.id,
         data: { 
           members: updatedMembers,
           currentParticipants,
+          settlements: newSettlements,
         },
       });
       
       showSnackbar('Cập nhật điểm danh thành công!', 'success');
     } catch (error) {
       showSnackbar('Có lỗi xảy ra khi cập nhật điểm danh!', 'error');
+    }
+  };
+
+  const handlePaymentStatusChange = async (memberId: string, isPaid: boolean) => {
+    try {
+      const updatedSettlements = currentSettlements.map(settlement =>
+        settlement.memberId === memberId ? { ...settlement, isPaid } : settlement
+      );
+      
+      await updateSessionMutation.mutateAsync({
+        id: session.id,
+        data: { settlements: updatedSettlements },
+      });
+      
+      showSnackbar(`Đã ${isPaid ? 'đánh dấu thanh toán' : 'hủy thanh toán'} thành công!`, 'success');
+    } catch (error) {
+      showSnackbar('Có lỗi xảy ra khi cập nhật trạng thái thanh toán!', 'error');
     }
   };
 
@@ -132,7 +179,7 @@ const SessionDetail: React.FC = () => {
   const handleCompleteSession = () => {
     if (!members) return;
     
-    const generatedSettlements = generateSettlements(session, members);
+    const generatedSettlements = generateDetailedSettlements(session, members);
     setSettlements(generatedSettlements);
     setCompleteDialogOpen(true);
   };
@@ -170,24 +217,68 @@ const SessionDetail: React.FC = () => {
     setSnackbar({ open: true, message, severity });
   };
 
+  // Payment statistics
+  const totalAmount = currentSettlements.reduce((sum, s) => {
+    const memberIsPresent = session.members.find(m => m.memberId === s.memberId)?.isPresent;
+    return memberIsPresent ? sum + s.amount : sum;
+  }, 0);
+
+  const paidAmount = currentSettlements.reduce((sum, s) => {
+    const memberIsPresent = session.members.find(m => m.memberId === s.memberId)?.isPresent;
+    return (memberIsPresent && s.isPaid) ? sum + s.amount : sum;
+  }, 0);
+
+  const unpaidAmount = totalAmount - paidAmount;
+  const paymentProgress = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
+
   const settlementColumns: GridColDef[] = [
-    { field: 'memberName', headerName: 'Tên thành viên', flex: 1 },
+    { 
+      field: 'memberName', 
+      headerName: 'Tên thành viên', 
+      flex: 1,
+      minWidth: 200,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+            {params.value.charAt(0).toUpperCase()}
+          </Avatar>
+          {params.value}
+        </Box>
+      ),
+    },
     { 
       field: 'amount', 
       headerName: 'Số tiền', 
       width: 150,
-      renderCell: (params) => formatCurrency(params.value),
+      renderCell: (params) => (
+        <Typography variant="body2" fontWeight="medium" color="success.main">
+          {formatCurrency(params.value)}
+        </Typography>
+      ),
     },
     {
       field: 'isPaid',
-      headerName: 'Đã thanh toán',
-      width: 130,
+      headerName: 'Trạng thái',
+      width: 160,
       renderCell: (params) => (
-        <Chip
-          label={params.value ? 'Đã thanh toán' : 'Chưa thanh toán'}
-          color={params.value ? 'success' : 'warning'}
-          size="small"
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Chip
+            label={params.value ? 'Đã thanh toán' : 'Chưa thanh toán'}
+            color={params.value ? 'success' : 'warning'}
+            size="small"
+            variant={params.value ? 'filled' : 'outlined'}
+          />
+          <Tooltip title={params.value ? 'Đánh dấu chưa thanh toán' : 'Đánh dấu đã thanh toán'}>
+            <IconButton
+              size="small"
+              onClick={() => handlePaymentStatusChange(params.row.memberId, !params.value)}
+              color={params.value ? 'error' : 'success'}
+              sx={{ ml: 1 }}
+            >
+              {params.value ? <RadioButtonUnchecked /> : <CheckCircle />}
+            </IconButton>
+          </Tooltip>
+        </Box>
       ),
     },
   ];
@@ -212,6 +303,13 @@ const SessionDetail: React.FC = () => {
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setEditFormOpen(true)}
+            startIcon={<Edit />}
+          >
+            Chỉnh sửa
+          </Button>
           {session.status === 'ongoing' && (
             <Button
               variant="contained"
@@ -266,23 +364,10 @@ const SessionDetail: React.FC = () => {
               <Typography variant="body1">
                 <strong>Số người tham gia:</strong> {session.currentParticipants}/{session.maxParticipants}
               </Typography>
+              <Typography variant="body1">
+                <strong>Có mặt:</strong> {presentMembers.length} người
+              </Typography>
             </Grid>
-
-            {/* QR Code Display */}
-            {session.qrImage && (
-              <Grid item xs={12}>
-                <Box sx={{ textAlign: 'center', mt: 2 }}>
-                  <Typography variant="h6" gutterBottom>
-                    QR Code thanh toán
-                  </Typography>
-                  <img 
-                    src={session.qrImage} 
-                    alt="QR Code thanh toán" 
-                    style={{ maxWidth: 300, maxHeight: 300, border: '1px solid #ccc' }} 
-                  />
-                </Box>
-              </Grid>
-            )}
           </Grid>
         </CardContent>
       </Card>
@@ -300,17 +385,31 @@ const SessionDetail: React.FC = () => {
               <List>
                 {sessionMembers.map((member) => {
                   const sessionMember = session.members.find(sm => sm.memberId === member.id);
+                  const isPresent = sessionMember?.isPresent || false;
+                  
                   return (
                     <ListItem key={member.id} dense>
                       <ListItemIcon>
                         <Checkbox
-                          checked={sessionMember?.isPresent || false}
+                          checked={isPresent}
                           onChange={(e) => handleAttendanceChange(member.id, e.target.checked)}
                           disabled={session.status === 'completed'}
                         />
                       </ListItemIcon>
                       <ListItemText
-                        primary={member.name}
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {member.name}
+                            {isPresent && (
+                              <Chip 
+                                label="Có mặt" 
+                                color="success" 
+                                size="small" 
+                                sx={{ ml: 1 }} 
+                              />
+                            )}
+                          </Box>
+                        }
                         secondary={member.skillLevel}
                       />
                     </ListItem>
@@ -342,7 +441,7 @@ const SessionDetail: React.FC = () => {
                         {waitingMembers.map((member, index) => (
                           <Draggable
                             key={member.id}
-                            draggableId={member.id}
+                            draggableId={member.id.toString()}
                             index={index}
                             isDragDisabled={session.status === 'completed'}
                           >
@@ -422,21 +521,101 @@ const SessionDetail: React.FC = () => {
           </Card>
         </Grid>
 
-        {/* Settlements (if completed) */}
-        {session.status === 'completed' && session.settlements.length > 0 && (
+        {/* Payment Management (for completed sessions) */}
+        {session.status === 'completed' && currentSettlements.length > 0 && (
           <Grid item xs={12}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Thanh toán
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Payment sx={{ mr: 1, color: 'primary.main' }} />
+                  <Typography variant="h6">Quản lý thanh toán</Typography>
+                </Box>
+
+                {/* Payment Progress */}
+                <Alert severity="info" sx={{ mb: 3 }}>
+                  <Typography variant="body2">
+                    <strong>Tiến độ thanh toán:</strong> {Math.round(paymentProgress)}% - 
+                    Đã thu {formatCurrency(paidAmount)} / {formatCurrency(totalAmount)}
+                  </Typography>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={paymentProgress} 
+                    sx={{ mt: 1, height: 8, borderRadius: 4 }}
+                    color="success"
+                  />
+                </Alert>
+
+                {/* Payment Statistics */}
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Paper sx={{ p: 2, textAlign: 'center', backgroundColor: 'primary.light', color: 'primary.contrastText' }}>
+                      <AccountBalance sx={{ fontSize: 30, mb: 1 }} />
+                      <Typography variant="h6" fontWeight="bold">
+                        {formatCurrency(totalAmount)}
+                      </Typography>
+                      <Typography variant="body2">
+                        Tổng phải thu
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Paper sx={{ p: 2, textAlign: 'center', backgroundColor: 'success.light', color: 'success.contrastText' }}>
+                      <CheckCircle sx={{ fontSize: 30, mb: 1 }} />
+                      <Typography variant="h6" fontWeight="bold">
+                        {formatCurrency(paidAmount)}
+                      </Typography>
+                      <Typography variant="body2">
+                        Đã thu được
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Paper sx={{ p: 2, textAlign: 'center', backgroundColor: 'error.light', color: 'error.contrastText' }}>
+                      <Warning sx={{ fontSize: 30, mb: 1 }} />
+                      <Typography variant="h6" fontWeight="bold">
+                        {formatCurrency(unpaidAmount)}
+                      </Typography>
+                      <Typography variant="body2">
+                        Còn thiếu
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                  
+                  <Grid item xs={12} sm={6} md={3}>
+                    <Paper sx={{ p: 2, textAlign: 'center', backgroundColor: 'info.light', color: 'info.contrastText' }}>
+                      <TrendingUp sx={{ fontSize: 30, mb: 1 }} />
+                      <Typography variant="h6" fontWeight="bold">
+                        {Math.round(paymentProgress)}%
+                      </Typography>
+                      <Typography variant="body2">
+                        Hoàn thành
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                </Grid>
+
+                {/* Settlement Table */}
                 <Box sx={{ height: 400, width: '100%' }}>
                   <DataGrid
-                    rows={session.settlements}
+                    rows={currentSettlements.filter(s => {
+                      const memberIsPresent = session.members.find(m => m.memberId === s.memberId)?.isPresent;
+                      return memberIsPresent;
+                    })}
                     columns={settlementColumns}
                     getRowId={(row) => row.memberId}
                     hideFooter
                     disableRowSelectionOnClick
+                    sx={{
+                      '& .MuiDataGrid-cell': {
+                        borderColor: 'divider',
+                      },
+                      '& .MuiDataGrid-columnHeaders': {
+                        backgroundColor: 'action.hover',
+                        fontWeight: 600,
+                      },
+                    }}
                   />
                 </Box>
               </CardContent>
@@ -444,6 +623,19 @@ const SessionDetail: React.FC = () => {
           </Grid>
         )}
       </Grid>
+
+      {/* Session Edit Form */}
+      {session && (
+        <SessionEditForm
+          open={editFormOpen}
+          onClose={() => setEditFormOpen(false)}
+          onSuccess={() => {
+            setEditFormOpen(false);
+            showSnackbar('Cập nhật lịch thành công!', 'success');
+          }}
+          session={session}
+        />
+      )}
 
       {/* Complete Session Dialog */}
       <Dialog open={completeDialogOpen} onClose={() => setCompleteDialogOpen(false)} maxWidth="md" fullWidth>
@@ -455,7 +647,7 @@ const SessionDetail: React.FC = () => {
           
           <Box sx={{ mt: 2, mb: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
-              Thành viên có mặt: {session.members.filter(m => m.isPresent).length} người
+              Thành viên có mặt: {presentMembers.length} người
             </Typography>
             <Typography variant="subtitle2" gutterBottom>
               Tổng chi phí: {formatCurrency(session.totalCost)}
@@ -511,32 +703,5 @@ const SessionDetail: React.FC = () => {
     </Box>
   );
 };
-
-const settlementColumns: GridColDef[] = [
-  { 
-    field: 'memberName', 
-    headerName: 'Tên thành viên', 
-    flex: 1,
-    minWidth: 200,
-  },
-  { 
-    field: 'amount', 
-    headerName: 'Số tiền', 
-    width: 150,
-    renderCell: (params) => formatCurrency(params.value),
-  },
-  {
-    field: 'isPaid',
-    headerName: 'Trạng thái',
-    width: 130,
-    renderCell: (params) => (
-      <Chip
-        label={params.value ? 'Đã thanh toán' : 'Chưa thanh toán'}
-        color={params.value ? 'success' : 'warning'}
-        size="small"
-      />
-    ),
-  },
-];
 
 export default SessionDetail;

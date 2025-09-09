@@ -249,7 +249,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         costPerPerson: selectedMembers.length > 0 ? totalFixedCost / selectedMembers.length : 0,
         settlements: editingSession?.settlements || [],
         notes: values.notes,
-        qrImage: qrImage,
+        qrImage: qrImage ?? "",
         createdBy: editingSession?.createdBy || 'current-user',
         ...(editingSession ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
       };
@@ -403,7 +403,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
       reader.readAsDataURL(file);
     }
   };
-
   const getStepContent = (step: number) => {
     switch (step) {
       case 0:
@@ -457,7 +456,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
                     textField: {
                       fullWidth: true,
                       error: formik.touched.date && Boolean(formik.errors.date),
-                      helperText: formik.touched.date && formik.errors.date,
+                      helperText: formik.touched.date && formik.errors.date ? String(formik.errors.date) : undefined,
                     },
                   }}
                 />
@@ -609,7 +608,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
             </Grid>
           </Box>
         );
-
         case 1:
         return (
           <Box sx={{ pt: 2 }}>
@@ -1195,7 +1193,8 @@ const SessionForm: React.FC<SessionFormProps> = ({
         )}
         <Button
           variant="contained"
-          onClik={formik.handleSubmit}
+          component="button"
+          onClick={() => formik.handleSubmit()}
           disabled={isLoading}
           size="large"
           sx={{ minWidth: 120 }}
@@ -1213,4 +1212,4 @@ const SessionForm: React.FC<SessionFormProps> = ({
   );
 };
 
-export default SessionForm
+export default SessionForm;

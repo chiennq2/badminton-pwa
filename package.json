@@ -12,6 +12,7 @@
   "dependencies": {
     "@emotion/react": "^11.11.1",
     "@emotion/styled": "^11.11.0",
+    "@hello-pangea/dnd": "^18.0.1",
     "@mui/icons-material": "^5.14.19",
     "@mui/material": "^5.14.19",
     "@mui/x-data-grid": "^6.18.1",
@@ -23,7 +24,6 @@
     "formik": "^2.4.5",
     "html-to-image": "^1.11.11",
     "react": "^18.2.0",
-    "react-beautiful-dnd": "^13.1.1",
     "react-chartjs-2": "^5.2.0",
     "react-dom": "^18.2.0",
     "react-query": "^3.39.3",
@@ -32,7 +32,6 @@
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
-    "@types/react-beautiful-dnd": "^13.1.7",
     "@types/react-dom": "^18.2.15",
     "@typescript-eslint/eslint-plugin": "^6.10.0",
     "@typescript-eslint/parser": "^6.10.0",

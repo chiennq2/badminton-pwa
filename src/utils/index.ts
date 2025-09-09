@@ -53,28 +53,117 @@ export const calculateSessionCost = (
   return courtCost + otherCosts;
 };
 
-// Calculate cost per person
-export const calculateCostPerPerson = (totalCost: number, participantCount: number): number => {
-  return participantCount > 0 ? totalCost / participantCount : 0;
+// Calculate cost per person for base costs (court + shuttlecock)
+export const calculateBaseCostPerPerson = (
+  courtCost: number, 
+  shuttlecockCost: number, 
+  presentMemberCount: number
+): number => {
+  return presentMemberCount > 0 ? (courtCost + shuttlecockCost) / presentMemberCount : 0;
 };
 
-// Generate settlements
+// Generate detailed settlements with new logic
+export const generateDetailedSettlements = (
+  session: Session,
+  members: { id: string; name: string }[]
+): Settlement[] => {
+  // Get members who are present (checked attendance)
+  const presentMembers = session.members.filter(m => m.isPresent);
+  
+  if (presentMembers.length === 0) {
+    return [];
+  }
+
+  // Separate expenses by type
+  const courtExpense = session.expenses.find(exp => exp.type === 'court');
+  const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
+  const additionalExpenses = session.expenses.filter(exp => exp.type === 'other');
+
+  const courtCost = courtExpense?.amount || 0;
+  const shuttlecockCost = shuttlecockExpense?.amount || 0;
+  
+  // Base cost per person (court + shuttlecock divided by present members)
+  const baseCostPerPerson = (courtCost + shuttlecockCost) / presentMembers.length;
+  
+  // Calculate settlements
+  const settlements: Settlement[] = [];
+  
+  presentMembers.forEach(sessionMember => {
+    const member = members.find(m => m.id === sessionMember.memberId);
+    let totalAmount = baseCostPerPerson;
+    
+    // Add additional expenses for this member
+    additionalExpenses.forEach(expense => {
+      // Check if this member is in the expense's member list
+      // For now, assume all expenses are split among all present members
+      // In a real implementation, you'd have memberIds in the expense
+      const expenseParticipants = presentMembers.length; // This should come from expense.memberIds
+      if (expenseParticipants > 0) {
+        totalAmount += expense.amount / expenseParticipants;
+      }
+    });
+    
+    settlements.push({
+      memberId: sessionMember.memberId,
+      memberName: member?.name || 'Unknown',
+      amount: Math.round(totalAmount),
+      isPaid: false,
+    });
+  });
+
+  return settlements;
+};
+
+// Enhanced settlement calculation with expense member tracking
+export const calculateMemberSettlement = (
+  session: Session,
+  memberId: string,
+  members: { id: string; name: string }[]
+): { baseCost: number; additionalCosts: { name: string; amount: number }[]; total: number } => {
+  const member = session.members.find(m => m.memberId === memberId);
+  if (!member || !member.isPresent) {
+    return { baseCost: 0, additionalCosts: [], total: 0 };
+  }
+
+  const presentMembers = session.members.filter(m => m.isPresent);
+  const courtExpense = session.expenses.find(exp => exp.type === 'court');
+  const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
+  const additionalExpenses = session.expenses.filter(exp => exp.type === 'other');
+
+  const courtCost = courtExpense?.amount || 0;
+  const shuttlecockCost = shuttlecockExpense?.amount || 0;
+  const baseCost = (courtCost + shuttlecockCost) / presentMembers.length;
+
+  const additionalCosts: { name: string; amount: number }[] = [];
+  let additionalTotal = 0;
+
+  additionalExpenses.forEach(expense => {
+    // In the extended version, we would check expense.memberIds
+    // For now, divide among all present members
+    const expenseParticipants = presentMembers.length;
+    if (expenseParticipants > 0) {
+      const memberShare = expense.amount / expenseParticipants;
+      additionalCosts.push({
+        name: expense.name,
+        amount: memberShare,
+      });
+      additionalTotal += memberShare;
+    }
+  });
+
+  return {
+    baseCost: Math.round(baseCost),
+    additionalCosts,
+    total: Math.round(baseCost + additionalTotal),
+  };
+};
+
+// Generate settlements (legacy function for compatibility)
 export const generateSettlements = (
   session: Session,
   members: { id: string; name: string }[]
 ): Settlement[] => {
-  const presentMembers = session.members.filter(m => m.isPresent);
-  const costPerPerson = calculateCostPerPerson(session.totalCost, presentMembers.length);
-  
-  return presentMembers.map(sessionMember => {
-    const member = members.find(m => m.id === sessionMember.memberId);
-    return {
-      memberId: sessionMember.memberId,
-      memberName: member?.name || 'Unknown',
-      amount: costPerPerson,
-      isPaid: false,
-    };
-  });
+  return generateDetailedSettlements(session, members);
 };
 
 // Export session image

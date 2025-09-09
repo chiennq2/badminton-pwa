@@ -19,12 +19,15 @@ import {
   ListItemText,
   ListItemSecondaryAction,
   IconButton,
+  Card,
+  CardContent,
+  Tooltip,
 } from '@mui/material';
-import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem } from '@mui/x-data-grid';
-import { Add, Edit, Delete, Visibility, Remove } from '@mui/icons-material';
+import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem, GridRowParams } from '@mui/x-data-grid';
+import { Add, Edit, Delete, Visibility, Remove, Groups as GroupsIcon } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { useGroups, useCreateGroup, useMembers } from '../hooks';
+import { useGroups, useCreateGroup, useUpdateGroup, useDeleteGroup, useMembers } from '../hooks';
 import { Group, Member } from '../types';
 import { formatDate } from '../utils';
 
@@ -32,9 +35,13 @@ const Groups: React.FC = () => {
   const { data: groups, isLoading: groupsLoading } = useGroups();
   const { data: members } = useMembers();
   const createGroupMutation = useCreateGroup();
+  const updateGroupMutation = useUpdateGroup();
+  const deleteGroupMutation = useDeleteGroup();
 
   const [open, setOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState<Group | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<Group | null>(null);
   const [selectedMembers, setSelectedMembers] = useState<Member[]>([]);
   const [snackbar, setSnackbar] = useState({ 
     open: false, 
@@ -63,7 +70,10 @@ const Groups: React.FC = () => {
         };
 
         if (editingGroup) {
-          // Update logic would go here
+          await updateGroupMutation.mutateAsync({
+            id: editingGroup.id,
+            data: groupData,
+          });
           showSnackbar('Cập nhật nhóm thành công!', 'success');
         } else {
           await createGroupMutation.mutateAsync(groupData);
@@ -71,8 +81,9 @@ const Groups: React.FC = () => {
         }
         handleClose();
         resetForm();
-      } catch (error) {
-        showSnackbar('Có lỗi xảy ra. Vui lòng thử lại!', 'error');
+      } catch (error: any) {
+        console.error('Error saving group:', error);
+        showSnackbar(`Có lỗi xảy ra: ${error.message || 'Vui lòng thử lại!'}`, 'error');
       }
     },
   });
@@ -104,6 +115,20 @@ const Groups: React.FC = () => {
     formik.resetForm();
   };
 
+  const handleDelete = async () => {
+    if (!groupToDelete) return;
+    
+    try {
+      await deleteGroupMutation.mutateAsync(groupToDelete.id);
+      showSnackbar('Xóa nhóm thành công!', 'success');
+      setDeleteConfirmOpen(false);
+      setGroupToDelete(null);
+    } catch (error: any) {
+      console.error('Error deleting group:', error);
+      showSnackbar(`Có lỗi xảy ra khi xóa nhóm: ${error.message}`, 'error');
+    }
+  };
+
   const addMember = (member: Member) => {
     if (!selectedMembers.some(m => m.id === member.id)) {
       setSelectedMembers([...selectedMembers, member]);
@@ -124,24 +149,58 @@ const Groups: React.FC = () => {
       headerName: 'Tên nhóm',
       flex: 1,
       minWidth: 200,
-    },
-    {
-      field: 'description',
-      headerName: 'Mô tả',
-      flex: 1.5,
-      minWidth: 250,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <GroupsIcon sx={{ mr: 2, color: 'primary.main' }} />
+          <Box>
+            <Typography variant="body2" fontWeight="medium">
+              {params.value}
+            </Typography>
+            {params.row.description && (
+              <Typography variant="caption" color="text.secondary">
+                {params.row.description}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      ),
     },
     {
       field: 'memberIds',
-      headerName: 'Số thành viên',
-      width: 120,
-      renderCell: (params) => (
-        <Chip
-          label={params.value.length}
-          color="primary"
-          size="small"
-        />
-      ),
+      headerName: 'Thành viên',
+      width: 300,
+      renderCell: (params) => {
+        const memberNames = members?.filter(member => 
+          params.value.includes(member.id)
+        ).map(member => member.name) || [];
+        
+        return (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            <Chip
+              label={`${params.value.length} thành viên`}
+              color="primary"
+              size="small"
+              sx={{ mr: 1 }}
+            />
+            {memberNames.slice(0, 2).map((name, index) => (
+              <Chip
+                key={index}
+                label={name}
+                size="small"
+                variant="outlined"
+              />
+            ))}
+            {memberNames.length > 2 && (
+              <Chip
+                label={`+${memberNames.length - 2}`}
+                size="small"
+                variant="outlined"
+                color="secondary"
+              />
+            )}
+          </Box>
+        );
+      },
     },
     {
       field: 'createdAt',
@@ -154,23 +213,25 @@ const Groups: React.FC = () => {
       type: 'actions',
       headerName: 'Thao tác',
       width: 150,
-      getActions: (params) => [
+      getActions: (params: GridRowParams) => [
         <GridActionsCellItem
-          icon={<Visibility />}
+          icon={<Tooltip title="Xem chi tiết"><Visibility /></Tooltip>}
           label="Xem"
-          onClick={() => handleOpen(params.row)}
+          onClick={() => handleOpen(params.row as Group)}
         />,
         <GridActionsCellItem
-          icon={<Edit />}
+          icon={<Tooltip title="Chỉnh sửa"><Edit /></Tooltip>}
           label="Sửa"
-          onClick={() => handleOpen(params.row)}
+          onClick={() => handleOpen(params.row as Group)}
         />,
         <GridActionsCellItem
-          icon={<Delete />}
+          icon={<Tooltip title="Xóa nhóm"><Delete /></Tooltip>}
           label="Xóa"
           onClick={() => {
-            // Delete logic would go here
+            setGroupToDelete(params.row as Group);
+            setDeleteConfirmOpen(true);
           }}
+          showInMenu
         />,
       ],
     },
@@ -178,8 +239,17 @@ const Groups: React.FC = () => {
 
   if (groupsLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress size={60} />
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        justifyContent: 'center', 
+        alignItems: 'center',
+        py: 8 
+      }}>
+        <CircularProgress size={60} sx={{ mb: 2 }} />
+        <Typography variant="body1" color="text.secondary">
+          Đang tải danh sách nhóm...
+        </Typography>
       </Box>
     );
   }
@@ -188,66 +258,106 @@ const Groups: React.FC = () => {
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
-          Quản lý nhóm
-        </Typography>
+        <Box>
+          <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+            Quản lý nhóm
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            Tạo và quản lý các nhóm thành viên để dễ dàng tổ chức lịch đánh
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           startIcon={<Add />}
           onClick={() => handleOpen()}
           size="large"
+          sx={{
+            background: 'linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)',
+            '&:hover': {
+              background: 'linear-gradient(45deg, #388e3c 30%, #4caf50 90%)',
+            },
+          }}
         >
           Tạo nhóm mới
         </Button>
       </Box>
 
-      {/* Data Grid */}
-      <Box sx={{ height: 600, width: '100%' }}>
-        <DataGrid
-          rows={groups || []}
-          columns={columns}
-          slots={{ toolbar: GridToolbar }}
-          slotProps={{
-            toolbar: {
-              showQuickFilter: true,
-              quickFilterProps: { debounceMs: 500 },
-              csvOptions: {
-                fileName: `danh-sach-nhom-${new Date().toISOString().split('T')[0]}`,
-              },
-            },
-          }}
-          pageSizeOptions={[10, 25, 50]}
-          initialState={{
-            pagination: {
-              paginationModel: { pageSize: 10 },
-            },
-            sorting: {
-              sortModel: [{ field: 'name', sort: 'asc' }],
-            },
-          }}
-          checkboxSelection
-          disableRowSelectionOnClick
-          sx={{
-            '& .MuiDataGrid-cell': {
-              borderColor: 'divider',
-            },
-            '& .MuiDataGrid-columnHeaders': {
-              backgroundColor: 'action.hover',
-              fontWeight: 600,
-            },
-          }}
+      {/* Quick Stats */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <Chip 
+          label={`Tổng: ${groups?.length || 0} nhóm`} 
+          color="primary" 
+          variant="outlined" 
+        />
+        <Chip 
+          label={`Thành viên: ${members?.length || 0}`} 
+          color="info" 
+          variant="outlined" 
         />
       </Box>
+
+      {/* Data Grid */}
+      <Card>
+        <CardContent>
+          <Box sx={{ height: 600, width: '100%' }}>
+            <DataGrid
+              rows={groups || []}
+              columns={columns}
+              slots={{ toolbar: GridToolbar }}
+              slotProps={{
+                toolbar: {
+                  showQuickFilter: true,
+                  quickFilterProps: { 
+                    debounceMs: 500,
+                    placeholder: 'Tìm kiếm nhóm...',
+                  },
+                  csvOptions: {
+                    fileName: `danh-sach-nhom-${new Date().toISOString().split('T')[0]}`,
+                  },
+                },
+              }}
+              pageSizeOptions={[10, 25, 50]}
+              initialState={{
+                pagination: {
+                  paginationModel: { pageSize: 10 },
+                },
+                sorting: {
+                  sortModel: [{ field: 'name', sort: 'asc' }],
+                },
+              }}
+              checkboxSelection
+              disableRowSelectionOnClick
+              sx={{
+                '& .MuiDataGrid-cell': {
+                  borderColor: 'divider',
+                },
+                '& .MuiDataGrid-columnHeaders': {
+                  backgroundColor: 'action.hover',
+                  fontWeight: 600,
+                },
+                '& .MuiDataGrid-row:hover': {
+                  backgroundColor: 'action.hover',
+                },
+              }}
+              loading={createGroupMutation.isPending || updateGroupMutation.isPending || deleteGroupMutation.isPending}
+            />
+          </Box>
+        </CardContent>
+      </Card>
 
       {/* Floating Action Button */}
       <Fab
         color="primary"
-        aria-label="add"
+        aria-label="add group"
         onClick={() => handleOpen()}
         sx={{
           position: 'fixed',
           bottom: 24,
           right: 24,
+          background: 'linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)',
+          '&:hover': {
+            background: 'linear-gradient(45deg, #388e3c 30%, #4caf50 90%)',
+          },
         }}
       >
         <Add />
@@ -256,8 +366,11 @@ const Groups: React.FC = () => {
       {/* Add/Edit Dialog */}
       <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
         <form onSubmit={formik.handleSubmit}>
-          <DialogTitle>
-            {editingGroup ? 'Cập nhật thông tin nhóm' : 'Tạo nhóm mới'}
+          <DialogTitle sx={{ pb: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <GroupsIcon sx={{ mr: 1, color: 'primary.main' }} />
+              {editingGroup ? 'Cập nhật thông tin nhóm' : 'Tạo nhóm mới'}
+            </Box>
           </DialogTitle>
           <DialogContent>
             <TextField
@@ -265,6 +378,7 @@ const Groups: React.FC = () => {
               margin="normal"
               name="name"
               label="Tên nhóm *"
+              placeholder="VD: Nhóm A, Nhóm Chủ nhật..."
               value={formik.values.name}
               onChange={formik.handleChange}
               onBlur={formik.handleBlur}
@@ -277,6 +391,7 @@ const Groups: React.FC = () => {
               margin="normal"
               name="description"
               label="Mô tả"
+              placeholder="Mô tả về nhóm..."
               multiline
               rows={3}
               value={formik.values.description}
@@ -307,42 +422,59 @@ const Groups: React.FC = () => {
                 sx={{ mb: 2 }}
               />
 
-              {selectedMembers.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  Chưa có thành viên nào trong nhóm
-                </Typography>
-              ) : (
-                <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
-                  {selectedMembers.map((member) => (
-                    <ListItem key={member.id}>
-                      <ListItemText
-                        primary={member.name}
-                        secondary={member.skillLevel}
-                      />
-                      <ListItemSecondaryAction>
-                        <IconButton
-                          edge="end"
-                          onClick={() => removeMember(member)}
-                          size="small"
-                        >
-                          <Remove />
-                        </IconButton>
-                      </ListItemSecondaryAction>
-                    </ListItem>
-                  ))}
-                </List>
-              )}
+              <Card variant="outlined">
+                <CardContent>
+                  {selectedMembers.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      Chưa có thành viên nào trong nhóm
+                    </Typography>
+                  ) : (
+                    <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
+                      {selectedMembers.map((member) => (
+                        <ListItem key={member.id}>
+                          <ListItemText
+                            primary={member.name}
+                            secondary={`${member.skillLevel} • ${member.email || 'Không có email'}`}
+                          />
+                          <ListItemSecondaryAction>
+                            <Tooltip title="Xóa khỏi nhóm">
+                              <IconButton
+                                edge="end"
+                                onClick={() => removeMember(member)}
+                                size="small"
+                                color="error"
+                              >
+                                <Remove />
+                              </IconButton>
+                            </Tooltip>
+                          </ListItemSecondaryAction>
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </CardContent>
+              </Card>
             </Box>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={handleClose}>Hủy</Button>
+          <DialogActions sx={{ px: 3, pb: 3 }}>
+            <Button onClick={handleClose} size="large">
+              Hủy
+            </Button>
             <Button
               type="submit"
               variant="contained"
-              disabled={createGroupMutation.isPending}
+              disabled={createGroupMutation.isPending || updateGroupMutation.isPending}
+              size="large"
+              sx={{
+                minWidth: 120,
+                background: 'linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #388e3c 30%, #4caf50 90%)',
+                },
+              }}
             >
-              {createGroupMutation.isPending ? (
-                <CircularProgress size={20} />
+              {createGroupMutation.isPending || updateGroupMutation.isPending ? (
+                <CircularProgress size={20} color="inherit" />
               ) : editingGroup ? (
                 'Cập nhật'
               ) : (
@@ -353,16 +485,71 @@ const Groups: React.FC = () => {
         </form>
       </Dialog>
 
+      {/* Delete Confirmation Dialog */}
+      <Dialog 
+        open={deleteConfirmOpen} 
+        onClose={() => setDeleteConfirmOpen(false)}
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ color: 'error.main' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Delete sx={{ mr: 1 }} />
+            Xác nhận xóa nhóm
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Hành động này không thể hoàn tác!
+          </Alert>
+          <Typography variant="body1">
+            Bạn có chắc chắn muốn xóa nhóm <strong>"{groupToDelete?.name}"</strong>?
+          </Typography>
+          {groupToDelete && (
+            <Box sx={{ mt: 2, p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                <strong>Số thành viên:</strong> {groupToDelete.memberIds.length}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                <strong>Mô tả:</strong> {groupToDelete.description || 'Không có mô tả'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                <strong>Ngày tạo:</strong> {formatDate(groupToDelete.createdAt)}
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setDeleteConfirmOpen(false)}
+            size="large"
+          >
+            Hủy
+          </Button>
+          <Button
+            onClick={handleDelete}
+            color="error"
+            variant="contained"
+            disabled={deleteGroupMutation.isPending}
+            size="large"
+            startIcon={deleteGroupMutation.isPending ? <CircularProgress size={16} /> : <Delete />}
+          >
+            {deleteGroupMutation.isPending ? 'Đang xóa...' : 'Xóa nhóm'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
+          variant="filled"
         >
           {snackbar.message}
         </Alert>
