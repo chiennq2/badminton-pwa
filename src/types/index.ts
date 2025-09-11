@@ -47,6 +47,7 @@ export interface SessionExpense {
   amount: number;
   type: 'court' | 'shuttlecock' | 'other';
   description?: string;
+  memberIds?: string[]; // Members who share this expense (for 'other' type)
 }
 
 export interface SessionMember {
@@ -54,12 +55,26 @@ export interface SessionMember {
   isPresent: boolean;
   joinedAt?: Date;
   leftAt?: Date;
+  memberName?: string;
+  isCustom?: boolean;
 }
 
 export interface WaitingListMember {
   memberId: string;
   addedAt: Date;
   priority: number;
+  memberName?: string;
+  isCustom?: boolean;
+}
+
+export interface Settlement {
+  memberId: string;
+  memberName: string;
+  amount: number;
+  isPaid: boolean;
+  paidAt?: Date;
+  paymentMethod?: 'cash' | 'transfer' | 'card';
+  notes?: string;
 }
 
 export interface Session {
@@ -82,13 +97,7 @@ export interface Session {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface Settlement {
-  memberId: string;
-  memberName: string;
-  amount: number;
-  isPaid: boolean;
+  qrImage?: string;
 }
 
 export interface ReportFilter {
@@ -105,6 +114,24 @@ export interface SessionStats {
   averageCostPerSession: number;
   mostActiveMembers: { memberId: string; sessionCount: number }[];
   courtUsage: { courtId: string; sessionCount: number }[];
+}
+
+export interface PaymentStats {
+  totalCollected: number;
+  totalPending: number;
+  totalSessions: number;
+  completionRate: number;
+}
+
+export interface MemberSettlementDetail {
+  baseCost: number; // Court + shuttlecock cost divided by present members
+  additionalCosts: { 
+    expenseId: string;
+    name: string; 
+    amount: number; 
+    sharedWith: number; // Number of people sharing this cost
+  }[];
+  total: number;
 }
 
 export interface AppSettings {
