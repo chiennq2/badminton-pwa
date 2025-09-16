@@ -63,18 +63,19 @@ export const calculateBaseCostPerPerson = (
 };
 
 // Generate detailed settlements with new logic
+// utils/index.ts - Logic chia tiền chi tiết
 export const generateDetailedSettlements = (
   session: Session,
   members: { id: string; name: string }[]
 ): Settlement[] => {
-  // Get members who are present (checked attendance)
+  // Lấy danh sách thành viên có mặt (đã điểm danh)
   const presentMembers = session.members.filter(m => m.isPresent);
   
   if (presentMembers.length === 0) {
     return [];
   }
 
-  // Separate expenses by type
+  // Phân loại chi phí
   const courtExpense = session.expenses.find(exp => exp.type === 'court');
   const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
   const additionalExpenses = session.expenses.filter(exp => exp.type === 'other');
@@ -82,30 +83,31 @@ export const generateDetailedSettlements = (
   const courtCost = courtExpense?.amount || 0;
   const shuttlecockCost = shuttlecockExpense?.amount || 0;
   
-  // Base cost per person (court + shuttlecock divided by present members)
+  // Chi phí cơ bản/người (tiền sân + tiền cầu chia đều cho thành viên có mặt)
   const baseCostPerPerson = (courtCost + shuttlecockCost) / presentMembers.length;
   
-  // Calculate settlements
+  // Tính toán settlement cho từng thành viên
   const settlements: Settlement[] = [];
   
   presentMembers.forEach(sessionMember => {
     const member = members.find(m => m.id === sessionMember.memberId);
     let totalAmount = baseCostPerPerson;
     
-    // Add additional expenses for this member
+    // Cộng chi phí bổ sung cho thành viên này
     additionalExpenses.forEach(expense => {
-      // Check if this member is in the expense's member list
-      // For now, assume all expenses are split among all present members
-      // In a real implementation, you'd have memberIds in the expense
-      const expenseParticipants = presentMembers.length; // This should come from expense.memberIds
-      if (expenseParticipants > 0) {
-        totalAmount += expense.amount / expenseParticipants;
+      // Kiểm tra xem thành viên này có trong danh sách chia tiền của expense không
+      if (expense.memberIds && expense.memberIds.includes(sessionMember.memberId)) {
+        // Chia cho số người được chỉ định trong expense
+        totalAmount += expense.amount / expense.memberIds.length;
+      } else if (!expense.memberIds || expense.memberIds.length === 0) {
+        // Nếu không chỉ định ai thì chia cho tất cả thành viên có mặt
+        totalAmount += expense.amount / presentMembers.length;
       }
     });
     
     settlements.push({
       memberId: sessionMember.memberId,
-      memberName: member?.name || 'Unknown',
+      memberName: member?.name || sessionMember.memberName || 'Unknown',
       amount: Math.round(totalAmount),
       isPaid: false,
     });
@@ -114,12 +116,16 @@ export const generateDetailedSettlements = (
   return settlements;
 };
 
-// Enhanced settlement calculation with expense member tracking
+// Tính chi tiết settlement cho 1 thành viên
 export const calculateMemberSettlement = (
   session: Session,
   memberId: string,
   members: { id: string; name: string }[]
-): { baseCost: number; additionalCosts: { name: string; amount: number }[]; total: number } => {
+): { 
+  baseCost: number; 
+  additionalCosts: { name: string; amount: number; sharedWith: number }[]; 
+  total: number 
+} => {
   const member = session.members.find(m => m.memberId === memberId);
   if (!member || !member.isPresent) {
     return { baseCost: 0, additionalCosts: [], total: 0 };
@@ -134,18 +140,25 @@ export const calculateMemberSettlement = (
   const shuttlecockCost = shuttlecockExpense?.amount || 0;
   const baseCost = (courtCost + shuttlecockCost) / presentMembers.length;
 
-  const additionalCosts: { name: string; amount: number }[] = [];
+  const additionalCosts: { name: string; amount: number; sharedWith: number }[] = [];
   let additionalTotal = 0;
 
   additionalExpenses.forEach(expense => {
-    // In the extended version, we would check expense.memberIds
-    // For now, divide among all present members
-    const expenseParticipants = presentMembers.length;
-    if (expenseParticipants > 0) {
-      const memberShare = expense.amount / expenseParticipants;
+    if (expense.memberIds && expense.memberIds.includes(memberId)) {
+      const memberShare = expense.amount / expense.memberIds.length;
       additionalCosts.push({
         name: expense.name,
         amount: memberShare,
+        sharedWith: expense.memberIds.length,
+      });
+      additionalTotal += memberShare;
+    } else if (!expense.memberIds || expense.memberIds.length === 0) {
+      // Chia cho tất cả thành viên có mặt
+      const memberShare = expense.amount / presentMembers.length;
+      additionalCosts.push({
+        name: expense.name,
+        amount: memberShare,
+        sharedWith: presentMembers.length,
       });
       additionalTotal += memberShare;
     }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Card,
@@ -70,15 +70,22 @@ import {
   calculateMemberSettlement
 } from '../utils';
 import SessionEditForm from '../components/SessionEditForm';
+import { useQueryClient } from '@tanstack/react-query';
 
 const SessionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  // ===== TẤT CẢ HOOKS PHẢI GỌI TRƯỚC BẤT KỲ CONDITIONAL LOGIC NÀO =====
+  
+  // Data hooks
   const { data: session, isLoading: sessionLoading } = useSession(id!);
   const { data: court } = useCourt(session?.courtId || '');
   const { data: members } = useMembers();
   const updateSessionMutation = useUpdateSession();
 
+  // State hooks
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [editFormOpen, setEditFormOpen] = useState(false);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
@@ -87,7 +94,6 @@ const SessionDetail: React.FC = () => {
     message: '', 
     severity: 'success' as 'success' | 'error' 
   });
-
   if (sessionLoading || !session || !id) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -96,31 +102,77 @@ const SessionDetail: React.FC = () => {
     );
   }
 
-  const sessionMembers = members?.filter(member => 
-    session.members.some(sm => sm.memberId === member.id)
-  ) || [];
+  const sessionMembers = useMemo(() => {
+    if (!session) return [];
+    
+    return session.members.map(sm => {
+      // Tìm member từ database
+      const member = members?.find(m => m.id === sm.memberId);
+      
+      // Trả về object với thông tin đầy đủ
+      return {
+        id: sm.memberId,
+        name: sm.memberName || member?.name || `Member ${sm.memberId.slice(-4)}`,
+        skillLevel: member?.skillLevel || 'Không rõ',
+        email: member?.email || '',
+        isCustom: sm.isCustom || !member,
+        isPresent: sm.isPresent,
+        sessionMember: sm, // Giữ reference tới session member data
+      };
+    });
+  }, [session, members]);
 
-  const waitingMembers = members?.filter(member =>
-    session.waitingList.some(wm => wm.memberId === member.id)
-  ) || [];
+  // Cải thiện logic lấy waiting members
+  const waitingMembers = useMemo(() => {
+    if (!session) return [];
+    
+    return session.waitingList.map(wm => {
+      const member = members?.find(m => m.id === wm.memberId);
+      
+      return {
+        id: wm.memberId,
+        name: wm.memberName || member?.name || `Member ${wm.memberId.slice(-4)}`,
+        skillLevel: member?.skillLevel || 'Không rõ',
+        email: member?.email || '',
+        isCustom: wm.isCustom || !member,
+        priority: wm.priority,
+        waitingMember: wm,
+      };
+    });
+  }, [session, members]);
 
   const presentMembers = session.members.filter(m => m.isPresent);
   const currentSettlements = session.settlements || [];
 
   const handleAttendanceChange = async (memberId: string, isPresent: boolean) => {
+    if (!session) return;
+    
     try {
+      // 1. Update local state trước để UI responsive ngay lập tức
       const updatedMembers = session.members.map(member =>
         member.memberId === memberId ? { ...member, isPresent } : member
       );
       
       const currentParticipants = updatedMembers.filter(m => m.isPresent).length;
       
-      // Regenerate settlements when attendance changes
+      // 2. Regenerate settlements khi attendance thay đổi
       const newSettlements = generateDetailedSettlements(
         { ...session, members: updatedMembers },
         members || []
       );
+
+      // 3. Optimistic update - cập nhật cache ngay lập tức
+      queryClient.setQueryData(['session', id], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          members: updatedMembers,
+          currentParticipants,
+          settlements: newSettlements,
+        };
+      });
       
+      // 4. Gọi API update
       await updateSessionMutation.mutateAsync({
         id: session.id,
         data: { 
@@ -129,26 +181,56 @@ const SessionDetail: React.FC = () => {
           settlements: newSettlements,
         },
       });
+
+      // 5. Invalidate và refetch để đảm bảo data sync
+      await queryClient.invalidateQueries({ queryKey: ['session', id] });
+      await queryClient.invalidateQueries({ queryKey: ['sessions'] }); // Cập nhật list sessions
       
       showSnackbar('Cập nhật điểm danh thành công!', 'success');
     } catch (error) {
+      console.error('Attendance change error:', error);
+      
+      // 6. Nếu có lỗi, revert lại optimistic update
+      await queryClient.invalidateQueries({ queryKey: ['session', id] });
+      
       showSnackbar('Có lỗi xảy ra khi cập nhật điểm danh!', 'error');
     }
   };
 
   const handlePaymentStatusChange = async (memberId: string, isPaid: boolean) => {
+    if (!session) return;
+    
     try {
+      const currentSettlements = session.settlements || [];
       const updatedSettlements = currentSettlements.map(settlement =>
         settlement.memberId === memberId ? { ...settlement, isPaid } : settlement
       );
+      
+      // Optimistic update cho payment status
+      queryClient.setQueryData(['session', id], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          settlements: updatedSettlements,
+        };
+      });
       
       await updateSessionMutation.mutateAsync({
         id: session.id,
         data: { settlements: updatedSettlements },
       });
+
+      // Invalidate queries
+      await queryClient.invalidateQueries({ queryKey: ['session', id] });
+      await queryClient.invalidateQueries({ queryKey: ['sessions'] });
       
       showSnackbar(`Đã ${isPaid ? 'đánh dấu thanh toán' : 'hủy thanh toán'} thành công!`, 'success');
     } catch (error) {
+      console.error('Payment status change error:', error);
+      
+      // Revert optimistic update on error
+      await queryClient.invalidateQueries({ queryKey: ['session', id] });
+      
       showSnackbar('Có lỗi xảy ra khi cập nhật trạng thái thanh toán!', 'error');
     }
   };
@@ -373,34 +455,58 @@ const SessionDetail: React.FC = () => {
       </Card>
 
       <Grid container spacing={3}>
-        {/* Members Attendance */}
+        {/* Members Attendance - CẢI THIỆN */}
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Person sx={{ mr: 1, color: 'success.main' }} />
-                <Typography variant="h6">Điểm danh thành viên</Typography>
+                <Typography variant="h6">
+                  Điểm danh thành viên ({presentMembers.length}/{sessionMembers.length})
+                </Typography>
               </Box>
               
               <List>
                 {sessionMembers.map((member) => {
-                  const sessionMember = session.members.find(sm => sm.memberId === member.id);
-                  const isPresent = sessionMember?.isPresent || false;
+                  const isUpdating = updateSessionMutation.isPending;
                   
                   return (
                     <ListItem key={member.id} dense>
                       <ListItemIcon>
-                        <Checkbox
-                          checked={isPresent}
-                          onChange={(e) => handleAttendanceChange(member.id, e.target.checked)}
-                          disabled={session.status === 'completed'}
-                        />
+                        <Box sx={{ position: 'relative' }}>
+                          <Checkbox
+                            checked={member.isPresent}
+                            onChange={(e) => handleAttendanceChange(member.id, e.target.checked)}
+                            disabled={session.status === 'completed' || isUpdating}
+                          />
+                          {isUpdating && (
+                            <CircularProgress
+                              size={20}
+                              sx={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: '50%',
+                                marginTop: '-10px',
+                                marginLeft: '-10px',
+                              }}
+                            />
+                          )}
+                        </Box>
                       </ListItemIcon>
                       <ListItemText
                         primary={
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             {member.name}
-                            {isPresent && (
+                            {member.isCustom && (
+                              <Chip 
+                                label="Tùy chỉnh" 
+                                size="small" 
+                                sx={{ ml: 1 }} 
+                                variant="outlined"
+                                color="secondary"
+                              />
+                            )}
+                            {member.isPresent && (
                               <Chip 
                                 label="Có mặt" 
                                 color="success" 
@@ -410,7 +516,7 @@ const SessionDetail: React.FC = () => {
                             )}
                           </Box>
                         }
-                        secondary={member.skillLevel}
+                        secondary={member.isCustom ? 'Thành viên tùy chỉnh' : member.skillLevel}
                       />
                     </ListItem>
                   );
@@ -420,8 +526,8 @@ const SessionDetail: React.FC = () => {
           </Card>
         </Grid>
 
-        {/* Waiting List */}
-        <Grid item xs={12} md={6}>
+ {/* Waiting List - CẢI THIỆN */}
+ <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
@@ -434,36 +540,29 @@ const SessionDetail: React.FC = () => {
                   Sảnh chờ trống
                 </Typography>
               ) : (
-                <DragDropContext onDragEnd={handleWaitingListReorder}>
-                  <Droppable droppableId="waiting-list">
-                    {(provided) => (
-                      <List {...provided.droppableProps} ref={provided.innerRef}>
-                        {waitingMembers.map((member, index) => (
-                          <Draggable
-                            key={member.id}
-                            draggableId={member.id.toString()}
-                            index={index}
-                            isDragDisabled={session.status === 'completed'}
-                          >
-                            {(provided) => (
-                              <ListItem
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                              >
-                                <ListItemText
-                                  primary={`${index + 1}. ${member.name}`}
-                                  secondary={member.skillLevel}
-                                />
-                              </ListItem>
+                <List dense>
+                  {waitingMembers.map((member, index) => (
+                    <ListItem key={member.id}>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            {`${index + 1}. ${member.name}`}
+                            {member.isCustom && (
+                              <Chip 
+                                label="Tùy chỉnh" 
+                                size="small" 
+                                sx={{ ml: 1 }} 
+                                variant="outlined"
+                                color="secondary"
+                              />
                             )}
-                          </Draggable>
-                        ))}
-                        {provided.placeholder}
-                      </List>
-                    )}
-                  </Droppable>
-                </DragDropContext>
+                          </Box>
+                        }
+                        secondary={member.isCustom ? 'Thành viên tùy chỉnh' : member.skillLevel}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
               )}
             </CardContent>
           </Card>

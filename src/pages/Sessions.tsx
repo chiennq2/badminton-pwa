@@ -302,11 +302,7 @@ const Sessions: React.FC = () => {
         const session = params.row as Session;
         const baseActions = [
           <GridActionsCellItem
-            icon={
-              <Tooltip title="Xem chi tiết">
-                <Visibility />
-              </Tooltip>
-            }
+            icon={<Visibility />}
             label="Xem chi tiết"
             onClick={() => navigate(`/sessions/${params.id}`)}
           />,
@@ -317,39 +313,27 @@ const Sessions: React.FC = () => {
               </Tooltip>
             }
             label="Chỉnh sửa"
-            onClick={() => {
-              console.log('Edit action clicked for session:', session.id);
-              handleEdit(session);
-            }}
+            onClick={() => handleEdit(session)}
             showInMenu
           />,
         ];
-
-        // Add status change actions
+    
+        // Thêm actions thay đổi trạng thái
         baseActions.push(...getStatusActions(session));
-
-        // Add delete action
+    
+        // Action xóa - cho phép xóa cả lịch đã hoàn thành
         baseActions.push(
           <GridActionsCellItem
-            icon={
-              <Tooltip title="Xóa lịch đánh">
-                <Delete />
-              </Tooltip>
-            }
+            icon={<Delete />}
             label="Xóa"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              console.log('Delete action clicked for session:', session.id, session);
-              handleDeleteClick(session);
-            }}
+            onClick={() => handleDeleteClick(session)}
             showInMenu
           />
         );
-
+    
         return baseActions;
       },
-    },
+    }
   ];
 
   if (isLoading) {

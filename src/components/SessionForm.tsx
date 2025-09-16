@@ -192,12 +192,12 @@ const SessionForm: React.FC<SessionFormProps> = ({
     try {
       const selectedCourt = courts?.find(c => c.id === values.courtId);
       if (!selectedCourt) return;
-
+  
       const shuttlecockCost = shuttlecockCount * shuttlecockPrice;
       const totalFixedCost = courtCost + shuttlecockCost;
       const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
       const totalCost = totalFixedCost + totalExpenses;
-
+  
       const sessionExpenses = [
         ...(courtCost > 0 ? [{
           id: 'court-cost',
@@ -221,7 +221,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
           description: exp.description,
         })),
       ];
-
+  
       const sessionData = {
         name: values.name,
         courtId: values.courtId,
@@ -231,19 +231,24 @@ const SessionForm: React.FC<SessionFormProps> = ({
         maxParticipants: values.maxParticipants,
         currentParticipants: selectedMembers.length,
         status: values.status,
+        
+        // CẢI THIỆN: Lưu cả memberName cho custom members
         members: selectedMembers.map(member => ({
           memberId: member.id,
-          memberName: member.name,
+          memberName: member.name, // QUAN TRỌNG: Luôn lưu memberName
           isPresent: editingSession?.members.find(m => m.memberId === member.id)?.isPresent || false,
-          isCustom: member.isCustom,
+          isCustom: member.isCustom, // QUAN TRỌNG: Lưu flag isCustom
         })),
+        
+        // CẢI THIỆN: Lưu cả memberName cho custom members trong waiting list
         waitingList: waitingList.map((member, index) => ({
           memberId: member.id,
-          memberName: member.name,
+          memberName: member.name, // QUAN TRỌNG: Luôn lưu memberName
           addedAt: new Date(),
           priority: index + 1,
-          isCustom: member.isCustom,
+          isCustom: member.isCustom, // QUAN TRỌNG: Lưu flag isCustom
         })),
+        
         expenses: sessionExpenses,
         totalCost,
         costPerPerson: selectedMembers.length > 0 ? totalFixedCost / selectedMembers.length : 0,
@@ -253,7 +258,12 @@ const SessionForm: React.FC<SessionFormProps> = ({
         createdBy: editingSession?.createdBy || 'current-user',
         ...(editingSession ? { updatedAt: new Date() } : { createdAt: new Date(), updatedAt: new Date() }),
       };
-
+  
+      console.log('Saving session with custom members:', {
+        selectedMembers: selectedMembers.map(m => ({ id: m.id, name: m.name, isCustom: m.isCustom })),
+        waitingList: waitingList.map(m => ({ id: m.id, name: m.name, isCustom: m.isCustom })),
+      });
+  
       if (editingSession) {
         await updateSessionMutation.mutateAsync({
           id: editingSession.id,
@@ -321,33 +331,38 @@ const SessionForm: React.FC<SessionFormProps> = ({
   };
 
   const addCustomMember = () => {
-    if (customMemberName.trim()) {
-      const customMember: CustomMember = {
-        id: `custom-${Date.now()}`,
-        name: customMemberName.trim(),
-        isCustom: true,
-      };
-      
-      if (selectedMembers.length < formik.values.maxParticipants) {
-        setSelectedMembers([...selectedMembers, customMember]);
-      } else {
-        setWaitingList([...waitingList, customMember]);
-      }
-      setCustomMemberName('');
+    if (!customMemberName.trim()) return;
+    
+    const customMember: CustomMember = {
+      id: `custom-member-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // ID unique hơn
+      name: customMemberName.trim(),
+      isCustom: true,
+    };
+  
+    if (selectedMembers.length < formik.values.maxParticipants) {
+      setSelectedMembers([...selectedMembers, customMember]);
+    } else {
+      setWaitingList([...waitingList, customMember]);
     }
+    
+    setCustomMemberName('');
+    console.log('Added custom member:', customMember);
+  };
+  
+  const addCustomWaitingMember = () => {
+    if (!customWaitingMemberName.trim()) return;
+    
+    const customMember: CustomMember = {
+      id: `custom-waiting-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // ID unique hơn
+      name: customWaitingMemberName.trim(),
+      isCustom: true,
+    };
+  
+    setWaitingList([...waitingList, customMember]);
+    setCustomWaitingMemberName('');
+    console.log('Added custom waiting member:', customMember);
   };
 
-  const addCustomWaitingMember = () => {
-    if (customWaitingMemberName.trim()) {
-      const customMember: CustomMember = {
-        id: `custom-waiting-${Date.now()}`,
-        name: customWaitingMemberName.trim(),
-        isCustom: true,
-      };
-      setWaitingList([...waitingList, customMember]);
-      setCustomWaitingMemberName('');
-    }
-  };
 
   const removeMember = (member: CustomMember) => {
     const newSelectedMembers = selectedMembers.filter(m => m.id !== member.id);
