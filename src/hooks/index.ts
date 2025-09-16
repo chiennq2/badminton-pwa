@@ -251,19 +251,37 @@ export const useSessions = (filters?: { startDate?: Date; endDate?: Date; status
   });
 };
 
+// Cập nhật useSession để có better error handling
 export const useSession = (id: string) => {
   return useQuery({
     queryKey: ['session', id],
     queryFn: async () => {
+      if (!id) throw new Error('Session ID is required');
+      
       const docRef = doc(db, 'sessions', id);
       const snapshot = await getDoc(docRef);
-      if (!snapshot.exists()) throw new Error('Session not found');
-      return {
+      
+      if (!snapshot.exists()) {
+        throw new Error('Session not found');
+      }
+      
+      const data = snapshot.data();
+      const session = {
         id: snapshot.id,
-        ...convertTimestamp(snapshot.data())
+        ...convertTimestamp(data)
       } as Session;
+      
+      console.log('Fetched session:', session.id, {
+        membersCount: session.members?.length || 0,
+        waitingCount: session.waitingList?.length || 0,
+        customMembers: session.members?.filter(m => m.isCustom)?.length || 0,
+      });
+      
+      return session;
     },
     enabled: !!id,
+    staleTime: 30 * 1000, // 30 seconds
+    refetchOnWindowFocus: true, // Refetch khi focus lại tab
   });
 };
 
@@ -295,8 +313,21 @@ export const useUpdateSession = () => {
         ...data,
         updatedAt: serverTimestamp(),
       });
+      return id; // Return session ID for optimistic updates
     },
-    onSuccess: () => {
+    onSuccess: (sessionId) => {
+      // Invalidate specific session query
+      queryClient.invalidateQueries({ queryKey: ['session', sessionId] });
+      
+      // Invalidate sessions list
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      
+      console.log('Session updated and queries invalidated:', sessionId);
+    },
+    onError: (error) => {
+      console.error('Session update error:', error);
+      
+      // Invalidate queries on error to ensure consistency
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
   });

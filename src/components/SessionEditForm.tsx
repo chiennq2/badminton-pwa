@@ -172,235 +172,182 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
     },
   });
 
-  // Load session data when dialog opens
-  useEffect(() => {
-    if (session && open) {
-      console.log('Loading session data:', session);
+// SessionEditForm.tsx - Sửa useEffect load session data
+useEffect(() => {
+  if (session && open) {
+    console.log('Loading session data:', session);
+    
+    formik.setValues({
+      name: session.name,
+      courtId: session.courtId,
+      date: session.date,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      maxParticipants: session.maxParticipants,
+      notes: session.notes || '',
+      status: session.status,
+    });
+
+    // Load members (including custom members) - ƯU TIÊN memberName từ session
+    const sessionMembers: CustomMember[] = session.members.map(sm => {
+      const member = members?.find(m => m.id === sm.memberId);
       
-      formik.setValues({
-        name: session.name,
-        courtId: session.courtId,
-        date: session.date,
-        startTime: session.startTime,
-        endTime: session.endTime,
-        maxParticipants: session.maxParticipants,
-        notes: session.notes || '',
-        status: session.status,
-      });
-
-      // Load members (including custom members)
-      const sessionMembers: CustomMember[] = session.members.map(sm => {
-        const member = members?.find(m => m.id === sm.memberId);
-        return {
-          id: sm.memberId,
-          name: member?.name || sm.memberName || 'Thành viên tùy chỉnh',
-          isCustom: !member || sm.isCustom || false,
-        };
-      });
-      console.log('Loading session members:', sessionMembers);
-      setSelectedMembers(sessionMembers);
-
-      // Load waiting list (including custom members)
-      const waitingMembers: CustomMember[] = session.waitingList.map(wm => {
-        const member = members?.find(m => m.id === wm.memberId);
-        return {
-          id: wm.memberId,
-          name: member?.name || wm.memberName || 'Thành viên tùy chỉnh',
-          isCustom: !member || wm.isCustom || false,
-        };
-      });
-      console.log('Loading waiting members:', waitingMembers);
-      setWaitingList(waitingMembers);
-
-      // Load expenses
-      const sessionExpenses: SessionExpenseExtended[] = session.expenses
-        .filter(exp => exp.type !== 'court' && exp.type !== 'shuttlecock')
-        .map(exp => ({
-          ...exp,
-          memberIds: exp.memberIds || sessionMembers.map(m => m.id), // Default all members if not specified
-        }));
-      console.log('Loading expenses:', sessionExpenses);
-      setExpenses(sessionExpenses);
-
-      // Load settlements
-      setSettlements(session.settlements || []);
-
-      // Load court and shuttlecock settings
-      const courtExpense = session.expenses.find(exp => exp.type === 'court');
-      const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
+      // Logic cải thiện: ưu tiên memberName từ session, sau đó mới tới database
+      const memberName = sm.memberName || member?.name || `Thành viên ${sm.memberId.slice(-4)}`;
       
-      if (courtExpense) {
-        setManualCourtCost(courtExpense.amount);
-        setUseAutoCourt(false);
-      }
+      return {
+        id: sm.memberId,
+        name: memberName,
+        isCustom: sm.isCustom || !member, // Nếu không tìm thấy trong database thì là custom
+      };
+    });
+    console.log('Loading session members:', sessionMembers);
+    setSelectedMembers(sessionMembers);
+
+    // Load waiting list (including custom members) - ƯU TIÊN memberName từ session
+    const waitingMembers: CustomMember[] = session.waitingList.map(wm => {
+      const member = members?.find(m => m.id === wm.memberId);
       
-      if (shuttlecockExpense) {
-        const count = parseInt(shuttlecockExpense.description?.split(' ')[0] || '2');
-        setShuttlecockCount(count);
-        setShuttlecockPrice(shuttlecockExpense.amount / count);
-      }
+      // Logic cải thiện: ưu tiên memberName từ session, sau đó mới tới database  
+      const memberName = wm.memberName || member?.name || `Thành viên ${wm.memberId.slice(-4)}`;
+      
+      return {
+        id: wm.memberId,
+        name: memberName,
+        isCustom: wm.isCustom || !member, // Nếu không tìm thấy trong database thì là custom
+      };
+    });
+    console.log('Loading waiting members:', waitingMembers);
+    setWaitingList(waitingMembers);
+
+    // Load expenses
+    const sessionExpenses: SessionExpenseExtended[] = session.expenses
+      .filter(exp => exp.type !== 'court' && exp.type !== 'shuttlecock')
+      .map(exp => ({
+        ...exp,
+        memberIds: exp.memberIds || sessionMembers.map(m => m.id), // Default all members if not specified
+      }));
+    console.log('Loading expenses:', sessionExpenses);
+    setExpenses(sessionExpenses);
+
+    // Load settlements
+    setSettlements(session.settlements || []);
+
+    // Load court and shuttlecock settings
+    const courtExpense = session.expenses.find(exp => exp.type === 'court');
+    const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
+    
+    if (courtExpense) {
+      setManualCourtCost(courtExpense.amount);
+      setUseAutoCourt(false);
     }
-  }, [session, open, members]);
-
-  // Auto-generate settlements when moving to settlement step
-  useEffect(() => {
-    if (activeStep === 4 && members) { // Settlement step
-      const generatedSettlements = generateDetailedSettlements(
-        {
-          ...session,
-          members: selectedMembers.map(member => {
-            const existingMember = session.members.find(m => m.memberId === member.id);
-            return {
-              memberId: member.id,
-              memberName: member.name,
-              isPresent: existingMember?.isPresent || false,
-              isCustom: member.isCustom,
-            };
-          }),
-          expenses: [
-            ...(useAutoCourt && courts ? [{
-              id: 'court-cost',
-              name: 'Tiền sân',
-              amount: (courts.find(c => c.id === formik.values.courtId)?.pricePerHour || 0) * 
-                      calculateSessionDuration(formik.values.startTime, formik.values.endTime),
-              type: 'court' as const,
-              description: '',
-            }] : [{
-              id: 'court-cost',
-              name: 'Tiền sân',
-              amount: manualCourtCost,
-              type: 'court' as const,
-              description: '',
-            }]),
-            {
-              id: 'shuttlecock-cost',
-              name: 'Tiền cầu',
-              amount: shuttlecockCount * shuttlecockPrice,
-              type: 'shuttlecock' as const,
-              description: '',
-            },
-            ...expenses.map(exp => ({
-              id: exp.id,
-              name: exp.name,
-              amount: exp.amount,
-              type: exp.type,
-              description: exp.description || '',
-              memberIds: exp.memberIds, // Pass through member IDs for proper splitting
-            }))
-          ]
-        },
-        [...(members || []), ...selectedMembers.filter(m => m.isCustom).map(m => ({ id: m.id, name: m.name }))]
-      );
-      
-      // Merge with existing settlements to preserve payment status
-      const mergedSettlements = generatedSettlements.map(newSettlement => {
-        const existing = settlements.find(s => s.memberId === newSettlement.memberId);
-        return existing ? { ...newSettlement, isPaid: existing.isPaid } : newSettlement;
-      });
-      
-      setSettlements(mergedSettlements);
+    
+    if (shuttlecockExpense) {
+      const count = parseInt(shuttlecockExpense.description?.split(' ')[0] || '2');
+      setShuttlecockCount(count);
+      setShuttlecockPrice(shuttlecockExpense.amount / count);
     }
-  }, [activeStep, selectedMembers, expenses, useAutoCourt, manualCourtCost, shuttlecockCount, shuttlecockPrice, members, courts, formik.values]);
+  }
+}, [session, open]); // Bỏ dependency 'members' để tránh loop
 
-  const handleSaveSession = async (values: any) => {
-    try {
-      const selectedCourt = courts?.find(c => c.id === values.courtId);
-      if (!selectedCourt) return;
-
-      const duration = calculateSessionDuration(values.startTime, values.endTime);
-      const courtCost = useAutoCourt ? selectedCourt.pricePerHour * duration : manualCourtCost;
-      const shuttlecockCost = shuttlecockCount * shuttlecockPrice;
-      const additionalCosts = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-      const totalCost = courtCost + shuttlecockCost + additionalCosts;
-
-      const sessionExpenses: SessionExpense[] = [];
+// Thêm useEffect riêng cho việc sync members data
+useEffect(() => {
+  if (session && open && members) {
+    // Chỉ update name của members đã có từ database, giữ nguyên custom members
+    setSelectedMembers(prev => prev.map(sm => {
+      if (sm.isCustom) return sm; // Giữ nguyên custom members
       
-      // Add court cost
-      if (courtCost > 0) {
-        sessionExpenses.push({
-          id: 'court-cost',
-          name: 'Tiền sân',
-          amount: courtCost,
-          type: 'court',
-          description: useAutoCourt 
-            ? `${duration} giờ x ${formatCurrency(selectedCourt.pricePerHour)}`
-            : 'Nhập thủ công',
-        });
-      }
+      const member = members.find(m => m.id === sm.id);
+      return member ? { ...sm, name: member.name } : sm;
+    }));
+    
+    setWaitingList(prev => prev.map(wm => {
+      if (wm.isCustom) return wm; // Giữ nguyên custom members
+      
+      const member = members.find(m => m.id === wm.id);
+      return member ? { ...wm, name: member.name } : wm;
+    }));
+  }
+}, [members]); // Chỉ chạy khi members data thay đổi
+// Hàm toggle trạng thái thanh toán
+const togglePaymentStatus = (memberId: string) => {
+  setSettlements(settlements.map(settlement => 
+    settlement.memberId === memberId 
+      ? { ...settlement, isPaid: !settlement.isPaid }
+      : settlement
+  ));
+};
 
-      // Add shuttlecock cost
-      if (shuttlecockCost > 0) {
-        sessionExpenses.push({
-          id: 'shuttlecock-cost',
-          name: 'Tiền cầu',
-          amount: shuttlecockCost,
-          type: 'shuttlecock',
-          description: `${shuttlecockCount} quả x ${formatCurrency(shuttlecockPrice)}`,
-        });
-      }
+// Hàm lưu session với đầy đủ thông tin settlements
+const handleSaveSession = async (values: any) => {
+  try {
+    const selectedCourt = courts?.find(c => c.id === values.courtId);
+    if (!selectedCourt) return;
 
-      // Add additional expenses with member ID tracking
-      sessionExpenses.push(...expenses.map(exp => ({
+    const duration = calculateSessionDuration(values.startTime, values.endTime);
+    const courtCost = useAutoCourt ? selectedCourt.pricePerHour * duration : manualCourtCost;
+    const shuttlecockCost = shuttlecockCount * shuttlecockPrice;
+    const additionalCosts = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    const totalCost = courtCost + shuttlecockCost + additionalCosts;
+
+    // Tạo danh sách expenses với memberIds cho chi phí bổ sung
+    const sessionExpenses: SessionExpense[] = [
+      // Tiền sân
+      {
+        id: 'court-cost',
+        name: 'Tiền sân',
+        amount: courtCost,
+        type: 'court',
+        description: useAutoCourt 
+          ? `${duration} giờ x ${formatCurrency(selectedCourt.pricePerHour)}`
+          : 'Nhập thủ công',
+      },
+      // Tiền cầu
+      {
+        id: 'shuttlecock-cost',
+        name: 'Tiền cầu',
+        amount: shuttlecockCost,
+        type: 'shuttlecock',
+        description: `${shuttlecockCount} quả x ${formatCurrency(shuttlecockPrice)}`,
+      },
+      // Chi phí bổ sung với thông tin member
+      ...expenses.map(exp => ({
         id: exp.id,
         name: exp.name,
         amount: exp.amount,
         type: exp.type,
         description: `Chia cho ${exp.memberIds.length} người`,
-        memberIds: exp.memberIds, // Include member IDs for proper expense splitting
-      })));
+        memberIds: exp.memberIds, // Lưu thông tin member chia tiền
+      }))
+    ];
 
-      const presentMembers = selectedMembers.filter(member => {
-        const existingMember = session.members.find(m => m.memberId === member.id);
-        return existingMember?.isPresent || false;
-      });
+    const presentMembers = selectedMembers.filter(member => {
+      const existingMember = session.members.find(m => m.memberId === member.id);
+      return existingMember?.isPresent || false;
+    });
 
-      const baseSharedCost = presentMembers.length > 0 ? (courtCost + shuttlecockCost) / presentMembers.length : 0;
-      
-      const sessionData = {
-        name: values.name,
-        courtId: values.courtId,
-        date: values.date,
-        startTime: values.startTime,
-        endTime: values.endTime,
-        maxParticipants: values.maxParticipants,
-        currentParticipants: selectedMembers.length,
-        status: values.status,
-        members: selectedMembers.map(member => {
-          const existingMember = session.members.find(m => m.memberId === member.id);
-          return {
-            memberId: member.id,
-            memberName: member.name,
-            isPresent: existingMember?.isPresent || false,
-            isCustom: member.isCustom,
-          };
-        }),
-        waitingList: waitingList.map((member, index) => ({
-          memberId: member.id,
-          memberName: member.name,
-          addedAt: new Date(),
-          priority: index + 1,
-          isCustom: member.isCustom,
-        })),
-        expenses: sessionExpenses,
-        totalCost,
-        costPerPerson: baseSharedCost,
-        settlements,
-        notes: values.notes,
-      };
+    const baseSharedCost = presentMembers.length > 0 ? (courtCost + shuttlecockCost) / presentMembers.length : 0;
+    
+    const sessionData = {
+      // ... other session data
+      expenses: sessionExpenses,
+      totalCost,
+      costPerPerson: baseSharedCost,
+      settlements, // Lưu trạng thái thanh toán
+      // ... rest of data
+    };
 
-      console.log('Saving session data:', sessionData);
+    await updateSessionMutation.mutateAsync({
+      id: session.id,
+      data: sessionData,
+    });
 
-      await updateSessionMutation.mutateAsync({
-        id: session.id,
-        data: sessionData,
-      });
-
-      onSuccess();
-      handleClose();
-    } catch (error) {
-      console.error('Error updating session:', error);
-    }
-  };
+    onSuccess();
+    handleClose();
+  } catch (error) {
+    console.error('Error updating session:', error);
+  }
+};
 
   const handleDeleteSession = async () => {
     try {
@@ -525,6 +472,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
     setExpenses([...expenses, newExpense]);
   };
 
+  // Hàm cập nhật expense
   const updateExpense = (id: string, field: keyof SessionExpenseExtended, value: any) => {
     setExpenses(expenses.map(exp => 
       exp.id === id ? { ...exp, [field]: value } : exp
@@ -547,14 +495,6 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       return member;
     });
     setSelectedMembers(updatedMembers);
-  };
-
-  const togglePaymentStatus = (memberId: string) => {
-    setSettlements(settlements.map(settlement => 
-      settlement.memberId === memberId 
-        ? { ...settlement, isPaid: !settlement.isPaid }
-        : settlement
-    ));
   };
 
   const getStepContent = (step: number) => {
@@ -1107,100 +1047,101 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                 </Box>
 
                 {expenses.map((expense) => (
-                  <Paper key={expense.id} sx={{ p: 2, mb: 2, backgroundColor: 'action.hover' }}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={12} sm={6}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Tên chi phí"
-                          value={expense.name}
-                          onChange={(e) => updateExpense(expense.id, 'name', e.target.value)}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Số tiền"
-                          type="number"
-                          value={expense.amount}
-                          onChange={(e) => updateExpense(expense.id, 'amount', Number(e.target.value))}
-                          inputProps={{ min: 0 }}
-                        />
-                      </Grid>
-                      <Grid item xs={12} sm={3}>
-                        <IconButton
-                          onClick={() => removeExpense(expense.id)}
-                          color="error"
-                          size="small"
-                        >
-                          <Delete />
-                        </IconButton>
-                      </Grid>
-                      
-                      <Grid item xs={12}>
-                        <Typography variant="body2" gutterBottom>
-                          Chia tiền cho:
-                        </Typography>
-                        <Autocomplete
-                          multiple
-                          options={[...selectedMembers, ...waitingList]}
-                          getOptionLabel={(option) => option.name}
-                          value={[...selectedMembers, ...waitingList].filter(m => expense.memberIds.includes(m.id))}
-                          onChange={(_, newValue) => {
-                            updateExpense(expense.id, 'memberIds', newValue.map(m => m.id));
-                          }}
-                          renderInput={(params) => (
-                            <TextField
-                              {...params}
-                              variant="outlined"
-                              size="small"
-                              placeholder="Chọn thành viên chia tiền"
-                            />
-                          )}
-                          renderTags={(value, getTagProps) =>
-                            value.map((option, index) => (
-                              <Chip
-                                variant="outlined"
-                                label={option.name}
-                                size="small"
-                                {...getTagProps({ index })}
-                                avatar={
-                                  <Avatar sx={{ bgcolor: option.isCustom ? 'secondary.main' : 'primary.main' }}>
-                                    {option.name.charAt(0).toUpperCase()}
-                                  </Avatar>
-                                }
-                              />
-                            ))
-                          }
-                          renderOption={(props, option) => (
-                            <Box component="li" {...props}>
-                              <Avatar sx={{ mr: 1, width: 24, height: 24 }}>
-                                {option.name.charAt(0).toUpperCase()}
-                              </Avatar>
-                              <Typography variant="body2">{option.name}</Typography>
-                              {option.isCustom && (
-                                <Chip 
-                                  label="Tùy chỉnh" 
-                                  size="small" 
-                                  sx={{ ml: 1 }} 
-                                  variant="outlined"
-                                />
-                              )}
-                            </Box>
-                          )}
-                        />
-                        <Typography variant="caption" color="text.secondary">
-                          {expense.amount > 0 && expense.memberIds.length > 0
-                            ? `${formatCurrency(expense.amount / expense.memberIds.length)}/người`
-                            : 'Chưa có thành viên nào được chọn'
-                          }
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                  </Paper>
-                ))}
+  <Paper key={expense.id} sx={{ p: 2, mb: 2, backgroundColor: 'action.hover' }}>
+    <Grid container spacing={2}>
+      <Grid item xs={12} sm={6}>
+        <TextField
+          fullWidth
+          size="small"
+          label="Tên chi phí"
+          value={expense.name}
+          onChange={(e) => updateExpense(expense.id, 'name', e.target.value)}
+        />
+      </Grid>
+      <Grid item xs={12} sm={3}>
+        <TextField
+          fullWidth
+          size="small"
+          label="Số tiền"
+          type="number"
+          value={expense.amount}
+          onChange={(e) => updateExpense(expense.id, 'amount', Number(e.target.value))}
+          inputProps={{ min: 0 }}
+        />
+      </Grid>
+      <Grid item xs={12} sm={3}>
+        <IconButton
+          onClick={() => removeExpense(expense.id)}
+          color="error"
+          size="small"
+        >
+          <Delete />
+        </IconButton>
+      </Grid>
+      
+      {/* Chọn thành viên chia tiền */}
+      <Grid item xs={12}>
+        <Typography variant="body2" gutterBottom>
+          Chia tiền cho:
+        </Typography>
+        <Autocomplete
+          multiple
+          options={[...selectedMembers, ...waitingList]}
+          getOptionLabel={(option) => option.name}
+          value={[...selectedMembers, ...waitingList].filter(m => expense.memberIds.includes(m.id))}
+          onChange={(_, newValue) => {
+            updateExpense(expense.id, 'memberIds', newValue.map(m => m.id));
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              variant="outlined"
+              size="small"
+              placeholder="Chọn thành viên chia tiền"
+            />
+          )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => (
+              <Chip
+                variant="outlined"
+                label={option.name}
+                size="small"
+                {...getTagProps({ index })}
+                avatar={
+                  <Avatar sx={{ bgcolor: option.isCustom ? 'secondary.main' : 'primary.main' }}>
+                    {option.name.charAt(0).toUpperCase()}
+                  </Avatar>
+                }
+              />
+            ))
+          }
+          renderOption={(props, option) => (
+            <Box component="li" {...props}>
+              <Avatar sx={{ mr: 1, width: 24, height: 24 }}>
+                {option.name.charAt(0).toUpperCase()}
+              </Avatar>
+              <Typography variant="body2">{option.name}</Typography>
+              {option.isCustom && (
+                <Chip 
+                  label="Tùy chỉnh" 
+                  size="small" 
+                  sx={{ ml: 1 }} 
+                  variant="outlined"
+                />
+              )}
+            </Box>
+          )}
+        />
+        <Typography variant="caption" color="text.secondary">
+          {expense.amount > 0 && expense.memberIds.length > 0
+            ? `${formatCurrency(expense.amount / expense.memberIds.length)}/người`
+            : 'Chưa có thành viên nào được chọn'
+          }
+        </Typography>
+      </Grid>
+    </Grid>
+  </Paper>
+))}
 
                 {expenses.length === 0 && (
                   <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 2 }}>
@@ -1249,156 +1190,158 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
           </Box>
         );
 
-      case 4:
-        return (
-          <Box sx={{ pt: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Quản lý thanh toán
+// SessionEditForm.tsx - Step 4: Payment Management
+case 4: // Thanh toán
+  return (
+    <Box sx={{ pt: 2 }}>
+      <Typography variant="h6" gutterBottom>
+        Quản lý thanh toán
+      </Typography>
+
+      <Alert severity="info" sx={{ mb: 3 }}>
+        <Typography variant="body2">
+          <strong>Cách tính:</strong> Tiền sân + tiền cầu chia đều cho thành viên có mặt. 
+          Chi phí bổ sung chia theo danh sách đã chọn.
+        </Typography>
+      </Alert>
+
+      {/* Chi tiết thanh toán từng thành viên */}
+      <Card>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+            <Payment sx={{ mr: 1, color: 'primary.main' }} />
+            <Typography variant="subtitle1" fontWeight="bold">
+              Chi tiết thanh toán từng thành viên
             </Typography>
-
-            <Alert severity="info" sx={{ mb: 3 }}>
-              <Typography variant="body2">
-                <strong>Cách tính:</strong> Tiền sân + tiền cầu chia đều cho thành viên có mặt. 
-                Chi phí bổ sung chia theo danh sách đã chọn.
-              </Typography>
-            </Alert>
-
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Payment sx={{ mr: 1, color: 'primary.main' }} />
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    Chi tiết thanh toán từng thành viên
-                  </Typography>
-                </Box>
-
-                <TableContainer component={Paper} sx={{ mt: 2 }}>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow sx={{ backgroundColor: 'action.hover' }}>
-                        <TableCell><strong>Thành viên</strong></TableCell>
-                        <TableCell align="center"><strong>Có mặt</strong></TableCell>
-                        <TableCell align="right"><strong>Số tiền</strong></TableCell>
-                        <TableCell align="center"><strong>Đã thanh toán</strong></TableCell>
-                        <TableCell align="center"><strong>Thao tác</strong></TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {settlements.map((settlement) => {
-                        const member = selectedMembers.find(m => m.id === settlement.memberId);
-                        const sessionMember = session.members.find(sm => sm.memberId === settlement.memberId);
-                        const isPresent = sessionMember?.isPresent || false;
-                        
-                        return (
-                          <TableRow key={settlement.memberId}>
-                            <TableCell>
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                                  {settlement.memberName.charAt(0).toUpperCase()}
-                                </Avatar>
-                                {settlement.memberName}
-                                {member?.isCustom && (
-                                  <Chip label="Tùy chỉnh" size="small" sx={{ ml: 1 }} />
-                                )}
-                              </Box>
-                            </TableCell>
-                            <TableCell align="center">
-                              {isPresent ? (
-                                <CheckCircle color="success" />
-                              ) : (
-                                <RadioButtonUnchecked color="disabled" />
-                              )}
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography 
-                                variant="body2" 
-                                fontWeight="medium"
-                                color={isPresent ? 'text.primary' : 'text.disabled'}
-                              >
-                                {isPresent ? formatCurrency(settlement.amount) : '-'}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="center">
-                              {isPresent && (
-                                <Chip
-                                  label={settlement.isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
-                                  color={settlement.isPaid ? 'success' : 'warning'}
-                                  size="small"
-                                  variant={settlement.isPaid ? 'filled' : 'outlined'}
-                                />
-                              )}
-                            </TableCell>
-                            <TableCell align="center">
-                              {isPresent && (
-                                <Tooltip title={settlement.isPaid ? 'Đánh dấu chưa thanh toán' : 'Đánh dấu đã thanh toán'}>
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => togglePaymentStatus(settlement.memberId)}
-                                    color={settlement.isPaid ? 'error' : 'success'}
-                                  >
-                                    {settlement.isPaid ? <RadioButtonUnchecked /> : <CheckCircle />}
-                                  </IconButton>
-                                </Tooltip>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-
-                {/* Payment Summary */}
-                <Box sx={{ mt: 3, p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6} md={3}>
-                      <Typography variant="body2" color="text.secondary">Tổng phải thu:</Typography>
-                      <Typography variant="h6" fontWeight="bold" color="primary.main">
-                        {formatCurrency(settlements.reduce((sum, s) => {
-                          const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
-                          return sessionMember?.isPresent ? sum + s.amount : sum;
-                        }, 0))}
-                      </Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6} md={3}>
-                      <Typography variant="body2" color="text.secondary">Đã thu:</Typography>
-                      <Typography variant="h6" fontWeight="bold" color="success.main">
-                        {formatCurrency(settlements.reduce((sum, s) => {
-                          const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
-                          return (sessionMember?.isPresent && s.isPaid) ? sum + s.amount : sum;
-                        }, 0))}
-                      </Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6} md={3}>
-                      <Typography variant="body2" color="text.secondary">Còn lại:</Typography>
-                      <Typography variant="h6" fontWeight="bold" color="error.main">
-                        {formatCurrency(settlements.reduce((sum, s) => {
-                          const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
-                          return (sessionMember?.isPresent && !s.isPaid) ? sum + s.amount : sum;
-                        }, 0))}
-                      </Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12} sm={6} md={3}>
-                      <Typography variant="body2" color="text.secondary">Tiến độ:</Typography>
-                      <Typography variant="h6" fontWeight="bold">
-                        {Math.round((settlements.filter(s => {
-                          const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
-                          return sessionMember?.isPresent && s.isPaid;
-                        }).length / Math.max(settlements.filter(s => {
-                          const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
-                          return sessionMember?.isPresent;
-                        }).length, 1)) * 100)}%
-                      </Typography>
-                    </Grid>
-                  </Grid>
-                </Box>
-              </CardContent>
-            </Card>
           </Box>
-        );
+
+          <TableContainer component={Paper} sx={{ mt: 2 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ backgroundColor: 'action.hover' }}>
+                  <TableCell><strong>Thành viên</strong></TableCell>
+                  <TableCell align="center"><strong>Có mặt</strong></TableCell>
+                  <TableCell align="right"><strong>Số tiền</strong></TableCell>
+                  <TableCell align="center"><strong>Đã thanh toán</strong></TableCell>
+                  <TableCell align="center"><strong>Thao tác</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {settlements.map((settlement) => {
+                  const member = selectedMembers.find(m => m.id === settlement.memberId);
+                  const sessionMember = session.members.find(sm => sm.memberId === settlement.memberId);
+                  const isPresent = sessionMember?.isPresent || false;
+                  
+                  return (
+                    <TableRow key={settlement.memberId}>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                            {settlement.memberName.charAt(0).toUpperCase()}
+                          </Avatar>
+                          {settlement.memberName}
+                          {member?.isCustom && (
+                            <Chip label="Tùy chỉnh" size="small" sx={{ ml: 1 }} />
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell align="center">
+                        {isPresent ? (
+                          <CheckCircle color="success" />
+                        ) : (
+                          <RadioButtonUnchecked color="disabled" />
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography 
+                          variant="body2" 
+                          fontWeight="medium"
+                          color={isPresent ? 'text.primary' : 'text.disabled'}
+                        >
+                          {isPresent ? formatCurrency(settlement.amount) : '-'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        {isPresent && (
+                          <Chip
+                            label={settlement.isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                            color={settlement.isPaid ? 'success' : 'warning'}
+                            size="small"
+                            variant={settlement.isPaid ? 'filled' : 'outlined'}
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell align="center">
+                        {isPresent && (
+                          <Tooltip title={settlement.isPaid ? 'Đánh dấu chưa thanh toán' : 'Đánh dấu đã thanh toán'}>
+                            <IconButton
+                              size="small"
+                              onClick={() => togglePaymentStatus(settlement.memberId)}
+                              color={settlement.isPaid ? 'error' : 'success'}
+                            >
+                              {settlement.isPaid ? <RadioButtonUnchecked /> : <CheckCircle />}
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {/* Thống kê thanh toán */}
+          <Box sx={{ mt: 3, p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" color="text.secondary">Tổng phải thu:</Typography>
+                <Typography variant="h6" fontWeight="bold" color="primary.main">
+                  {formatCurrency(settlements.reduce((sum, s) => {
+                    const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
+                    return sessionMember?.isPresent ? sum + s.amount : sum;
+                  }, 0))}
+                </Typography>
+              </Grid>
+              
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" color="text.secondary">Đã thu:</Typography>
+                <Typography variant="h6" fontWeight="bold" color="success.main">
+                  {formatCurrency(settlements.reduce((sum, s) => {
+                    const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
+                    return (sessionMember?.isPresent && s.isPaid) ? sum + s.amount : sum;
+                  }, 0))}
+                </Typography>
+              </Grid>
+              
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" color="text.secondary">Còn lại:</Typography>
+                <Typography variant="h6" fontWeight="bold" color="error.main">
+                  {formatCurrency(settlements.reduce((sum, s) => {
+                    const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
+                    return (sessionMember?.isPresent && !s.isPaid) ? sum + s.amount : sum;
+                  }, 0))}
+                </Typography>
+              </Grid>
+              
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" color="text.secondary">Tiến độ:</Typography>
+                <Typography variant="h6" fontWeight="bold">
+                  {Math.round((settlements.filter(s => {
+                    const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
+                    return sessionMember?.isPresent && s.isPaid;
+                  }).length / Math.max(settlements.filter(s => {
+                    const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
+                    return sessionMember?.isPresent;
+                  }).length, 1)) * 100)}%
+                </Typography>
+              </Grid>
+            </Grid>
+          </Box>
+        </CardContent>
+      </Card>
+    </Box>
+  );
 
       case 5:
         return (
