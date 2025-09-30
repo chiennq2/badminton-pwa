@@ -83,14 +83,18 @@ const Members: React.FC = () => {
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
       try {
+        const updatedValues = {
+          ...values,
+          skillLevel: values.skillLevel as 'Mới bắt đầu' | 'Trung bình' | 'Khá' | 'Giỏi' | 'Chuyên nghiệp',
+        };
         if (editingMember) {
           await updateMemberMutation.mutateAsync({
             id: editingMember.id,
-            data: values,
+            data: updatedValues,
           });
           showSnackbar('Cập nhật thành viên thành công!', 'success');
         } else {
-          await createMemberMutation.mutateAsync(values);
+          await createMemberMutation.mutateAsync(updatedValues);
           showSnackbar('Tạo thành viên mới thành công!', 'success');
         }
         handleClose();
