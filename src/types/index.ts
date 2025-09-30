@@ -98,6 +98,12 @@ export interface Session {
   createdAt: Date;
   updatedAt: Date;
   qrImage?: string;
+  host?: {
+    name: string;
+    isCustom?: boolean; // true nếu nhập tay, false nếu chọn từ danh sách
+    memberId?: string; // ID nếu chọn từ danh sách members
+  };
+  paymentQR?: string; // Base64 string hoặc URL của ảnh QR
 }
 
 export interface ReportFilter {

@@ -1079,66 +1079,72 @@ const handleSaveSession = async (values: any) => {
         </IconButton>
       </Grid>
       
-      {/* Chọn thành viên chia tiền */}
-      <Grid item xs={12}>
-        <Typography variant="body2" gutterBottom>
-          Chia tiền cho:
-        </Typography>
-        <Autocomplete
-          multiple
-          options={[...selectedMembers, ...waitingList]}
-          getOptionLabel={(option) => option.name}
-          value={[...selectedMembers, ...waitingList].filter(m => expense.memberIds.includes(m.id))}
-          onChange={(_, newValue) => {
-            updateExpense(expense.id, 'memberIds', newValue.map(m => m.id));
-          }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              placeholder="Chọn thành viên chia tiền"
-            />
-          )}
-          renderTags={(value, getTagProps) =>
-            value.map((option, index) => (
-              <Chip
-                variant="outlined"
-                label={option.name}
-                size="small"
-                {...getTagProps({ index })}
-                avatar={
-                  <Avatar sx={{ bgcolor: option.isCustom ? 'secondary.main' : 'primary.main' }}>
-                    {option.name.charAt(0).toUpperCase()}
-                  </Avatar>
-                }
-              />
-            ))
+{/* Chọn thành viên chia tiền - CHỈ NHỮNG NGƯỜI ĐÃ THAM GIA */}
+<Grid item xs={12}>
+  <Typography variant="body2" gutterBottom>
+    Chia tiền cho (chỉ thành viên đã tham gia):
+  </Typography>
+  <Autocomplete
+    multiple
+    // CHỈ LẤY THÀNH VIÊN ĐÃ ĐƯỢC CHỌN THAM GIA VÀ CÓ MẶT
+    options={selectedMembers.filter(m => {
+      const sessionMember = session.members.find(sm => sm.memberId === m.id);
+      return sessionMember?.isPresent !== false; // Chỉ lấy những người có mặt hoặc chưa điểm danh
+    })}
+    getOptionLabel={(option) => option.name}
+    value={selectedMembers.filter(m => expense.memberIds.includes(m.id))}
+    onChange={(_, newValue) => {
+      updateExpense(expense.id, 'memberIds', newValue.map(m => m.id));
+    }}
+    renderInput={(params) => (
+      <TextField
+        {...params}
+        variant="outlined"
+        size="small"
+        placeholder="Chọn thành viên chia tiền"
+        helperText="Chỉ hiển thị thành viên đã tham gia lịch đánh này"
+      />
+    )}
+    renderTags={(value, getTagProps) =>
+      value.map((option, index) => (
+        <Chip
+          variant="outlined"
+          label={option.name}
+          size="small"
+          {...getTagProps({ index })}
+          avatar={
+            <Avatar sx={{ bgcolor: option.isCustom ? 'secondary.main' : 'primary.main' }}>
+              {option.name.charAt(0).toUpperCase()}
+            </Avatar>
           }
-          renderOption={(props, option) => (
-            <Box component="li" {...props}>
-              <Avatar sx={{ mr: 1, width: 24, height: 24 }}>
-                {option.name.charAt(0).toUpperCase()}
-              </Avatar>
-              <Typography variant="body2">{option.name}</Typography>
-              {option.isCustom && (
-                <Chip 
-                  label="Tùy chỉnh" 
-                  size="small" 
-                  sx={{ ml: 1 }} 
-                  variant="outlined"
-                />
-              )}
-            </Box>
-          )}
         />
-        <Typography variant="caption" color="text.secondary">
-          {expense.amount > 0 && expense.memberIds.length > 0
-            ? `${formatCurrency(expense.amount / expense.memberIds.length)}/người`
-            : 'Chưa có thành viên nào được chọn'
-          }
-        </Typography>
-      </Grid>
+      ))
+    }
+    renderOption={(props, option) => (
+      <Box component="li" {...props}>
+        <Avatar sx={{ mr: 1, width: 24, height: 24 }}>
+          {option.name.charAt(0).toUpperCase()}
+        </Avatar>
+        <Typography variant="body2">{option.name}</Typography>
+        {option.isCustom && (
+          <Chip 
+            label="Tùy chỉnh" 
+            size="small" 
+            sx={{ ml: 1 }} 
+            variant="outlined"
+          />
+        )}
+      </Box>
+    )}
+  />
+  <Alert severity="info" sx={{ mt: 1 }}>
+    <Typography variant="caption">
+      {expense.amount > 0 && expense.memberIds.length > 0
+        ? `${formatCurrency(expense.amount / expense.memberIds.length)}/người (${expense.memberIds.length} người)`
+        : 'Chọn thành viên để tính chi phí mỗi người'}
+    </Typography>
+  </Alert>
+</Grid>
     </Grid>
   </Paper>
 ))}
