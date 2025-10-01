@@ -65,6 +65,8 @@ import {
   SwapHoriz,
   Close,
   Person,
+  AttachMoney,
+  Upload,
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { useFormik } from 'formik';
@@ -106,7 +108,7 @@ const steps = [
   'Thành viên tham gia',
   'Sảnh chờ',
   'Chi phí',
-  'Thanh toán',
+  // 'Thanh toán',
   'Xác nhận'
 ];
 
@@ -147,6 +149,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
   const { data: groups } = useGroups();
   const updateSessionMutation = useUpdateSession();
   const deleteSessionMutation = useDeleteSession();
+  const [qrImage, setQrImage] = useState(session.qrImage || null);
 
   const [activeStep, setActiveStep] = useState(0);
   const [selectedMembers, setSelectedMembers] = useState<CustomMember[]>([]);
@@ -187,9 +190,9 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       name: '',
       courtId: '',
       date: new Date(),
-      startTime: '19:00',
-      endTime: '21:00',
-      maxParticipants: 999, // Đặt giá trị cao để không giới hạn
+      startTime: '19:30',
+      endTime: '21:30',
+      maxParticipants: 60, // Đặt giá trị cao để không giới hạn
       notes: '',
       status: 'scheduled' as Session['status'],
     },
@@ -225,7 +228,7 @@ const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 
         date: session.date,
         startTime: session.startTime,
         endTime: session.endTime,
-        maxParticipants: 999, // Không giới hạn
+        maxParticipants: 60, // Không giới hạn
         notes: session.notes || '',
         status: session.status,
       });
@@ -360,6 +363,7 @@ const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 
       // LƯU ĐẦY ĐỦ MEMBERS VÀ WAITING LIST
       const sessionData = {
         ...values,
+        qrImage,
         // Lưu đầy đủ thành viên
         members: selectedMembers.map(member => {
           const existingMember = session.members.find(m => m.memberId === member.id);
@@ -394,7 +398,7 @@ const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 
           return waitingData;
         }),
         currentParticipants: selectedMembers.length,
-        maxParticipants: 999, // Không giới hạn
+        maxParticipants: 60, // Không giới hạn
         expenses: sessionExpenses,
         totalCost,
         costPerPerson: baseSharedCost,
@@ -699,19 +703,24 @@ const removeReplacementNote = (memberId: string) => {
               <Grid item xs={12} sm={4}>
                 <DatePicker
                   label="Ngày"
-                  value={dayjs(formik.values.date)}
+                  value={formik.values.date ? dayjs(formik.values.date) : null}
                   onChange={(newValue) => {
-                    formik.setFieldValue('date', newValue?.toDate());
+                    if (newValue && newValue.isValid()) {
+                      formik.setFieldValue('date', newValue.toDate());
+                    }
                   }}
-                                  dayOfWeekFormatter={(day) => {  // ✅ THÊM
-                  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-                  return dayNames[day];
-                }}
+                  dayOfWeekFormatter={(day) => {
+                    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                    return dayNames[day];
+                  }}
                   slotProps={{
                     textField: {
                       fullWidth: true,
                       error: formik.touched.date && Boolean(formik.errors.date),
-                      helperText: formik.touched.date && typeof formik.errors.date === 'string' ? formik.errors.date : undefined,                    },
+                      helperText: formik.touched.date && typeof formik.errors.date === 'string' 
+                        ? formik.errors.date 
+                        : undefined,
+                    },
                   }}
                 />
               </Grid>
@@ -719,9 +728,11 @@ const removeReplacementNote = (memberId: string) => {
               <Grid item xs={12} sm={4}>
                 <TimePicker
                   label="Giờ bắt đầu"
-                  value={dayjs(`2000-01-01T${formik.values.startTime}`)}
+                  value={formik.values.startTime ? dayjs(`2000-01-01T${formik.values.startTime}`) : null}
                   onChange={(newValue) => {
-                    formik.setFieldValue('startTime', newValue?.format('HH:mm'));
+                    if (newValue && newValue.isValid()) {
+                      formik.setFieldValue('startTime', newValue.format('HH:mm'));
+                    }
                   }}
                   slotProps={{
                     textField: {
@@ -735,19 +746,22 @@ const removeReplacementNote = (memberId: string) => {
 
               <Grid item xs={12} sm={4}>
                 <TimePicker
-                  label="Giờ kết thúc"
-                  value={dayjs(`2000-01-01T${formik.values.endTime}`)}
-                  onChange={(newValue) => {
-                    formik.setFieldValue('endTime', newValue?.format('HH:mm'));
-                  }}
-                  slotProps={{
-                    textField: {
-                      fullWidth: true,
-                      error: formik.touched.endTime && Boolean(formik.errors.endTime),
-                      helperText: formik.touched.endTime && formik.errors.endTime,
-                    },
-                  }}
-                />
+                label="Giờ kết thúc"
+                value={formik.values.endTime ? dayjs(`2000-01-01T${formik.values.endTime}`) : null}
+                onChange={(newValue) => {
+                  if (newValue && newValue.isValid()) {
+                    formik.setFieldValue('endTime', newValue.format('HH:mm'));
+                  }
+                }}
+                slotProps={{
+                  textField: {
+                    fullWidth: true,
+                    error: formik.touched.endTime && Boolean(formik.errors.endTime),
+                    helperText: formik.touched.endTime && formik.errors.endTime,
+                  },
+                }}
+              />
+
               </Grid>
 
               <Grid item xs={12} sm={6}>
@@ -791,6 +805,74 @@ const removeReplacementNote = (memberId: string) => {
                   value={formik.values.notes}
                   onChange={formik.handleChange}
                 />
+              </Grid>
+              {/* QR CODE UPLOAD SECTION */}
+              <Grid item xs={12}>
+                <Card variant="outlined">
+                  <CardContent>
+                    <Typography 
+                      variant="subtitle1" 
+                      gutterBottom 
+                      sx={{ display: 'flex', alignItems: 'center' }}
+                    >
+                      <AttachMoney sx={{ mr: 1 }} />
+                      QR Code thanh toán (tùy chọn)
+                    </Typography>
+                    
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <input
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        id="qr-upload-edit"
+                        type="file"
+                        onChange={handleQrImageUpload}
+                      />
+                      <label htmlFor="qr-upload-edit">
+                        <Button 
+                          variant="outlined" 
+                          component="span" 
+                          startIcon={<Upload />}
+                        >
+                          {qrImage ? 'Thay đổi QR' : 'Tải ảnh QR'}
+                        </Button>
+                      </label>
+                      
+                      {qrImage && (
+                        <Button
+                          variant="outlined"
+                          color="error"
+                          startIcon={<Delete />}
+                          onClick={() => setQrImage(null)}
+                        >
+                          Xóa
+                        </Button>
+                      )}
+                    </Box>
+                    
+                    {qrImage && (
+                      <Box sx={{ mt: 2, textAlign: 'center' }}>
+                        <img 
+                          src={qrImage} 
+                          alt="QR Code" 
+                          style={{ 
+                            maxWidth: 200, 
+                            maxHeight: 200, 
+                            border: '1px solid #ddd',
+                            borderRadius: 8,
+                            objectFit: 'contain',
+                          }} 
+                        />
+                        <Typography 
+                          variant="caption" 
+                          display="block" 
+                          sx={{ mt: 1, color: 'text.secondary' }}
+                        >
+                          QR Code thanh toán
+                        </Typography>
+                      </Box>
+                    )}
+                  </CardContent>
+                </Card>
               </Grid>
             </Grid>
           </Box>
@@ -1584,7 +1666,17 @@ case 2:
         );
 
 // SessionEditForm.tsx - Step 4: Payment Management
-case 4: // Thanh toán
+// SessionEditForm.tsx - Step 4: Payment Management (FIXED - Đầy đủ)
+
+case 4: { // Thanh toán - CHÚ Ý: Bọc trong {} để tạo block scope
+  // ===== BƯỚC 1: TÍNH TOÁN CHI PHÍ TRƯỚC KHI SỬ DỤNG =====
+  const selectedCourt = courts?.find(c => c.id === formik.values.courtId);
+  const duration = calculateSessionDuration(formik.values.startTime, formik.values.endTime);
+  const courtCost = useAutoCourt ? 
+    (selectedCourt ? selectedCourt.pricePerHour * duration : 0) : manualCourtCost;
+  const shuttlecockCost = shuttlecockCount * shuttlecockPrice;
+  
+  // ===== BƯỚC 2: RENDER UI =====
   return (
     <Box sx={{ pt: 2 }}>
       <Typography variant="h6" gutterBottom>
@@ -1593,8 +1685,11 @@ case 4: // Thanh toán
 
       <Alert severity="info" sx={{ mb: 3 }}>
         <Typography variant="body2">
-          <strong>Cách tính:</strong> Tiền sân + tiền cầu chia đều cho thành viên có mặt. 
+          <strong>Cách tính:</strong> Tiền sân + tiền cầu chia đều cho thành viên có mặt.
           Chi phí bổ sung chia theo danh sách đã chọn.
+        </Typography>
+        <Typography variant="body2" sx={{ mt: 1 }}>
+          💡 <strong>Lưu ý:</strong> Danh sách bao gồm cả thành viên vắng mặt nhưng có chi phí bổ sung cần thanh toán.
         </Typography>
       </Alert>
 
@@ -1620,66 +1715,117 @@ case 4: // Thanh toán
                 </TableRow>
               </TableHead>
               <TableBody>
-                {settlements.map((settlement) => {
-                  const member = selectedMembers.find(m => m.id === settlement.memberId);
-                  const sessionMember = session.members.find(sm => sm.memberId === settlement.memberId);
-                  const isPresent = sessionMember?.isPresent || false;
-                  
-                  return (
-                    <TableRow key={settlement.memberId}>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                            {settlement.memberName.charAt(0).toUpperCase()}
-                          </Avatar>
-                          {settlement.memberName}
-                          {member?.isCustom && (
-                            <Chip label="Tùy chỉnh" size="small" sx={{ ml: 1 }} />
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        {isPresent ? (
-                          <CheckCircle color="success" />
-                        ) : (
-                          <RadioButtonUnchecked color="disabled" />
-                        )}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography 
-                          variant="body2" 
-                          fontWeight="medium"
-                          color={isPresent ? 'text.primary' : 'text.disabled'}
-                        >
-                          {isPresent ? formatCurrency(settlement.amount) : '-'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="center">
-                        {isPresent && (
-                          <Chip
-                            label={settlement.isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
-                            color={settlement.isPaid ? 'success' : 'warning'}
-                            size="small"
-                            variant={settlement.isPaid ? 'filled' : 'outlined'}
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell align="center">
-                        {isPresent && (
-                          <Tooltip title={settlement.isPaid ? 'Đánh dấu chưa thanh toán' : 'Đánh dấu đã thanh toán'}>
-                            <IconButton
-                              size="small"
-                              onClick={() => togglePaymentStatus(settlement.memberId)}
-                              color={settlement.isPaid ? 'error' : 'success'}
-                            >
-                              {settlement.isPaid ? <RadioButtonUnchecked /> : <CheckCircle />}
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </TableCell>
-                    </TableRow>
+                {(() => {
+                  // ===== LOGIC TÍNH TOÁN DANH SÁCH THÀNH VIÊN LIÊN QUAN =====
+                  const presentMembers = selectedMembers.filter(m => 
+                    session.members.find(sm => sm.memberId === m.id)?.isPresent
                   );
-                })}
+                  
+                  // Lấy tất cả memberIds từ chi phí bổ sung
+                  const membersWithAdditionalExpenses = new Set<string>();
+                  expenses.forEach(expense => {
+                    if (expense.memberIds && expense.memberIds.length > 0) {
+                      expense.memberIds.forEach(memberId => membersWithAdditionalExpenses.add(memberId));
+                    }
+                  });
+                  
+                  // Kết hợp: thành viên có mặt + thành viên có chi phí bổ sung
+                  const allRelevantMemberIds = new Set([
+                    ...presentMembers.map(m => m.id),
+                    ...Array.from(membersWithAdditionalExpenses)
+                  ]);
+                  
+                  // Lọc danh sách thành viên liên quan
+                  const relevantMembers = selectedMembers.filter(m => 
+                    allRelevantMemberIds.has(m.id)
+                  );
+
+                  return relevantMembers.map((member) => {
+                    const settlement = settlements.find(s => s.memberId === member.id);
+                    const sessionMember = session.members.find(sm => sm.memberId === member.id);
+                    const isPresent = sessionMember?.isPresent || false;
+                    
+                    // Tính chi phí cho thành viên này
+                    const baseCost = isPresent && presentMembers.length > 0
+                      ? (courtCost + shuttlecockCost) / presentMembers.length
+                      : 0;
+                    
+                    let additionalCost = 0;
+                    expenses.forEach(expense => {
+                      if (expense.memberIds && expense.memberIds.includes(member.id)) {
+                        additionalCost += expense.amount / expense.memberIds.length;
+                      } else if (!expense.memberIds || expense.memberIds.length === 0) {
+                        if (isPresent && presentMembers.length > 0) {
+                          additionalCost += expense.amount / presentMembers.length;
+                        }
+                      }
+                    });
+                    
+                    const totalAmount = Math.round(baseCost + additionalCost);
+                    
+                    return (
+                      <TableRow 
+                        key={member.id}
+                        sx={{ 
+                          '&:hover': { backgroundColor: 'action.hover' },
+                          opacity: isPresent ? 1 : 0.7
+                        }}
+                      >
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                              {member.name.charAt(0).toUpperCase()}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body2">{member.name}</Typography>
+                              {member.isCustom && (
+                                <Chip label="Tùy chỉnh" size="small" sx={{ mt: 0.5, height: 18 }} />
+                              )}
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell align="center">
+                          {isPresent ? (
+                            <CheckCircle color="success" />
+                          ) : (
+                            <Chip label="Vắng" color="default" size="small" />
+                          )}
+                        </TableCell>
+                        <TableCell align="right">
+                          <Box>
+                            <Typography 
+                              variant="body2" 
+                              fontWeight="medium"
+                              color={totalAmount > 0 ? 'primary.main' : 'text.disabled'}
+                            >
+                              {formatCurrency(totalAmount)}
+                            </Typography>
+                            {additionalCost > 0 && (
+                              <Typography variant="caption" color="text.secondary">
+                                ({formatCurrency(baseCost)} + {formatCurrency(additionalCost)})
+                              </Typography>
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Checkbox
+                            checked={settlement?.isPaid || false}
+                            onChange={() => togglePaymentStatus(member.id)}
+                            disabled={totalAmount === 0}
+                            color="success"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip 
+                            label={settlement?.isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                            color={settlement?.isPaid ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  });
+                })()}
               </TableBody>
             </Table>
           </TableContainer>
@@ -1687,46 +1833,42 @@ case 4: // Thanh toán
           {/* Thống kê thanh toán */}
           <Box sx={{ mt: 3, p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={3}>
-                <Typography variant="body2" color="text.secondary">Tổng phải thu:</Typography>
-                <Typography variant="h6" fontWeight="bold" color="primary.main">
-                  {formatCurrency(settlements.reduce((sum, s) => {
-                    const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
-                    return sessionMember?.isPresent ? sum + s.amount : sum;
-                  }, 0))}
+              <Grid item xs={12} sm={4}>
+                <Typography variant="body2" color="text.secondary">
+                  Tổng số người
                 </Typography>
-              </Grid>
-              
-              <Grid item xs={12} sm={6} md={3}>
-                <Typography variant="body2" color="text.secondary">Đã thu:</Typography>
-                <Typography variant="h6" fontWeight="bold" color="success.main">
-                  {formatCurrency(settlements.reduce((sum, s) => {
-                    const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
-                    return (sessionMember?.isPresent && s.isPaid) ? sum + s.amount : sum;
-                  }, 0))}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12} sm={6} md={3}>
-                <Typography variant="body2" color="text.secondary">Còn lại:</Typography>
-                <Typography variant="h6" fontWeight="bold" color="error.main">
-                  {formatCurrency(settlements.reduce((sum, s) => {
-                    const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
-                    return (sessionMember?.isPresent && !s.isPaid) ? sum + s.amount : sum;
-                  }, 0))}
-                </Typography>
-              </Grid>
-              
-              <Grid item xs={12} sm={6} md={3}>
-                <Typography variant="body2" color="text.secondary">Tiến độ:</Typography>
                 <Typography variant="h6" fontWeight="bold">
-                  {Math.round((settlements.filter(s => {
-                    const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
-                    return sessionMember?.isPresent && s.isPaid;
-                  }).length / Math.max(settlements.filter(s => {
-                    const sessionMember = session.members.find(sm => sm.memberId === s.memberId);
-                    return sessionMember?.isPresent;
-                  }).length, 1)) * 100)}%
+                  {(() => {
+                    const presentMembers = selectedMembers.filter(m => 
+                      session.members.find(sm => sm.memberId === m.id)?.isPresent
+                    );
+                    const membersWithAdditionalExpenses = new Set<string>();
+                    expenses.forEach(expense => {
+                      if (expense.memberIds && expense.memberIds.length > 0) {
+                        expense.memberIds.forEach(id => membersWithAdditionalExpenses.add(id));
+                      }
+                    });
+                    return new Set([
+                      ...presentMembers.map(m => m.id),
+                      ...Array.from(membersWithAdditionalExpenses)
+                    ]).size;
+                  })()}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="body2" color="text.secondary">
+                  Đã thanh toán
+                </Typography>
+                <Typography variant="h6" fontWeight="bold" color="success.main">
+                  {settlements.filter(s => s.isPaid).length}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="body2" color="text.secondary">
+                  Chưa thanh toán
+                </Typography>
+                <Typography variant="h6" fontWeight="bold" color="warning.main">
+                  {settlements.filter(s => !s.isPaid).length}
                 </Typography>
               </Grid>
             </Grid>
@@ -1735,6 +1877,7 @@ case 4: // Thanh toán
       </Card>
     </Box>
   );
+}
 
       case 5:
         return (
@@ -1835,6 +1978,36 @@ case 4: // Thanh toán
 
       default:
         return 'Unknown step';
+    }
+  };
+
+  const handleQrImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      // Kiểm tra kích thước file (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        showSnackbar('Kích thước ảnh không được vượt quá 5MB', 'error');
+        return;
+      }
+
+      // Kiểm tra loại file
+      if (!file.type.startsWith('image/')) {
+        showSnackbar('Vui lòng chọn file ảnh', 'error');
+        return;
+      }
+
+      const reader = new FileReader();
+      
+      reader.onloadend = () => {
+        setQrImage(reader.result as string);
+        showSnackbar('Đã tải ảnh QR thành công', 'success');
+      };
+      
+      reader.onerror = () => {
+        showSnackbar('Có lỗi khi tải ảnh QR', 'error');
+      };
+      
+      reader.readAsDataURL(file);
     }
   };
 

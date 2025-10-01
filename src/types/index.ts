@@ -66,6 +66,8 @@ export interface WaitingListMember {
   priority: number;
   memberName?: string;
   isCustom?: boolean;
+  replacementNote?: string; // ✅ Đảm bảo có field này
+
 }
 
 export interface Settlement {
@@ -76,6 +78,8 @@ export interface Settlement {
   paidAt?: Date;
   paymentMethod?: 'cash' | 'transfer' | 'card';
   notes?: string;
+  replacementNote?: string; // ✅ Đảm bảo có field này
+
 }
 
 export interface Session {
