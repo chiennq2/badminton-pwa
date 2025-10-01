@@ -43,6 +43,7 @@ import {
   TableHead,
   TableRow,
   Checkbox,
+  ListItemAvatar,
 } from '@mui/material';
 import { DatePicker, TimePicker } from '@mui/x-date-pickers';
 import { 
@@ -59,7 +60,13 @@ import {
   AccountBalance,
   CheckCircle,
   RadioButtonUnchecked,
+  DragHandle,
+  Schedule,
+  SwapHoriz,
+  Close,
+  Person,
 } from '@mui/icons-material';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import dayjs from 'dayjs';
@@ -73,6 +80,7 @@ import {
   generateDetailedSettlements,
   calculateMemberSettlement 
 } from '../utils';
+import { Snackbar } from '@mui/material'; // Thêm vào imports nếu chưa có
 
 interface SessionEditFormProps {
   open: boolean;
@@ -85,10 +93,12 @@ interface CustomMember {
   id: string;
   name: string;
   isCustom: boolean;
+  replacementNote?: string | ''; // ✅ THÊM: Ghi chú thay thế (ví dụ: "Thay thế cho Đỗ Minh")
+
 }
 
 interface SessionExpenseExtended extends SessionExpense {
-  memberIds: string[]; // Danh sách member chia tiền
+  memberIds: string[];
 }
 
 const steps = [
@@ -99,6 +109,32 @@ const steps = [
   'Thanh toán',
   'Xác nhận'
 ];
+
+const removeUndefinedFields = <T extends Record<string, any>>(obj: T): Partial<T> => {
+  const cleaned: any = {};
+  
+  Object.keys(obj).forEach(key => {
+    const value = obj[key];
+    if (value === undefined) return;
+    
+    if (Array.isArray(value)) {
+      cleaned[key] = value.map(item => {
+        if (typeof item === 'object' && item !== null) {
+          return removeUndefinedFields(item);
+        }
+        return item === undefined ? null : item;
+      }).filter(item => item !== null);
+    }
+    else if (typeof value === 'object' && value !== null) {
+      cleaned[key] = removeUndefinedFields(value);
+    }
+    else {
+      cleaned[key] = value;
+    }
+  });
+  
+  return cleaned;
+};
 
 const SessionEditForm: React.FC<SessionEditFormProps> = ({ 
   open, 
@@ -123,32 +159,27 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
   const [customWaitingName, setCustomWaitingName] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  // Court cost settings
   const [useAutoCourt, setUseAutoCourt] = useState(true);
   const [manualCourtCost, setManualCourtCost] = useState(0);
-
-  // Shuttlecock settings
   const [shuttlecockCount, setShuttlecockCount] = useState(2);
   const [shuttlecockPrice, setShuttlecockPrice] = useState(25000);
-
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editingMemberName, setEditingMemberName] = useState('');
+  // BỎ GIỚI HẠN maxParticipants - cho phép không giới hạn
   const validationSchemas = [
-    // Step 1: Basic Info
     Yup.object({
       name: Yup.string().required('Tên lịch là bắt buộc'),
       courtId: Yup.string().required('Vui lòng chọn sân'),
       date: Yup.date().required('Ngày là bắt buộc'),
       startTime: Yup.string().required('Giờ bắt đầu là bắt buộc'),
       endTime: Yup.string().required('Giờ kết thúc là bắt buộc'),
-      maxParticipants: Yup.number()
-        .min(2, 'Tối thiểu 2 người')
-        .max(20, 'Tối đa 20 người')
-        .required('Số người tối đa là bắt buộc'),
+      // BỎ validation cho maxParticipants
     }),
-    Yup.object({}), // Step 2
-    Yup.object({}), // Step 3
-    Yup.object({}), // Step 4
-    Yup.object({}), // Step 5
-    Yup.object({}), // Step 6
+    Yup.object({}),
+    Yup.object({}),
+    Yup.object({}),
+    Yup.object({}),
+    Yup.object({}),
   ];
 
   const formik = useFormik({
@@ -158,7 +189,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       date: new Date(),
       startTime: '19:00',
       endTime: '21:00',
-      maxParticipants: 8,
+      maxParticipants: 999, // Đặt giá trị cao để không giới hạn
       notes: '',
       status: 'scheduled' as Session['status'],
     },
@@ -171,183 +202,226 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       }
     },
   });
-
-// SessionEditForm.tsx - Sửa useEffect load session data
-useEffect(() => {
-  if (session && open) {
-    console.log('Loading session data:', session);
-    
-    formik.setValues({
-      name: session.name,
-      courtId: session.courtId,
-      date: session.date,
-      startTime: session.startTime,
-      endTime: session.endTime,
-      maxParticipants: session.maxParticipants,
-      notes: session.notes || '',
-      status: session.status,
-    });
-
-    // Load members (including custom members) - ƯU TIÊN memberName từ session
-    const sessionMembers: CustomMember[] = session.members.map(sm => {
-      const member = members?.find(m => m.id === sm.memberId);
+const [snackbar, setSnackbar] = useState({
+  open: false,
+  message: '',
+  severity: 'success' as 'success' | 'error' | 'info' | 'warning',
+});
+const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'success') => {
+  setSnackbar({
+    open: true,
+    message,
+    severity,
+  });
+};
+  // Load session data
+  useEffect(() => {
+    if (session && open) {
+      console.log('Loading session data:', session);
       
-      // Logic cải thiện: ưu tiên memberName từ session, sau đó mới tới database
-      const memberName = sm.memberName || member?.name || `Thành viên ${sm.memberId.slice(-4)}`;
-      
-      return {
-        id: sm.memberId,
-        name: memberName,
-        isCustom: sm.isCustom || !member, // Nếu không tìm thấy trong database thì là custom
-      };
-    });
-    console.log('Loading session members:', sessionMembers);
-    setSelectedMembers(sessionMembers);
+      formik.setValues({
+        name: session.name,
+        courtId: session.courtId,
+        date: session.date,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        maxParticipants: 999, // Không giới hạn
+        notes: session.notes || '',
+        status: session.status,
+      });
 
-    // Load waiting list (including custom members) - ƯU TIÊN memberName từ session
-    const waitingMembers: CustomMember[] = session.waitingList.map(wm => {
-      const member = members?.find(m => m.id === wm.memberId);
-      
-      // Logic cải thiện: ưu tiên memberName từ session, sau đó mới tới database  
-      const memberName = wm.memberName || member?.name || `Thành viên ${wm.memberId.slice(-4)}`;
-      
-      return {
-        id: wm.memberId,
-        name: memberName,
-        isCustom: wm.isCustom || !member, // Nếu không tìm thấy trong database thì là custom
-      };
-    });
-    console.log('Loading waiting members:', waitingMembers);
-    setWaitingList(waitingMembers);
+      const sessionMembers: CustomMember[] = session.members.map(sm => {
+        const member = members?.find(m => m.id === sm.memberId);
+        const memberName = sm.memberName || member?.name || `Thành viên ${sm.memberId.slice(-4)}`;
+        
+        return {
+          id: sm.memberId,
+          name: memberName,
+          isCustom: sm.isCustom || !member,
+          replacementNote: sm.replacementNote, // ✅ Đọc ghi chú
 
-    // Load expenses
-    const sessionExpenses: SessionExpenseExtended[] = session.expenses
-      .filter(exp => exp.type !== 'court' && exp.type !== 'shuttlecock')
-      .map(exp => ({
-        ...exp,
-        memberIds: exp.memberIds || sessionMembers.map(m => m.id), // Default all members if not specified
+        };
+      });
+      console.log('Loading session members:', sessionMembers);
+      setSelectedMembers(sessionMembers);
+
+      const waitingMembers: CustomMember[] = session.waitingList.map(wm => {
+        const member = members?.find(m => m.id === wm.memberId);
+        const memberName = wm.memberName || member?.name || `Thành viên ${wm.memberId.slice(-4)}`;
+        
+        return {
+          id: wm.memberId,
+          name: memberName,
+          isCustom: wm.isCustom || !member,
+        };
+      });
+      console.log('Loading waiting members:', waitingMembers);
+      setWaitingList(waitingMembers);
+
+      const sessionExpenses: SessionExpenseExtended[] = session.expenses
+        .filter(exp => exp.type !== 'court' && exp.type !== 'shuttlecock')
+        .map(exp => ({
+          ...exp,
+          memberIds: exp.memberIds || sessionMembers.map(m => m.id),
+        }));
+      console.log('Loading expenses:', sessionExpenses);
+      setExpenses(sessionExpenses);
+
+      setSettlements(session.settlements || []);
+
+      const courtExpense = session.expenses.find(exp => exp.type === 'court');
+      const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
+      
+      if (courtExpense) {
+        setManualCourtCost(courtExpense.amount);
+        setUseAutoCourt(false);
+      }
+      
+      if (shuttlecockExpense) {
+        const count = parseInt(shuttlecockExpense.description?.split(' ')[0] || '2');
+        setShuttlecockCount(count);
+        setShuttlecockPrice(shuttlecockExpense.amount / count);
+      }
+    }
+  }, [session, open]);
+
+  useEffect(() => {
+    if (session && open && members) {
+      setSelectedMembers(prev => prev.map(sm => {
+        if (sm.isCustom) return sm;
+        const member = members.find(m => m.id === sm.id);
+        return member ? { ...sm, name: member.name } : sm;
       }));
-    console.log('Loading expenses:', sessionExpenses);
-    setExpenses(sessionExpenses);
-
-    // Load settlements
-    setSettlements(session.settlements || []);
-
-    // Load court and shuttlecock settings
-    const courtExpense = session.expenses.find(exp => exp.type === 'court');
-    const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
-    
-    if (courtExpense) {
-      setManualCourtCost(courtExpense.amount);
-      setUseAutoCourt(false);
-    }
-    
-    if (shuttlecockExpense) {
-      const count = parseInt(shuttlecockExpense.description?.split(' ')[0] || '2');
-      setShuttlecockCount(count);
-      setShuttlecockPrice(shuttlecockExpense.amount / count);
-    }
-  }
-}, [session, open]); // Bỏ dependency 'members' để tránh loop
-
-// Thêm useEffect riêng cho việc sync members data
-useEffect(() => {
-  if (session && open && members) {
-    // Chỉ update name của members đã có từ database, giữ nguyên custom members
-    setSelectedMembers(prev => prev.map(sm => {
-      if (sm.isCustom) return sm; // Giữ nguyên custom members
       
-      const member = members.find(m => m.id === sm.id);
-      return member ? { ...sm, name: member.name } : sm;
-    }));
-    
-    setWaitingList(prev => prev.map(wm => {
-      if (wm.isCustom) return wm; // Giữ nguyên custom members
-      
-      const member = members.find(m => m.id === wm.id);
-      return member ? { ...wm, name: member.name } : wm;
-    }));
-  }
-}, [members]); // Chỉ chạy khi members data thay đổi
-// Hàm toggle trạng thái thanh toán
-const togglePaymentStatus = (memberId: string) => {
-  setSettlements(settlements.map(settlement => 
-    settlement.memberId === memberId 
-      ? { ...settlement, isPaid: !settlement.isPaid }
-      : settlement
-  ));
-};
+      setWaitingList(prev => prev.map(wm => {
+        if (wm.isCustom) return wm;
+        const member = members.find(m => m.id === wm.id);
+        return member ? { ...wm, name: member.name } : wm;
+      }));
+    }
+  }, [members]);
 
-// Hàm lưu session với đầy đủ thông tin settlements
-const handleSaveSession = async (values: any) => {
-  try {
-    const selectedCourt = courts?.find(c => c.id === values.courtId);
-    if (!selectedCourt) return;
+  const togglePaymentStatus = (memberId: string) => {
+    setSettlements(settlements.map(settlement => 
+      settlement.memberId === memberId 
+        ? { ...settlement, isPaid: !settlement.isPaid }
+        : settlement
+    ));
+  };
 
-    const duration = calculateSessionDuration(values.startTime, values.endTime);
-    const courtCost = useAutoCourt ? selectedCourt.pricePerHour * duration : manualCourtCost;
-    const shuttlecockCost = shuttlecockCount * shuttlecockPrice;
-    const additionalCosts = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-    const totalCost = courtCost + shuttlecockCost + additionalCosts;
+  // QUAN TRỌNG: Hàm lưu session với đầy đủ members và waitingList
+  const handleSaveSession = async (values: any) => {
+    try {
+      const selectedCourt = courts?.find(c => c.id === values.courtId);
+      if (!selectedCourt) return;
 
-    // Tạo danh sách expenses với memberIds cho chi phí bổ sung
-    const sessionExpenses: SessionExpense[] = [
-      // Tiền sân
-      {
-        id: 'court-cost',
-        name: 'Tiền sân',
-        amount: courtCost,
-        type: 'court',
-        description: useAutoCourt 
-          ? `${duration} giờ x ${formatCurrency(selectedCourt.pricePerHour)}`
-          : 'Nhập thủ công',
-      },
-      // Tiền cầu
-      {
-        id: 'shuttlecock-cost',
-        name: 'Tiền cầu',
-        amount: shuttlecockCost,
-        type: 'shuttlecock',
-        description: `${shuttlecockCount} quả x ${formatCurrency(shuttlecockPrice)}`,
-      },
-      // Chi phí bổ sung với thông tin member
-      ...expenses.map(exp => ({
-        id: exp.id,
-        name: exp.name,
-        amount: exp.amount,
-        type: exp.type,
-        description: `Chia cho ${exp.memberIds.length} người`,
-        memberIds: exp.memberIds, // Lưu thông tin member chia tiền
-      }))
-    ];
+      const duration = calculateSessionDuration(values.startTime, values.endTime);
+      const courtCost = useAutoCourt ? selectedCourt.pricePerHour * duration : manualCourtCost;
+      const shuttlecockCost = shuttlecockCount * shuttlecockPrice;
+      const additionalCosts = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+      const totalCost = courtCost + shuttlecockCost + additionalCosts;
 
-    const presentMembers = selectedMembers.filter(member => {
-      const existingMember = session.members.find(m => m.memberId === member.id);
-      return existingMember?.isPresent || false;
-    });
+      const sessionExpenses: SessionExpense[] = [
+        {
+          id: 'court-cost',
+          name: 'Tiền sân',
+          amount: courtCost,
+          type: 'court',
+          description: useAutoCourt 
+            ? `${duration} giờ x ${formatCurrency(selectedCourt.pricePerHour)}`
+            : 'Nhập thủ công',
+        },
+        {
+          id: 'shuttlecock-cost',
+          name: 'Tiền cầu',
+          amount: shuttlecockCost,
+          type: 'shuttlecock',
+          description: `${shuttlecockCount} quả x ${formatCurrency(shuttlecockPrice)}`,
+        },
+        ...expenses.map(exp => ({
+          id: exp.id,
+          name: exp.name,
+          amount: exp.amount,
+          type: exp.type,
+          description: `Chia cho ${exp.memberIds.length} người`,
+          memberIds: exp.memberIds,
+        }))
+      ];
 
-    const baseSharedCost = presentMembers.length > 0 ? (courtCost + shuttlecockCost) / presentMembers.length : 0;
-    
-    const sessionData = {
-      // ... other session data
-      expenses: sessionExpenses,
-      totalCost,
-      costPerPerson: baseSharedCost,
-      settlements, // Lưu trạng thái thanh toán
-      // ... rest of data
-    };
+      const presentMembers = selectedMembers.filter(member => {
+        const existingMember = session.members.find(m => m.memberId === member.id);
+        return existingMember?.isPresent || false;
+      });
 
-    await updateSessionMutation.mutateAsync({
-      id: session.id,
-      data: sessionData,
-    });
+      const baseSharedCost = presentMembers.length > 0 
+        ? (courtCost + shuttlecockCost) / presentMembers.length 
+        : 0;
 
-    onSuccess();
-    handleClose();
-  } catch (error) {
-    console.error('Error updating session:', error);
-  }
-};
+      // LƯU ĐẦY ĐỦ MEMBERS VÀ WAITING LIST
+      const sessionData = {
+        ...values,
+        // Lưu đầy đủ thành viên
+        members: selectedMembers.map(member => {
+          const existingMember = session.members.find(m => m.memberId === member.id);
+          const memberData: any = {
+            memberId: member.id,
+            memberName: member.name,
+            isPresent: existingMember?.isPresent || false,
+            isCustom: member.isCustom,
+          };
+          
+          // CHỈ THÊM nếu có giá trị
+          if (member.replacementNote) {
+            memberData.replacementNote = member.replacementNote;
+          }
+          
+          return memberData;
+        }),
+        // Lưu đầy đủ sảnh chờ
+        waitingList: waitingList.map((member, index) => {
+          const waitingData: any = {
+            memberId: member.id,
+            memberName: member.name,
+            addedAt: new Date(),
+            priority: index + 1,
+            isCustom: member.isCustom,
+          };
+          
+          if (member.replacementNote) {
+            waitingData.replacementNote = member.replacementNote;
+          }
+          
+          return waitingData;
+        }),
+        currentParticipants: selectedMembers.length,
+        maxParticipants: 999, // Không giới hạn
+        expenses: sessionExpenses,
+        totalCost,
+        costPerPerson: baseSharedCost,
+        settlements,
+      };
+
+      console.log('Saving session with data:', {
+        membersCount: sessionData.members.length,
+        waitingListCount: sessionData.waitingList.length,
+        members: sessionData.members,
+        waitingList: sessionData.waitingList,
+      });
+
+      const cleanedData = removeUndefinedFields(sessionData);
+
+
+      await updateSessionMutation.mutateAsync({
+        id: session.id,
+        data: cleanedData,
+      });
+
+      onSuccess();
+      handleClose();
+    } catch (error) {
+      console.error('Error updating session:', error);
+    }
+  };
 
   const handleDeleteSession = async () => {
     try {
@@ -391,14 +465,9 @@ const handleSaveSession = async (values: any) => {
       isCustom: false,
     };
     
-    if (selectedMembers.length < formik.values.maxParticipants) {
-      if (!selectedMembers.some(m => m.id === member.id)) {
-        setSelectedMembers([...selectedMembers, customMember]);
-      }
-    } else {
-      if (!waitingList.some(m => m.id === member.id) && !selectedMembers.some(m => m.id === member.id)) {
-        setWaitingList([...waitingList, customMember]);
-      }
+    // BỎ GIỚI HẠN - thêm trực tiếp vào danh sách
+    if (!selectedMembers.some(m => m.id === member.id)) {
+      setSelectedMembers([...selectedMembers, customMember]);
     }
   };
 
@@ -416,12 +485,7 @@ const handleSaveSession = async (values: any) => {
       isCustom: true,
     };
 
-    if (selectedMembers.length < formik.values.maxParticipants) {
-      setSelectedMembers([...selectedMembers, customMember]);
-    } else {
-      setWaitingList([...waitingList, customMember]);
-    }
-    
+    setSelectedMembers([...selectedMembers, customMember]);
     setCustomMemberName('');
   };
 
@@ -438,26 +502,102 @@ const handleSaveSession = async (values: any) => {
     setCustomWaitingName('');
   };
 
-  const removeMember = (member: CustomMember) => {
-    setSelectedMembers(selectedMembers.filter(m => m.id !== member.id));
+const removeMember = (member: CustomMember) => {
+  const removedMemberName = member.name;
+  const newSelectedMembers = selectedMembers.filter(m => m.id !== member.id);
+  setSelectedMembers(newSelectedMembers);
+  
+  // Kiểm tra có thành viên trong sảnh chờ không
+  if (waitingList.length > 0) {
+    const firstWaiting = waitingList[0];
+    const addedMemberName = firstWaiting.name;
     
-    // Move first waiting member to main list if there's space
-    if (waitingList.length > 0) {
-      const firstWaiting = waitingList[0];
-      setWaitingList(waitingList.slice(1));
-      setSelectedMembers(prev => [...prev.filter(m => m.id !== member.id), firstWaiting]);
-    }
-  };
+    // ✅ THÊM GHI CHÚ THAY THẾ cho thành viên mới
+    const memberWithNote: CustomMember = {
+      ...firstWaiting,
+      replacementNote: `Thay thế cho ${removedMemberName}`, // ✅ Lưu ghi chú
+    };
+    
+    // Xóa khỏi sảnh chờ
+    setWaitingList(waitingList.slice(1));
+    
+    // Thêm vào danh sách với ghi chú
+    setSelectedMembers([...newSelectedMembers, memberWithNote]);
+    
+    // Hiển thị thông báo
+    showSnackbar(
+      `🔄 Tự động chuyển: ${removedMemberName} → ${addedMemberName}`,
+      'info'
+    );
+  } else {
+    showSnackbar(
+      `✓ Đã xóa ${removedMemberName} khỏi danh sách`,
+      'success'
+    );
+  }
+};
+
+// Bắt đầu chỉnh sửa tên
+const startEditingMemberName = (member: CustomMember) => {
+  setEditingMemberId(member.id);
+  setEditingMemberName(member.name);
+};
+
+// Hủy chỉnh sửa
+const cancelEditingMemberName = () => {
+  setEditingMemberId(null);
+  setEditingMemberName('');
+};
+
+// Lưu tên mới
+const saveMemberName = (memberId: string) => {
+  if (!editingMemberName.trim()) {
+    showSnackbar('Tên không được để trống', 'error');
+    return;
+  }
+  
+  // Cập nhật tên trong danh sách
+  setSelectedMembers(selectedMembers.map(m => 
+    m.id === memberId 
+      ? { ...m, name: editingMemberName.trim() }
+      : m
+  ));
+  
+  // Reset state
+  setEditingMemberId(null);
+  setEditingMemberName('');
+  
+  showSnackbar('Đã cập nhật tên thành viên', 'success');
+};
+
+// Xóa ghi chú thay thế
+const removeReplacementNote = (memberId: string) => {
+  setSelectedMembers(selectedMembers.map(m => 
+    m.id === memberId 
+      ? { ...m, replacementNote: undefined }
+      : m
+  ));
+};
 
   const removeFromWaitingList = (member: CustomMember) => {
     setWaitingList(waitingList.filter(m => m.id !== member.id));
   };
 
   const moveFromWaitingToMain = (member: CustomMember) => {
-    if (selectedMembers.length >= formik.values.maxParticipants) return;
-    
+    // BỎ GIỚI HẠN - cho phép chuyển tự do
     setWaitingList(waitingList.filter(m => m.id !== member.id));
     setSelectedMembers([...selectedMembers, member]);
+  };
+
+  // THÊM HÀM XỬ LÝ DRAG & DROP CHO SẢNH CHỜ
+  const handleWaitingListReorder = (result: DropResult) => {
+    if (!result.destination) return;
+
+    const items = Array.from(waitingList);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setWaitingList(items);
   };
 
   const addExpense = () => {
@@ -467,12 +607,11 @@ const handleSaveSession = async (values: any) => {
       amount: 0,
       type: 'other',
       description: '',
-      memberIds: selectedMembers.map(m => m.id), // Default all members
+      memberIds: selectedMembers.map(m => m.id),
     };
     setExpenses([...expenses, newExpense]);
   };
 
-  // Hàm cập nhật expense
   const updateExpense = (id: string, field: keyof SessionExpenseExtended, value: any) => {
     setExpenses(expenses.map(exp => 
       exp.id === id ? { ...exp, [field]: value } : exp
@@ -486,7 +625,6 @@ const handleSaveSession = async (values: any) => {
   const toggleAttendance = (memberId: string) => {
     const updatedMembers = selectedMembers.map(member => {
       if (member.id === memberId) {
-        // Update in session members
         const currentSessionMember = session.members.find(m => m.memberId === memberId);
         if (currentSessionMember) {
           currentSessionMember.isPresent = !currentSessionMember.isPresent;
@@ -565,6 +703,10 @@ const handleSaveSession = async (values: any) => {
                   onChange={(newValue) => {
                     formik.setFieldValue('date', newValue?.toDate());
                   }}
+                                  dayOfWeekFormatter={(day) => {  // ✅ THÊM
+                  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                  return dayNames[day];
+                }}
                   slotProps={{
                     textField: {
                       fullWidth: true,
@@ -754,197 +896,442 @@ const handleSaveSession = async (values: any) => {
               </Box>
             )}
 
-            <Card>
-              <CardContent>
-                <Typography variant="subtitle1" gutterBottom>
-                  Danh sách tham gia & Điểm danh
-                </Typography>
-                {selectedMembers.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    Chưa có thành viên nào được chọn
-                  </Typography>
-                ) : (
-                  <List dense>
-                    {selectedMembers.map((member) => {
-                      const sessionMember = session.members.find(sm => sm.memberId === member.id);
-                      const isPresent = sessionMember?.isPresent || false;
-                      
-                      return (
-                        <ListItem key={member.id}>
-                          <Checkbox
-                            checked={isPresent}
-                            onChange={() => toggleAttendance(member.id)}
+            {/* ===== DANH SÁCH THÀNH VIÊN VỚI CHI CHÚ VÀ CHỈNH SỬA ===== */}
+      <Card>
+        <CardContent>
+          <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+            <Groups sx={{ mr: 1 }} />
+            Danh sách tham gia ({selectedMembers.length})
+          </Typography>
+          
+          {selectedMembers.length === 0 ? (
+            <Alert severity="warning">
+              Chưa có thành viên nào được chọn
+            </Alert>
+          ) : (
+            <List dense>
+              {selectedMembers.map((member, index) => {
+                const isEditing = editingMemberId === member.id;
+                
+                return (
+                  <ListItem 
+                    key={member.id} 
+                    divider={index < selectedMembers.length - 1}
+                    sx={{
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      py: 1.5,
+                      '&:hover': {
+                        backgroundColor: 'action.hover',
+                      },
+                    }}
+                  >
+                    {/* Dòng 1: Avatar + Tên + Actions */}
+                    <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <ListItemAvatar>
+                        <Avatar 
+                          sx={{ 
+                            bgcolor: member.isCustom ? 'secondary.main' : 'primary.main',
+                            width: 36,
+                            height: 36,
+                          }}
+                        >
+                          {member.isCustom ? <Person /> : member.name.charAt(0)}
+                        </Avatar>
+                      </ListItemAvatar>
+
+                      {/* Tên thành viên - Có thể chỉnh sửa */}
+                      {isEditing ? (
+                        <Box sx={{ flex: 1, display: 'flex', gap: 1, alignItems: 'center' }}>
+                          <TextField
                             size="small"
-                            sx={{ mr: 1 }}
+                            value={editingMemberName}
+                            onChange={(e) => setEditingMemberName(e.target.value)}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                saveMemberName(member.id);
+                              } else if (e.key === 'Escape') {
+                                cancelEditingMemberName();
+                              }
+                            }}
+                            autoFocus
+                            sx={{ flex: 1 }}
                           />
-                          <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                            {member.name.charAt(0).toUpperCase()}
-                          </Avatar>
-                          <ListItemText
-                            primary={
-                              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                {member.name}
-                                {member.isCustom && (
-                                  <Chip 
-                                    label="Tùy chỉnh" 
-                                    size="small" 
-                                    sx={{ ml: 1 }} 
-                                    variant="outlined"
-                                  />
-                                )}
-                                {isPresent && (
-                                  <Chip 
-                                    label="Có mặt" 
-                                    color="success" 
-                                    size="small" 
-                                    sx={{ ml: 1 }} 
-                                  />
-                                )}
-                              </Box>
-                            }
-                            secondary={member.isCustom ? 'Tùy chỉnh' : 'Từ danh sách'}
-                          />
-                          <ListItemSecondaryAction>
+                          <IconButton
+                            size="small"
+                            color="primary"
+                            onClick={() => saveMemberName(member.id)}
+                          >
+                            <CheckCircle />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={cancelEditingMemberName}
+                          >
+                            <Cancel />
+                          </IconButton>
+                        </Box>
+                      ) : (
+                        <Box sx={{ flex: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="body1" fontWeight="medium">
+                              {member.name}
+                            </Typography>
+                            
+                            {/* Badge tùy chỉnh */}
+                            {member.isCustom && (
+                              <Chip 
+                                label="Tùy chỉnh" 
+                                size="small" 
+                                variant="outlined"
+                                color="secondary"
+                              />
+                            )}
+                            
+                            {/* Nút chỉnh sửa tên */}
+                            <Tooltip title="Chỉnh sửa tên">
+                              <IconButton
+                                size="small"
+                                onClick={() => startEditingMemberName(member)}
+                                sx={{ 
+                                  opacity: 0.6,
+                                  '&:hover': { opacity: 1 },
+                                }}
+                              >
+                                <Edit fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+
+                          <Typography variant="caption" color="text.secondary">
+                            {member.isCustom ? 'Tên tùy chỉnh' : 'Từ danh sách'}
+                          </Typography>
+                        </Box>
+                      )}
+
+                      {/* Nút xóa */}
+                      {!isEditing && (
+                        <ListItemSecondaryAction>
+                          <Tooltip title="Xóa khỏi danh sách">
                             <IconButton
                               edge="end"
                               onClick={() => removeMember(member)}
                               size="small"
+                              color="error"
                             >
                               <Remove />
                             </IconButton>
-                          </ListItemSecondaryAction>
-                        </ListItem>
-                      );
-                    })}
-                  </List>
-                )}
-              </CardContent>
-            </Card>
+                          </Tooltip>
+                        </ListItemSecondaryAction>
+                      )}
+                    </Box>
+
+                    {/* Dòng 2: Ghi chú thay thế (nếu có) */}
+                    {member.replacementNote && (
+                      <Box 
+                        sx={{ 
+                          mt: 1, 
+                          ml: 6, 
+                          width: 'calc(100% - 48px)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 1,
+                        }}
+                      >
+                        <Alert 
+                          severity="info" 
+                          variant="outlined"
+                          sx={{ 
+                            width: '100%',
+                            py: 0,
+                            px: 1,
+                            fontSize: '0.75rem',
+                            '& .MuiAlert-icon': {
+                              fontSize: '1rem',
+                            },
+                          }}
+                          icon={<SwapHoriz fontSize="small" />}
+                          action={
+                            <Tooltip title="Xóa ghi chú">
+                              <IconButton
+                                size="small"
+                                onClick={() => removeReplacementNote(member.id)}
+                                sx={{ p: 0.5 }}
+                              >
+                                <Close fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          }
+                        >
+                          {member.replacementNote}
+                        </Alert>
+                      </Box>
+                    )}
+                  </ListItem>
+                );
+              })}
+            </List>
+          )}
+
+          {/* Hướng dẫn */}
+          {selectedMembers.length > 0 && (
+            <Alert severity="info" sx={{ mt: 2 }} icon={false}>
+              <Typography variant="caption">
+                💡 <strong>Mẹo:</strong> Nhấn vào icon <Edit fontSize="inherit" /> để chỉnh sửa tên thành viên trực tiếp
+              </Typography>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
           </Box>
         );
 
-      case 2:
-        return (
-          <Box sx={{ pt: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Sảnh chờ ({waitingList.length} người)
-            </Typography>
+// COPY TOÀN BỘ CODE NÀY VÀ THAY THẾ case 2: TRONG SessionEditForm.tsx
 
-            <Tabs value={waitingTabValue} onChange={(_, newValue) => setWaitingTabValue(newValue)} sx={{ mb: 2 }}>
-              <Tab label="Từ danh sách" />
-              <Tab label="Tùy chỉnh" />
-            </Tabs>
+case 2:
+  return (
+    <Box sx={{ pt: 2 }}>
+      <Typography variant="h6" gutterBottom>
+        Sảnh chờ ({waitingList.length} người)
+      </Typography>
 
-            {waitingTabValue === 0 && (
-              <Box sx={{ mb: 2 }}>
-                <Autocomplete
-                  options={members?.filter(member => 
-                    member.isActive && 
-                    !selectedMembers.some(sm => sm.id === member.id) &&
-                    !waitingList.some(wm => wm.id === member.id)
-                  ) || []}
-                  getOptionLabel={(option) => `${option.name} (${option.skillLevel})`}
-                  onChange={(_, value) => {
-                    if (value) {
-                      const customMember: CustomMember = {
-                        id: value.id,
-                        name: value.name,
-                        isCustom: false,
-                      };
-                      setWaitingList([...waitingList, customMember]);
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField {...params} label="Thêm vào sảnh chờ từ danh sách" />
-                  )}
-                />
-              </Box>
+      <Tabs value={waitingTabValue} onChange={(_, newValue) => setWaitingTabValue(newValue)} sx={{ mb: 2 }}>
+        <Tab label="Từ danh sách" />
+        <Tab label="Tùy chỉnh" />
+      </Tabs>
+
+      {/* TAB 0: Thêm từ danh sách thành viên */}
+      {waitingTabValue === 0 && (
+        <Box sx={{ mb: 2 }}>
+          <Autocomplete
+            options={members?.filter(member => 
+              member.isActive && 
+              !selectedMembers.some(sm => sm.id === member.id) &&
+              !waitingList.some(wm => wm.id === member.id)
+            ) || []}
+            getOptionLabel={(option) => `${option.name} (${option.skillLevel})`}
+            onChange={(_, value) => {
+              if (value) {
+                const customMember: CustomMember = {
+                  id: value.id,
+                  name: value.name,
+                  isCustom: false,
+                };
+                setWaitingList([...waitingList, customMember]);
+              }
+            }}
+            renderInput={(params) => (
+              <TextField {...params} label="Thêm vào sảnh chờ từ danh sách" />
             )}
-
-            {waitingTabValue === 1 && (
-              <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <TextField
-                    fullWidth
-                    label="Nhập tên thành viên chờ"
-                    value={customWaitingName}
-                    onChange={(e) => setCustomWaitingName(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        addCustomWaitingMember();
-                      }
-                    }}
-                  />
-                  <Button
-                    variant="contained"
-                    onClick={addCustomWaitingMember}
-                    disabled={!customWaitingName.trim()}
-                    startIcon={<PersonAdd />}
-                  >
-                    Thêm
-                  </Button>
+            renderOption={(props, option) => (
+              <Box component="li" {...props}>
+                <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                  {option.name.charAt(0)}
+                </Avatar>
+                <Box>
+                  <Typography variant="body2">{option.name}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {option.skillLevel}
+                  </Typography>
                 </Box>
               </Box>
             )}
+          />
+        </Box>
+      )}
 
-            <Card>
-              <CardContent>
-                <Typography variant="subtitle1" gutterBottom>
-                  Danh sách chờ
-                </Typography>
-                {waitingList.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    Sảnh chờ trống
-                  </Typography>
-                ) : (
-                  <List dense>
+      {/* TAB 1: Thêm tên tùy chỉnh */}
+      {waitingTabValue === 1 && (
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <TextField
+              fullWidth
+              label="Nhập tên thành viên chờ"
+              value={customWaitingName}
+              onChange={(e) => setCustomWaitingName(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  addCustomWaitingMember();
+                }
+              }}
+            />
+            <Button
+              variant="contained"
+              onClick={addCustomWaitingMember}
+              disabled={!customWaitingName.trim()}
+              startIcon={<PersonAdd />}
+            >
+              Thêm
+            </Button>
+          </Box>
+        </Box>
+      )}
+
+      {/* ===== DANH SÁCH CHỜ VỚI DRAG-AND-DROP ===== */}
+      <Card>
+        <CardContent>
+          <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+            <Schedule sx={{ mr: 1 }} />
+            Danh sách chờ ({waitingList.length})
+            {waitingList.length > 0 && (
+              <Chip 
+                label="Kéo thả để sắp xếp" 
+                size="small" 
+                sx={{ ml: 2 }} 
+                color="info"
+                variant="outlined"
+                icon={<DragHandle />}
+              />
+            )}
+          </Typography>
+          
+          {waitingList.length === 0 ? (
+            <Alert severity="info" sx={{ mt: 1 }}>
+              Sảnh chờ trống. Thêm thành viên vào sảnh chờ để quản lý danh sách dự phòng.
+            </Alert>
+          ) : (
+            <DragDropContext onDragEnd={handleWaitingListReorder}>
+              <Droppable droppableId="waiting-list">
+                {(provided, snapshot) => (
+                  <List
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    dense
+                    sx={{
+                      backgroundColor: snapshot.isDraggingOver ? 'action.hover' : 'transparent',
+                      borderRadius: 1,
+                      transition: 'background-color 0.2s ease',
+                      p: 1,
+                    }}
+                  >
                     {waitingList.map((member, index) => (
-                      <ListItem key={member.id}>
-                        <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                          {(index + 1)}
-                        </Avatar>
-                        <ListItemText
-                          primary={
-                            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                              {`${index + 1}. ${member.name}`}
-                              {member.isCustom && (
-                                <Chip 
-                                  label="Tùy chỉnh" 
-                                  size="small" 
-                                  sx={{ ml: 1 }} 
-                                  variant="outlined"
-                                />
-                              )}
-                            </Box>
-                          }
-                          secondary={member.isCustom ? 'Tùy chỉnh' : 'Từ danh sách'}
-                        />
-                        <ListItemSecondaryAction>
-                          <ButtonGroup size="small">
-                            {selectedMembers.length < formik.values.maxParticipants && (
-                              <Button
-                                onClick={() => moveFromWaitingToMain(member)}
-                                startIcon={<Add />}
-                              >
-                                Vào danh sách
-                              </Button>
-                            )}
-                            <IconButton
-                              onClick={() => removeFromWaitingList(member)}
-                              size="small"
+                      <Draggable 
+                        key={member.id} 
+                        draggableId={member.id} 
+                        index={index}
+                      >
+                        {(provided, snapshot) => (
+                          <ListItem
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            sx={{
+                              backgroundColor: snapshot.isDragging ? 'primary.light' : 'background.paper',
+                              borderRadius: 1,
+                              mb: 1,
+                              border: '1px solid',
+                              borderColor: snapshot.isDragging ? 'primary.main' : 'divider',
+                              boxShadow: snapshot.isDragging ? 3 : 0,
+                              transition: 'all 0.2s ease',
+                              '&:hover': {
+                                backgroundColor: 'action.hover',
+                              },
+                            }}
+                          >
+                            {/* Icon Kéo Thả */}
+                            <Box
+                              {...provided.dragHandleProps}
+                              sx={{
+                                mr: 1,
+                                cursor: 'grab',
+                                display: 'flex',
+                                alignItems: 'center',
+                                color: 'text.secondary',
+                                '&:active': {
+                                  cursor: 'grabbing',
+                                },
+                                '&:hover': {
+                                  color: 'primary.main',
+                                },
+                              }}
                             >
-                              <Delete />
-                            </IconButton>
-                          </ButtonGroup>
-                        </ListItemSecondaryAction>
-                      </ListItem>
+                              <DragHandle />
+                            </Box>
+
+                            {/* Avatar với số thứ tự */}
+                            <Avatar 
+                              sx={{ 
+                                mr: 2, 
+                                width: 36, 
+                                height: 36,
+                                bgcolor: member.isCustom ? 'secondary.main' : 'warning.main',
+                                fontWeight: 'bold',
+                              }}
+                            >
+                              {index + 1}
+                            </Avatar>
+
+                            {/* Thông tin thành viên */}
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                                  <Typography variant="body1" fontWeight="medium">
+                                    {member.name}
+                                  </Typography>
+                                  {member.isCustom && (
+                                    <Chip 
+                                      label="Tùy chỉnh" 
+                                      size="small" 
+                                      sx={{ ml: 1 }} 
+                                      variant="outlined"
+                                      color="secondary"
+                                    />
+                                  )}
+                                </Box>
+                              }
+                              secondary={
+                                <Typography variant="caption" color="text.secondary">
+                                  {member.isCustom ? 'Tên tùy chỉnh' : 'Từ danh sách thành viên'}
+                                </Typography>
+                              }
+                            />
+
+                            {/* Nút hành động */}
+                            <ListItemSecondaryAction>
+                              <ButtonGroup size="small" variant="outlined">
+                                <Tooltip title="Chuyển vào danh sách chính">
+                                  <Button
+                                    onClick={() => moveFromWaitingToMain(member)}
+                                    color="primary"
+                                    startIcon={<Add />}
+                                  >
+                                    Thêm
+                                  </Button>
+                                </Tooltip>
+                                <Tooltip title="Xóa khỏi sảnh chờ">
+                                  <Button
+                                    onClick={() => removeFromWaitingList(member)}
+                                    color="error"
+                                    startIcon={<Delete />}
+                                  >
+                                    Xóa
+                                  </Button>
+                                </Tooltip>
+                              </ButtonGroup>
+                            </ListItemSecondaryAction>
+                          </ListItem>
+                        )}
+                      </Draggable>
                     ))}
+                    {provided.placeholder}
                   </List>
                 )}
-              </CardContent>
-            </Card>
-          </Box>
-        );
+              </Droppable>
+            </DragDropContext>
+          )}
+
+          {/* Hướng dẫn sử dụng */}
+          {waitingList.length > 0 && (
+            <Alert severity="info" sx={{ mt: 2 }} icon={false}>
+              <Typography variant="caption">
+                💡 <strong>Mẹo:</strong> Kéo icon ≡ để sắp xếp lại thứ tự ưu tiên trong sảnh chờ
+              </Typography>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+    </Box>
+  );
 
       case 3:
         const selectedCourt = courts?.find(c => c.id === formik.values.courtId);
@@ -1561,6 +1948,29 @@ case 4: // Thanh toán
             {deleteSessionMutation.isPending ? 'Đang xóa...' : 'Xóa lịch đánh'}
           </Button>
         </DialogActions>
+
+    {/* ===== THÊM SNACKBAR MỚI ===== */}
+    <Snackbar
+      open={snackbar.open}
+      autoHideDuration={4000}
+      onClose={() => setSnackbar({ ...snackbar, open: false })}
+      anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+    >
+      <Alert
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        severity={snackbar.severity}
+        sx={{ 
+          width: '100%',
+          fontSize: '1rem',
+          fontWeight: 'bold',
+          boxShadow: 3,
+        }}
+        variant="filled"
+        icon={snackbar.severity === 'info' ? <SwapHoriz /> : undefined}
+      >
+        {snackbar.message}
+      </Alert>
+    </Snackbar>
       </Dialog>
     </>
   );

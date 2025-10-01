@@ -1,22 +1,34 @@
 const CACHE_NAME = 'badminton-pwa-v1';
+
+// Only cache files that definitely exist
 const STATIC_CACHE_URLS = [
   '/',
-  '/manifest.json',
-  '/pwa-192x192.png',
-  '/pwa-512x512.png',
 ];
 
-// Install event
+// Install event - with error handling
 self.addEventListener('install', (event) => {
   console.log('Service Worker installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Caching static assets');
-        return cache.addAll(STATIC_CACHE_URLS);
+        // Cache each URL individually to handle failures gracefully
+        return Promise.allSettled(
+          STATIC_CACHE_URLS.map((url) => {
+            return cache.add(url).catch((error) => {
+              console.warn(`Failed to cache ${url}:`, error);
+              return Promise.resolve(); // Continue even if one fails
+            });
+          })
+        );
       })
       .then(() => {
-        console.log('Static assets cached');
+        console.log('Static assets cached successfully');
+        return self.skipWaiting();
+      })
+      .catch((error) => {
+        console.error('Cache installation failed:', error);
+        // Still skip waiting to activate the service worker
         return self.skipWaiting();
       })
   );
@@ -51,8 +63,15 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Skip Chrome extensions
+  if (event.request.url.startsWith('chrome-extension://')) {
+    return;
+  }
+
   // Handle API requests with network-first strategy
-  if (event.request.url.includes('/api/') || event.request.url.includes('firestore')) {
+  if (event.request.url.includes('/api/') || 
+      event.request.url.includes('firestore') ||
+      event.request.url.includes('firebase')) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
@@ -61,10 +80,14 @@ self.addEventListener('fetch', (event) => {
           caches.open(CACHE_NAME)
             .then((cache) => {
               cache.put(event.request, responseToCache);
+            })
+            .catch((error) => {
+              console.warn('Failed to cache API response:', error);
             });
           return response;
         })
-        .catch(() => {
+        .catch((error) => {
+          console.log('Network request failed, trying cache:', error);
           // Fallback to cache
           return caches.match(event.request);
         })
@@ -93,9 +116,23 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME)
               .then((cache) => {
                 cache.put(event.request, responseToCache);
+              })
+              .catch((error) => {
+                console.warn('Failed to cache resource:', error);
               });
             
             return response;
+          })
+          .catch((error) => {
+            console.warn('Fetch failed:', error);
+            // Return a basic offline response
+            return new Response('Offline', {
+              status: 503,
+              statusText: 'Service Unavailable',
+              headers: new Headers({
+                'Content-Type': 'text/plain'
+              })
+            });
           });
       })
   );
@@ -106,8 +143,9 @@ self.addEventListener('sync', (event) => {
   if (event.tag === 'background-sync') {
     console.log('Background sync triggered');
     event.waitUntil(
-      // Here you would sync offline data with Firebase
-      syncOfflineData()
+      syncOfflineData().catch((error) => {
+        console.error('Background sync failed:', error);
+      })
     );
   }
 });
@@ -118,25 +156,12 @@ self.addEventListener('push', (event) => {
   
   const options = {
     body: event.data ? event.data.text() : 'Có thông báo mới từ ứng dụng cầu lông',
-    icon: '/pwa-192x192.png',
-    badge: '/pwa-64x64.png',
+    icon: '/favicon.ico', // Use favicon instead of missing icons
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),
       primaryKey: 1
-    },
-    actions: [
-      {
-        action: 'explore',
-        title: 'Xem chi tiết',
-        icon: '/icons/checkmark.png'
-      },
-      {
-        action: 'close',
-        title: 'Đóng',
-        icon: '/icons/xmark.png'
-      }
-    ]
+    }
   };
   
   event.waitUntil(
@@ -160,10 +185,8 @@ self.addEventListener('notificationclick', (event) => {
 // Sync offline data function
 async function syncOfflineData() {
   try {
-    // This would contain logic to sync offline changes with Firebase
     console.log('Syncing offline data...');
     
-    // Example: Get offline data from IndexedDB and sync with Firestore
     const offlineData = await getOfflineData();
     if (offlineData && offlineData.length > 0) {
       await syncWithFirestore(offlineData);
@@ -173,6 +196,7 @@ async function syncOfflineData() {
     console.log('Offline data synced successfully');
   } catch (error) {
     console.error('Error syncing offline data:', error);
+    throw error; // Re-throw to handle in sync event
   }
 }
 
