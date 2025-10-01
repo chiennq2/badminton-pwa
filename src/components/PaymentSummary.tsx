@@ -31,8 +31,26 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({ session, members }) => 
 
   // Lấy danh sách thành viên có mặt
   const presentMembers = session.members.filter(m => m.isPresent);
+  const additionalExpenses = session.expenses.filter(exp => exp.type === 'other');
+  // Lấy tất cả memberIds từ chi phí bổ sung
+  const membersWithAdditionalExpenses = new Set<string>();
+  additionalExpenses.forEach(expense => {
+    if (expense.memberIds && expense.memberIds.length > 0) {
+      expense.memberIds.forEach(memberId => membersWithAdditionalExpenses.add(memberId));
+    }
+  });
+  // Kết hợp: thành viên có mặt + thành viên có chi phí bổ sung
+  const allRelevantMemberIds = new Set([
+    ...presentMembers.map(m => m.memberId),
+    ...Array.from(membersWithAdditionalExpenses)
+  ]);
 
-  if (presentMembers.length === 0) {
+  // Lấy danh sách session members liên quan
+  const relevantMembers = session.members.filter(m => 
+    allRelevantMemberIds.has(m.memberId)
+  );
+  
+  if (relevantMembers.length === 0) {
     return (
       <Card>
         <CardContent>
@@ -43,7 +61,7 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({ session, members }) => 
             </Typography>
           </Box>
           <Typography variant="body2" color="text.secondary" textAlign="center" py={3}>
-            Chưa có thành viên nào có mặt
+            Chưa có thành viên nào cần thanh toán
           </Typography>
         </CardContent>
       </Card>
@@ -61,7 +79,7 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({ session, members }) => 
   };
 
   // Tính toán chi tiết cho từng thành viên
-  const memberPayments = presentMembers.map(sessionMember => {
+  const memberPayments = relevantMembers.map(sessionMember => {
     const member = members.find(m => m.id === sessionMember.memberId);
     const settlement = calculateMemberSettlement(session, sessionMember.memberId, members);
     
@@ -69,10 +87,12 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({ session, members }) => 
       id: sessionMember.memberId,
       name: sessionMember.memberName || member?.name || 'Unknown',
       isCustom: sessionMember.isCustom || !member,
+      isPresent: sessionMember.isPresent,
       baseCost: settlement.baseCost, // Tiền sân + cầu
       additionalCosts: settlement.additionalCosts, // Các khoản bổ sung
       total: settlement.total, // Tổng cộng
       isPaid: session.settlements?.find(s => s.memberId === sessionMember.memberId)?.isPaid || false,
+      replacementNote: sessionMember.replacementNote || '',
     };
   });
 
@@ -90,6 +110,7 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({ session, members }) => 
   const courtCost = courtExpense?.amount || 0;
   const shuttlecockCost = shuttlecockExpense?.amount || 0;
   const baseCostTotal = courtCost + shuttlecockCost;
+
 
   return (
     <Card>
@@ -179,6 +200,21 @@ const PaymentSummary: React.FC<PaymentSummaryProps> = ({ session, members }) => 
                           {payment.isCustom && (
                             <Chip label="Tùy chỉnh" size="small" variant="outlined" sx={{ mt: 0.5, height: 18 }} />
                           )}
+                        {/* ✅ THÊM PHẦN NÀY */}
+                        {payment.replacementNote && (
+                          <Typography 
+                            variant="caption" 
+                            color="info.main"
+                            sx={{ 
+                              ml: 5, 
+                              display: 'block', 
+                              fontStyle: 'italic',
+                              mt: 0.5 
+                            }}
+                          >
+                            🔄 {payment.replacementNote}
+                          </Typography>
+                        )}
                         </Box>
                       </Box>
                     </TableCell>

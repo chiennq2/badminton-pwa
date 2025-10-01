@@ -36,6 +36,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
   members,
   courtName,
 }) => {
+  // ===== LOGIC MỚI: Lấy tất cả thành viên liên quan =====
   const presentMembers = session.members.filter(m => m.isPresent);
   
   // Lấy danh sách các khoản chi bổ sung
@@ -43,9 +44,33 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
     return session.expenses.filter(exp => exp.type === 'other');
   }, [session.expenses]);
 
+  // Lấy tất cả memberIds từ chi phí bổ sung
+  const membersWithAdditionalExpenses = useMemo(() => {
+    const memberIds = new Set<string>();
+    additionalExpenses.forEach(expense => {
+      if (expense.memberIds && expense.memberIds.length > 0) {
+        expense.memberIds.forEach(memberId => memberIds.add(memberId));
+      }
+    });
+    return memberIds;
+  }, [additionalExpenses]);
+  
+  // Kết hợp: thành viên có mặt + thành viên có chi phí bổ sung
+  const allRelevantMemberIds = useMemo(() => {
+    return new Set([
+      ...presentMembers.map(m => m.memberId),
+      ...Array.from(membersWithAdditionalExpenses)
+    ]);
+  }, [presentMembers, membersWithAdditionalExpenses]);
+
+  // Lấy danh sách session members liên quan
+  const relevantMembers = useMemo(() => {
+    return session.members.filter(m => allRelevantMemberIds.has(m.memberId));
+  }, [session.members, allRelevantMemberIds]);
+
   // Tính toán chi tiết cho từng thành viên
   const memberPayments = useMemo(() => {
-    return presentMembers.map(sessionMember => {
+    return relevantMembers.map(sessionMember => {
       const member = members.find(m => m.id === sessionMember.memberId);
       const settlement = calculateMemberSettlement(session, sessionMember.memberId, members);
       
@@ -58,13 +83,15 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
       return {
         id: sessionMember.memberId,
         name: sessionMember.memberName || member?.name || 'Unknown',
+        isPresent: sessionMember.isPresent,
         baseCost: settlement.baseCost,
         additionalCostsMap,
         total: settlement.total,
         isPaid: session.settlements?.find(s => s.memberId === sessionMember.memberId)?.isPaid || false,
+        replacementNote: sessionMember.replacementNote,
       };
     });
-  }, [presentMembers, session, members]);
+  }, [relevantMembers, session, members]);
 
   const totalBaseCost = memberPayments.reduce((sum, m) => sum + m.baseCost, 0);
   const grandTotal = memberPayments.reduce((sum, m) => sum + m.total, 0);
@@ -145,7 +172,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
           
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5, color: '#000000' }}>
             <Typography variant="body1" color="#000000">
-              <strong>Số người:</strong> {presentMembers.length} người
+              <strong>Có mặt:</strong> {presentMembers.length} / {memberPayments.length} người
             </Typography>
           </Box>
         </Box>
@@ -155,7 +182,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
 
       {/* Payment Table */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ mb: 2 , color: '#000000' }}>
+        <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ mb: 2, color: '#000000' }}>
           Chi tiết thanh toán từng thành viên
         </Typography>
         
@@ -163,7 +190,9 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
           <Table size="small">
             <TableHead>
               <TableRow sx={{ backgroundColor: '#f5f5f5' }}>
-                <TableCell sx={{ fontWeight: 'bold', border: '1px solid #ddd', color: '#000000'  }}>Thành viên</TableCell>
+                <TableCell sx={{ fontWeight: 'bold', border: '1px solid #ddd', color: '#000000' }}>
+                  Thành viên
+                </TableCell>
                 <TableCell align="right" sx={{ fontWeight: 'bold', border: '1px solid #ddd', color: '#000000' }}>
                   Sân + Cầu
                 </TableCell>
@@ -175,11 +204,11 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   </TableCell>
                 ))}
                 
-                <TableCell align="right" sx={{ fontWeight: 'bold', border: '1px solid #ddd' , color: '#000000' }}>
+                <TableCell align="right" sx={{ fontWeight: 'bold', border: '1px solid #ddd', color: '#000000' }}>
                   Tổng cộng
                 </TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', border: '1px solid #ddd' , color: '#000000' }}>
-                  Trạng thái
+                <TableCell align="center" sx={{ fontWeight: 'bold', border: '1px solid #ddd', color: '#000000' }}>
+                  Thanh toán
                 </TableCell>
               </TableRow>
             </TableHead>
@@ -188,14 +217,33 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                 <TableRow key={payment.id}>
                   <TableCell sx={{ border: '1px solid #ddd' }}>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Avatar sx={{ mr: 1, width: 28, height: 28, fontSize: '0.9rem' }}>
+                      <Avatar sx={{ mr: 1, width: 28, height: 28, fontSize: '0.9rem', color: '#ffffffff' }}>
                         {payment.name.charAt(0).toUpperCase()}
                       </Avatar>
-                      {payment.name}
+                      <Box>
+                        <Typography variant="body2" fontWeight="medium" color="#ffffffff">
+                          {payment.name}
+                        </Typography>
+                        {/* Ghi chú thay thế */}
+                        {payment.replacementNote && (
+                          <Typography 
+                            variant="caption" 
+                            color="info.main"
+                            sx={{ 
+                              display: 'block', 
+                              fontStyle: 'italic',
+                              mt: 0.3,
+                              fontSize: '0.7rem'
+                            }}
+                          >
+                            🔄 {payment.replacementNote}
+                          </Typography>
+                        )}
+                      </Box>
                     </Box>
                   </TableCell>
                   
-                  <TableCell align="right" sx={{ border: '1px solid #ddd' }}>
+                  <TableCell align="right" sx={{ border: '1px solid #ddd', color: '#30ff06ff' }}>
                     {formatCurrency(payment.baseCost)}
                   </TableCell>
                   
@@ -203,7 +251,11 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   {additionalExpenses.map(expense => {
                     const amount = payment.additionalCostsMap.get(expense.name);
                     return (
-                      <TableCell key={expense.id} align="right" sx={{ border: '1px solid #ddd' }}>
+                      <TableCell 
+                        key={expense.id} 
+                        align="right" 
+                        sx={{ border: '1px solid #ddd', color: '#30ff06ff' }}
+                      >
                         {amount ? formatCurrency(amount) : '-'}
                       </TableCell>
                     );
@@ -225,8 +277,8 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
               
               {/* Dòng tổng */}
               <TableRow sx={{ backgroundColor: '#e3f2fd' }}>
-                <TableCell sx={{ fontWeight: 'bold', border: '1px solid #ddd' , color: '#000000' }}>
-                  TỔNG CỘNG ({presentMembers.length} người)
+                <TableCell sx={{ fontWeight: 'bold', border: '1px solid #ddd', color: '#000000' }}>
+                  TỔNG CỘNG ({memberPayments.length} người)
                 </TableCell>
                 
                 <TableCell align="right" sx={{ fontWeight: 'bold', border: '1px solid #ddd', color: '#000000' }}>
@@ -248,13 +300,21 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                 
                 <TableCell align="center" sx={{ border: '1px solid #ddd' }}>
                   <Typography variant="caption" fontWeight="bold" color="info.main">
-                    {memberPayments.filter(m => m.isPaid).length}/{presentMembers.length}
+                    {memberPayments.filter(m => m.isPaid).length}/{memberPayments.length}
                   </Typography>
                 </TableCell>
               </TableRow>
             </TableBody>
           </Table>
         </TableContainer>
+      </Box>
+
+      {/* Ghi chú quan trọng */}
+      <Box sx={{ mb: 3, p: 2, backgroundColor: '#fff3e0', borderRadius: 1, border: '1px solid #ffb74d' }}>
+        <Typography variant="body2" color="#000000">
+          💡 <strong>Ghi chú:</strong> Danh sách bao gồm cả thành viên vắng mặt nhưng có chi phí bổ sung cần thanh toán.
+          Tiền sân + cầu chỉ được tính cho thành viên có mặt.
+        </Typography>
       </Box>
 
       {/* QR Code Section */}
@@ -271,7 +331,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
               border: '3px solid #4caf50',
               borderRadius: 2,
               p: 2,
-              backgroundColor: '#9a9c8a',
+              backgroundColor: '#f1f8f4',
             }}
           >
             <img
@@ -292,10 +352,10 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
 
       {/* Footer */}
       <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid #ddd', textAlign: 'center' }}>
-        <Typography variant="caption" color="success.main">
-          📝 Ghi chú: Sân + Cầu chia đều cho tất cả. Chi phí bổ sung chỉ tính cho người tham gia.
+        <Typography variant="caption" color="text.secondary">
+          📝 Sân + Cầu chia đều cho người có mặt. Chi phí bổ sung chỉ tính cho người tham gia.
         </Typography>
-        <Typography variant="caption" color="success.main" display="block" sx={{ mt: 0.5 }}>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
           Được tạo bởi: {session.host?.name || 'Hệ thống'} • {formatDate(new Date())}
         </Typography>
       </Box>

@@ -220,7 +220,7 @@ const Sessions: React.FC = () => {
       width: 120,
       renderCell: (params) => (
         <Typography variant="body2">
-          {formatDate(new Date(params.value))}
+           {formatDate(params.value)}
         </Typography>
       ),
     },

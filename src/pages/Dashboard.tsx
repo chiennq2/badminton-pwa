@@ -99,9 +99,10 @@ const Dashboard: React.FC = () => {
     );
   }
 
+  console.log("=====sessions", sessions);
   const activeCourts = courts?.filter(court => court.isActive) || [];
   const activeMembers = members?.filter(member => member.isActive) || [];
-  const todaySessions = sessions?.filter(session => isToday(session.date)) || [];
+  const todaySessions = sessions?.filter(session => isToday(new Date(session.date))) || [];
   const upcomingSessions = sessions?.filter(session => isFuture(session.date)) || [];
   const completedSessions = sessions?.filter(session => session.status === 'completed') || [];
 

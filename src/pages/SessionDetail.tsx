@@ -113,6 +113,7 @@ const SessionDetail: React.FC = () => {
         isCustom: sm.isCustom || !member,
         isPresent: sm.isPresent,
         sessionMember: sm,
+        replacementNote: sm.replacementNote,
       };
     });
   }, [session, members]);
@@ -512,6 +513,7 @@ const SessionDetail: React.FC = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary={
+                          <Box>
                           <Box sx={{ display: 'flex', alignItems: 'center' }}>
                             {member.name}
                             {member.isCustom && (
@@ -532,6 +534,16 @@ const SessionDetail: React.FC = () => {
                               />
                             )}
                           </Box>
+                          {member.replacementNote && (
+                            <Typography 
+                              variant="caption" 
+                              color="info.main"
+                              sx={{ display: 'block', mt: 0.5, fontStyle: 'italic' }}
+                            >
+                              🔄 {member.replacementNote}
+                            </Typography>
+                          )}
+                        </Box>
                         }
                         secondary={member.isCustom ? 'Thành viên tùy chỉnh' : member.skillLevel}
                       />

@@ -9,28 +9,29 @@ export const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
+
 // Format date - SAFE VERSION
-export const formatDate = (date: Date | string | number | undefined | null): string => {
-  // Validate input
-  if (!date) {
-    return 'N/A';
-  }
-
-  // Convert to Date object if needed
-  let dateObj: Date;
-  if (date instanceof Date) {
-    dateObj = date;
-  } else {
-    dateObj = new Date(date);
-  }
-
-  // Check if date is valid
-  if (isNaN(dateObj.getTime())) {
-    console.warn('Invalid date:', date);
-    return 'Invalid Date';
-  }
+export const formatDate = (date: any): string => {
+  if (!date) return 'N/A';
 
   try {
+    let dateObj: Date;
+    
+    // ✅ Xử lý Firestore Timestamp
+    if (date && typeof date === 'object' && 'toDate' in date) {
+      dateObj = date.toDate();
+    } else if (date instanceof Date) {
+      dateObj = date;
+    } else if (date && typeof date === 'object' && 'seconds' in date) {
+      dateObj = new Date(date.seconds * 1000);
+    } else {
+      dateObj = new Date(date);
+    }
+
+    if (isNaN(dateObj.getTime())) {
+      return 'Ngày không hợp lệ';
+    }
+
     return new Intl.DateTimeFormat('vi-VN', {
       year: 'numeric',
       month: 'long',
@@ -38,7 +39,7 @@ export const formatDate = (date: Date | string | number | undefined | null): str
     }).format(dateObj);
   } catch (error) {
     console.error('Error formatting date:', error);
-    return 'Error';
+    return 'Lỗi định dạng';
   }
 };
 
@@ -109,6 +110,58 @@ export const calculateBaseCostPerPerson = (
 
 // Generate detailed settlements with new logic
 // utils/index.ts - Logic chia tiền chi tiết
+// export const generateDetailedSettlements = (
+//   session: Session,
+//   members: { id: string; name: string }[]
+// ): Settlement[] => {
+//   // Lấy danh sách thành viên có mặt (đã điểm danh)
+//   const presentMembers = session.members.filter(m => m.isPresent);
+  
+//   if (presentMembers.length === 0) {
+//     return [];
+//   }
+
+//   // Phân loại chi phí
+//   const courtExpense = session.expenses.find(exp => exp.type === 'court');
+//   const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
+//   const additionalExpenses = session.expenses.filter(exp => exp.type === 'other');
+
+//   const courtCost = courtExpense?.amount || 0;
+//   const shuttlecockCost = shuttlecockExpense?.amount || 0;
+  
+//   // Chi phí cơ bản/người (tiền sân + tiền cầu chia đều cho thành viên có mặt)
+//   const baseCostPerPerson = (courtCost + shuttlecockCost) / presentMembers.length;
+  
+//   // Tính toán settlement cho từng thành viên
+//   const settlements: Settlement[] = [];
+  
+//   presentMembers.forEach(sessionMember => {
+//     const member = members.find(m => m.id === sessionMember.memberId);
+//     let totalAmount = baseCostPerPerson;
+    
+//     // Cộng chi phí bổ sung cho thành viên này
+//     additionalExpenses.forEach(expense => {
+//       // Kiểm tra xem thành viên này có trong danh sách chia tiền của expense không
+//       if (expense.memberIds && expense.memberIds.includes(sessionMember.memberId)) {
+//         // Chia cho số người được chỉ định trong expense
+//         totalAmount += expense.amount / expense.memberIds.length;
+//       } else if (!expense.memberIds || expense.memberIds.length === 0) {
+//         // Nếu không chỉ định ai thì chia cho tất cả thành viên có mặt
+//         totalAmount += expense.amount / presentMembers.length;
+//       }
+//     });
+    
+//     settlements.push({
+//       memberId: sessionMember.memberId,
+//       memberName: member?.name || sessionMember.memberName || 'Unknown',
+//       amount: Math.round(totalAmount),
+//       isPaid: false,
+//     });
+//   });
+
+//   return settlements;
+// };
+
 export const generateDetailedSettlements = (
   session: Session,
   members: { id: string; name: string }[]
@@ -116,10 +169,6 @@ export const generateDetailedSettlements = (
   // Lấy danh sách thành viên có mặt (đã điểm danh)
   const presentMembers = session.members.filter(m => m.isPresent);
   
-  if (presentMembers.length === 0) {
-    return [];
-  }
-
   // Phân loại chi phí
   const courtExpense = session.expenses.find(exp => exp.type === 'court');
   const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
@@ -129,39 +178,119 @@ export const generateDetailedSettlements = (
   const shuttlecockCost = shuttlecockExpense?.amount || 0;
   
   // Chi phí cơ bản/người (tiền sân + tiền cầu chia đều cho thành viên có mặt)
-  const baseCostPerPerson = (courtCost + shuttlecockCost) / presentMembers.length;
+  const baseCostPerPerson = presentMembers.length > 0 
+    ? (courtCost + shuttlecockCost) / presentMembers.length 
+    : 0;
+  
+  // ===== LOGIC MỚI: Lấy tất cả memberIds từ chi phí bổ sung =====
+  const membersWithAdditionalExpenses = new Set<string>();
+  additionalExpenses.forEach(expense => {
+    if (expense.memberIds && expense.memberIds.length > 0) {
+      expense.memberIds.forEach(memberId => membersWithAdditionalExpenses.add(memberId));
+    }
+  });
+  
+  // Kết hợp: thành viên có mặt + thành viên có chi phí bổ sung
+  const allRelevantMemberIds = new Set([
+    ...presentMembers.map(m => m.memberId),
+    ...Array.from(membersWithAdditionalExpenses)
+  ]);
   
   // Tính toán settlement cho từng thành viên
   const settlements: Settlement[] = [];
   
-  presentMembers.forEach(sessionMember => {
-    const member = members.find(m => m.id === sessionMember.memberId);
-    let totalAmount = baseCostPerPerson;
+  allRelevantMemberIds.forEach(memberId => {
+    const sessionMember = session.members.find(m => m.memberId === memberId);
+    const member = members.find(m => m.id === memberId);
+    const isPresent = sessionMember?.isPresent || false;
+    
+    // Chi phí cơ bản (chỉ tính cho người có mặt)
+    let totalAmount = isPresent ? baseCostPerPerson : 0;
     
     // Cộng chi phí bổ sung cho thành viên này
     additionalExpenses.forEach(expense => {
       // Kiểm tra xem thành viên này có trong danh sách chia tiền của expense không
-      if (expense.memberIds && expense.memberIds.includes(sessionMember.memberId)) {
+      if (expense.memberIds && expense.memberIds.includes(memberId)) {
         // Chia cho số người được chỉ định trong expense
         totalAmount += expense.amount / expense.memberIds.length;
       } else if (!expense.memberIds || expense.memberIds.length === 0) {
         // Nếu không chỉ định ai thì chia cho tất cả thành viên có mặt
-        totalAmount += expense.amount / presentMembers.length;
+        if (isPresent) {
+          totalAmount += expense.amount / presentMembers.length;
+        }
       }
     });
     
-    settlements.push({
-      memberId: sessionMember.memberId,
-      memberName: member?.name || sessionMember.memberName || 'Unknown',
-      amount: Math.round(totalAmount),
-      isPaid: false,
-    });
+    // Chỉ tạo settlement nếu có số tiền cần thanh toán
+    if (totalAmount > 0) {
+      settlements.push({
+        memberId: memberId,
+        memberName: sessionMember?.memberName || member?.name || 'Unknown',
+        amount: Math.round(totalAmount),
+        isPaid: false,
+      });
+    }
   });
 
   return settlements;
 };
 
 // Tính chi tiết settlement cho 1 thành viên
+// export const calculateMemberSettlement = (
+//   session: Session,
+//   memberId: string,
+//   members: { id: string; name: string }[]
+// ): { 
+//   baseCost: number; 
+//   additionalCosts: { name: string; amount: number; sharedWith: number }[]; 
+//   total: number 
+// } => {
+//   const member = session.members.find(m => m.memberId === memberId);
+//   if (!member || !member.isPresent) {
+//     return { baseCost: 0, additionalCosts: [], total: 0 };
+//   }
+
+//   const presentMembers = session.members.filter(m => m.isPresent);
+//   const courtExpense = session.expenses.find(exp => exp.type === 'court');
+//   const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
+//   const additionalExpenses = session.expenses.filter(exp => exp.type === 'other');
+
+//   const courtCost = courtExpense?.amount || 0;
+//   const shuttlecockCost = shuttlecockExpense?.amount || 0;
+//   const baseCost = (courtCost + shuttlecockCost) / presentMembers.length;
+
+//   const additionalCosts: { name: string; amount: number; sharedWith: number }[] = [];
+//   let additionalTotal = 0;
+
+//   additionalExpenses.forEach(expense => {
+//     if (expense.memberIds && expense.memberIds.includes(memberId)) {
+//       const memberShare = expense.amount / expense.memberIds.length;
+//       additionalCosts.push({
+//         name: expense.name,
+//         amount: memberShare,
+//         sharedWith: expense.memberIds.length,
+//       });
+//       additionalTotal += memberShare;
+//     } else if (!expense.memberIds || expense.memberIds.length === 0) {
+//       // Chia cho tất cả thành viên có mặt
+//       // const memberShare = expense.amount / presentMembers.length;
+//       const memberShare = expense.amount / expense.memberIds.length;
+//       additionalCosts.push({
+//         name: expense.name,
+//         amount: memberShare,
+//         sharedWith: presentMembers.length,
+//       });
+//       additionalTotal += memberShare;
+//     }
+//   });
+
+//   return {
+//     baseCost: Math.round(baseCost),
+//     additionalCosts,
+//     total: Math.round(baseCost + additionalTotal),
+//   };
+// };
+
 export const calculateMemberSettlement = (
   session: Session,
   memberId: string,
@@ -172,9 +301,7 @@ export const calculateMemberSettlement = (
   total: number 
 } => {
   const member = session.members.find(m => m.memberId === memberId);
-  if (!member || !member.isPresent) {
-    return { baseCost: 0, additionalCosts: [], total: 0 };
-  }
+  const isPresent = member?.isPresent || false;
 
   const presentMembers = session.members.filter(m => m.isPresent);
   const courtExpense = session.expenses.find(exp => exp.type === 'court');
@@ -183,7 +310,11 @@ export const calculateMemberSettlement = (
 
   const courtCost = courtExpense?.amount || 0;
   const shuttlecockCost = shuttlecockExpense?.amount || 0;
-  const baseCost = (courtCost + shuttlecockCost) / presentMembers.length;
+  
+  // Chi phí cơ bản (chỉ cho người có mặt)
+  const baseCost = isPresent && presentMembers.length > 0
+    ? (courtCost + shuttlecockCost) / presentMembers.length
+    : 0;
 
   const additionalCosts: { name: string; amount: number; sharedWith: number }[] = [];
   let additionalTotal = 0;
@@ -199,13 +330,15 @@ export const calculateMemberSettlement = (
       additionalTotal += memberShare;
     } else if (!expense.memberIds || expense.memberIds.length === 0) {
       // Chia cho tất cả thành viên có mặt
-      const memberShare = expense.amount / presentMembers.length;
-      additionalCosts.push({
-        name: expense.name,
-        amount: memberShare,
-        sharedWith: presentMembers.length,
-      });
-      additionalTotal += memberShare;
+      if (isPresent && presentMembers.length > 0) {
+        const memberShare = expense.amount / presentMembers.length;
+        additionalCosts.push({
+          name: expense.name,
+          amount: memberShare,
+          sharedWith: presentMembers.length,
+        });
+        additionalTotal += memberShare;
+      }
     }
   });
 
@@ -336,10 +469,18 @@ export const getSessionStatusText = (status: Session['status']): string => {
 };
 
 // Date helpers
-export const isToday = (date: Date): boolean => {
+export function isToday(date: Date | string | number): boolean {
+  // Convert to Date object if it isn't already
+  const dateObj = date instanceof Date ? date : new Date(date);
+  
+  // Check if it's a valid date
+  if (isNaN(dateObj.getTime())) {
+    return false;
+  }
+  
   const today = new Date();
-  return date.toDateString() === today.toDateString();
-};
+  return dateObj.toDateString() === today.toDateString();
+}
 
 export const isFuture = (date: Date): boolean => {
   const now = new Date();
