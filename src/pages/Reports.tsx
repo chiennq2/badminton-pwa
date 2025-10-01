@@ -267,19 +267,31 @@ const Reports: React.FC = () => {
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
               <DatePicker
-                label="Từ ngày"
-                value={dayjs(filters.startDate)}
-                onChange={(newValue) => handleFilterChange('startDate', newValue?.toDate())}
-                slotProps={{ textField: { fullWidth: true, size: 'small' } }}
-              />
+                  label="Từ ngày"
+                  value={dayjs(filters.startDate)}
+                  onChange={(newValue) => handleFilterChange('startDate', newValue?.toDate())}
+                  dayOfWeekFormatter={(day) => {  // ✅ THÊM
+                    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                    return dayNames[day];
+                  }}
+                  slotProps={{ 
+                    textField: { fullWidth: true, size: 'small' } 
+                  }}
+                />
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>
-              <DatePicker
+            <DatePicker
                 label="Đến ngày"
                 value={dayjs(filters.endDate)}
                 onChange={(newValue) => handleFilterChange('endDate', newValue?.toDate())}
-                slotProps={{ textField: { fullWidth: true, size: 'small' } }}
+                dayOfWeekFormatter={(day) => {  // ✅ THÊM
+                  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                  return dayNames[day];
+                }}
+                slotProps={{ 
+                  textField: { fullWidth: true, size: 'small' } 
+                }}
               />
             </Grid>
             

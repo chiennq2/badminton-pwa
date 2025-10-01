@@ -57,6 +57,7 @@ export interface SessionMember {
   leftAt?: Date;
   memberName?: string;
   isCustom?: boolean;
+  replacementNote?: string;
 }
 
 export interface WaitingListMember {

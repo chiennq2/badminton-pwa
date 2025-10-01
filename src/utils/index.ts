@@ -9,24 +9,69 @@ export const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
-// Format date
-export const formatDate = (date: Date): string => {
-  return new Intl.DateTimeFormat('vi-VN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  }).format(date);
+// Format date - SAFE VERSION
+export const formatDate = (date: Date | string | number | undefined | null): string => {
+  // Validate input
+  if (!date) {
+    return 'N/A';
+  }
+
+  // Convert to Date object if needed
+  let dateObj: Date;
+  if (date instanceof Date) {
+    dateObj = date;
+  } else {
+    dateObj = new Date(date);
+  }
+
+  // Check if date is valid
+  if (isNaN(dateObj.getTime())) {
+    console.warn('Invalid date:', date);
+    return 'Invalid Date';
+  }
+
+  try {
+    return new Intl.DateTimeFormat('vi-VN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(dateObj);
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    return 'Error';
+  }
 };
 
-// Format date time
-export const formatDateTime = (date: Date): string => {
-  return new Intl.DateTimeFormat('vi-VN', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(date);
+// Format date time - SAFE VERSION
+export const formatDateTime = (date: Date | string | number | undefined | null): string => {
+  if (!date) {
+    return 'N/A';
+  }
+
+  let dateObj: Date;
+  if (date instanceof Date) {
+    dateObj = date;
+  } else {
+    dateObj = new Date(date);
+  }
+
+  if (isNaN(dateObj.getTime())) {
+    console.warn('Invalid datetime:', date);
+    return 'Invalid DateTime';
+  }
+
+  try {
+    return new Intl.DateTimeFormat('vi-VN', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(dateObj);
+  } catch (error) {
+    console.error('Error formatting datetime:', error);
+    return 'Error';
+  }
 };
 
 // Format time
