@@ -22,7 +22,7 @@ import {
   CheckCircle,
   Cancel,
 } from '@mui/icons-material';
-import { formatCurrency, formatDate, formatTime, calculateMemberSettlement } from '../utils';
+import { formatCurrency, formatDate, formatTime, calculateMemberSettlement, convertTimestampToDate } from '../utils';
 import { Session } from '../types';
 
 interface ExportableSessionSummaryProps {
@@ -36,6 +36,9 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
   members,
   courtName,
 }) => {
+  // ✅ CHUYỂN ĐỔI DATE AN TOÀN TRƯỚC KHI RENDER
+  const safeDate = convertTimestampToDate(session.date);
+  const formattedDate = safeDate ? formatDate(safeDate) : 'Ngày không xác định';
   // ===== LOGIC MỚI: Lấy tất cả thành viên liên quan =====
   const presentMembers = session.members.filter(m => m.isPresent);
   
@@ -143,7 +146,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
             <Event sx={{ mr: 1, color: 'primary.main', fontSize: 20 }} />
             <Typography variant="body1" color="#000000">
-              <strong>Ngày:</strong> {formatDate(session.date)}
+              <strong>Ngày:</strong> {formattedDate}
             </Typography>
           </Box>
           

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Box,
   Button,
@@ -16,14 +16,19 @@ import {
   CardContent,
   Grid,
   Tooltip,
-} from '@mui/material';
-import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem } from '@mui/x-data-grid';
-import { 
-  Add, 
-  Edit, 
-  Delete, 
-  Visibility, 
-  PlayArrow, 
+} from "@mui/material";
+import {
+  DataGrid,
+  GridColDef,
+  GridToolbar,
+  GridActionsCellItem,
+} from "@mui/x-data-grid";
+import {
+  Add,
+  Edit,
+  Delete,
+  Visibility,
+  PlayArrow,
   Stop,
   Pause,
   Assessment,
@@ -31,13 +36,19 @@ import {
   Payment,
   CheckCircle,
   Warning,
-} from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
-import { useSessions, useDeleteSession, useUpdateSession } from '../hooks';
-import { Session } from '../types';
-import { formatCurrency, formatDate, formatTime, getSessionStatusText, getSessionStatusColor } from '../utils';
-import SessionForm from '../components/SessionForm';
-import SessionEditForm from '../components/SessionEditForm';
+} from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
+import { useSessions, useDeleteSession, useUpdateSession } from "../hooks";
+import { Session } from "../types";
+import {
+  formatCurrency,
+  formatDate,
+  formatTime,
+  getSessionStatusText,
+  getSessionStatusColor,
+} from "../utils";
+import SessionForm from "../components/SessionForm";
+import SessionEditForm from "../components/SessionEditForm";
 
 const Sessions: React.FC = () => {
   const navigate = useNavigate();
@@ -50,78 +61,87 @@ const Sessions: React.FC = () => {
   const [editingSession, setEditingSession] = useState<Session | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
-  const [snackbar, setSnackbar] = useState({ 
-    open: false, 
-    message: '', 
-    severity: 'success' as 'success' | 'error' 
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
   });
 
   const handleEdit = (session: Session) => {
-    console.log('Opening edit form for session:', session.id);
+    console.log("Opening edit form for session:", session.id);
     setEditingSession(session);
     setEditFormOpen(true);
   };
 
   const handleEditSuccess = () => {
-    console.log('Edit form success');
+    console.log("Edit form success");
     setEditFormOpen(false);
     setEditingSession(null);
-    showSnackbar('Cập nhật lịch thành công!', 'success');
+    showSnackbar("Cập nhật lịch thành công!", "success");
   };
 
   const handleDeleteClick = (session: Session) => {
-    console.log('Delete clicked for session:', session.id);
+    console.log("Delete clicked for session:", session.id);
     setSessionToDelete(session);
     setDeleteConfirmOpen(true);
   };
 
   const handleDeleteConfirm = async () => {
     if (!sessionToDelete) {
-      console.log('No session to delete');
+      console.log("No session to delete");
       return;
     }
-    
-    console.log('Confirming delete for session:', sessionToDelete.id);
-    
+
+    console.log("Confirming delete for session:", sessionToDelete.id);
+
     try {
       await deleteSessionMutation.mutateAsync(sessionToDelete.id);
-      console.log('Session deleted successfully');
-      showSnackbar('Xóa lịch thành công!', 'success');
+      console.log("Session deleted successfully");
+      showSnackbar("Xóa lịch thành công!", "success");
       setDeleteConfirmOpen(false);
       setSessionToDelete(null);
     } catch (error: any) {
-      console.error('Error deleting session:', error);
-      showSnackbar(`Có lỗi xảy ra khi xóa lịch: ${error.message || 'Vui lòng thử lại'}`, 'error');
+      console.error("Error deleting session:", error);
+      showSnackbar(
+        `Có lỗi xảy ra khi xóa lịch: ${error.message || "Vui lòng thử lại"}`,
+        "error"
+      );
     }
   };
 
   const handleDeleteCancel = () => {
-    console.log('Delete cancelled');
+    console.log("Delete cancelled");
     setDeleteConfirmOpen(false);
     setSessionToDelete(null);
   };
 
-  const handleStatusChange = async (sessionId: string, newStatus: Session['status']) => {
+  const handleStatusChange = async (
+    sessionId: string,
+    newStatus: Session["status"]
+  ) => {
     try {
       await updateSessionMutation.mutateAsync({
         id: sessionId,
         data: { status: newStatus },
       });
-      showSnackbar('Cập nhật trạng thái thành công!', 'success');
+      showSnackbar("Cập nhật trạng thái thành công!", "success");
     } catch (error: any) {
-      console.error('Error updating status:', error);
-      showSnackbar(`Có lỗi xảy ra khi cập nhật trạng thái: ${error.message}`, 'error');
+      console.error("Error updating status:", error);
+      showSnackbar(
+        `Có lỗi xảy ra khi cập nhật trạng thái: ${error.message}`,
+        "error"
+      );
     }
   };
 
-  const showSnackbar = (message: string, severity: 'success' | 'error') => {
+  const showSnackbar = (message: string, severity: "success" | "error") => {
     setSnackbar({ open: true, message, severity });
   };
 
   const getStatusActions = (session: Session) => {
     const actions = [];
-    
-    if (session.status === 'scheduled') {
+
+    if (session.status === "scheduled") {
       actions.push(
         <GridActionsCellItem
           icon={
@@ -130,13 +150,13 @@ const Sessions: React.FC = () => {
             </Tooltip>
           }
           label="Bắt đầu"
-          onClick={() => handleStatusChange(session.id, 'ongoing')}
+          onClick={() => handleStatusChange(session.id, "ongoing")}
           showInMenu
         />
       );
     }
 
-    if (session.status === 'ongoing') {
+    if (session.status === "ongoing") {
       actions.push(
         <GridActionsCellItem
           icon={
@@ -145,7 +165,7 @@ const Sessions: React.FC = () => {
             </Tooltip>
           }
           label="Tạm dừng"
-          onClick={() => handleStatusChange(session.id, 'scheduled')}
+          onClick={() => handleStatusChange(session.id, "scheduled")}
           showInMenu
         />,
         <GridActionsCellItem
@@ -155,13 +175,13 @@ const Sessions: React.FC = () => {
             </Tooltip>
           }
           label="Hoàn thành"
-          onClick={() => handleStatusChange(session.id, 'completed')}
+          onClick={() => handleStatusChange(session.id, "completed")}
           showInMenu
         />
       );
     }
 
-    if (session.status === 'completed') {
+    if (session.status === "completed") {
       actions.push(
         <GridActionsCellItem
           icon={
@@ -170,7 +190,7 @@ const Sessions: React.FC = () => {
             </Tooltip>
           }
           label="Mở lại"
-          onClick={() => handleStatusChange(session.id, 'ongoing')}
+          onClick={() => handleStatusChange(session.id, "ongoing")}
           showInMenu
         />
       );
@@ -180,73 +200,139 @@ const Sessions: React.FC = () => {
   };
 
   const getPaymentProgress = (session: Session) => {
-    if (session.status !== 'completed' || !session.settlements?.length) {
+    if (session.status !== "completed" || !session.settlements?.length) {
       return { paid: 0, total: 0, percentage: 0 };
     }
 
-    const presentMembers = session.members.filter(m => m.isPresent);
-    const paidMembers = session.settlements.filter(s => {
-      const memberIsPresent = session.members.find(m => m.memberId === s.memberId)?.isPresent;
+    const presentMembers = session.members.filter((m) => m.isPresent);
+    const paidMembers = session.settlements.filter((s) => {
+      const memberIsPresent = session.members.find(
+        (m) => m.memberId === s.memberId
+      )?.isPresent;
       return memberIsPresent && s.isPaid;
     });
 
     return {
       paid: paidMembers.length,
       total: presentMembers.length,
-      percentage: presentMembers.length > 0 ? Math.round((paidMembers.length / presentMembers.length) * 100) : 0
+      percentage:
+        presentMembers.length > 0
+          ? Math.round((paidMembers.length / presentMembers.length) * 100)
+          : 0,
     };
   };
 
   const columns: GridColDef[] = [
     {
-      field: 'name',
-      headerName: 'Tên lịch',
+      field: "name",
+      headerName: "Tên lịch",
       flex: 1,
-      minWidth: 200,
+      minWidth: 150, // ✅ Thêm minWidth cho responsive
       renderCell: (params) => (
-        <Box sx={{ cursor: 'pointer' }} onClick={() => navigate(`/sessions/${params.id}`)}>
-          <Typography variant="body2" fontWeight="medium" color="primary">
+        <Box
+          sx={{ cursor: "pointer" }}
+          onClick={() => navigate(`/sessions/${params.id}`)}
+        >
+          <Typography
+            variant="body2"
+            fontWeight="medium"
+            color="primary"
+            sx={{
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              maxWidth: "100%", // ✅ Tránh text bị tràn trên mobile
+            }}
+          >
             {params.value}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ display: { xs: "none", sm: "block" } }} // ✅ Ẩn ID trên mobile
+          >
             ID: {params.id.toString().slice(-8)}
           </Typography>
         </Box>
       ),
     },
     {
-      field: 'date',
-      headerName: 'Ngày',
-      width: 120,
-      renderCell: (params) => (
-        <Typography variant="body2">
-           {formatDate(params.value)}
-        </Typography>
-      ),
+      field: "date",
+      headerName: "Ngày",
+      width: 140, // ✅ Tăng width một chút
+      minWidth: 120, // ✅ Thêm minWidth
+      renderCell: (params) => {
+        try {
+          // ✅ SỬ DỤNG FUNCTION formatDate ĐÃ CẢI THIỆN
+          return (
+            <Typography
+              variant="body2"
+              sx={{
+                fontSize: { xs: "0.75rem", sm: "0.875rem" }, // ✅ Nhỏ hơn trên mobile
+              }}
+            >
+              {formatDate(params.value)}
+            </Typography>
+          );
+        } catch (error) {
+          console.error("Date render error:", error, params.value);
+          return (
+            <Typography variant="body2" color="error">
+              Lỗi ngày
+            </Typography>
+          );
+        }
+      },
     },
     {
-      field: 'startTime',
-      headerName: 'Thời gian',
+      field: "startTime",
+      headerName: "Thời gian",
       width: 140,
+      minWidth: 100, // ✅ Thêm minWidth
       renderCell: (params) => (
-        <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            fontFamily: "monospace",
+            fontSize: { xs: "0.7rem", sm: "0.875rem" }, // ✅ Responsive font
+          }}
+        >
           {formatTime(params.value)} - {formatTime(params.row.endTime)}
         </Typography>
       ),
     },
     {
-      field: 'currentParticipants',
-      headerName: 'Thành viên',
+      field: "currentParticipants",
+      headerName: "Thành viên",
       width: 120,
+      minWidth: 100,
       renderCell: (params) => {
-        const presentCount = params.row.members?.filter((m: any) => m.isPresent).length || 0;
+        const presentCount =
+          params.row.members?.filter((m: any) => m.isPresent).length || 0;
         return (
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <People fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
-            <Typography variant="body2">
+          <Box sx={{ display: "flex", alignItems: "center" }}>
+            <People
+              fontSize="small"
+              sx={{
+                mr: 0.5,
+                color: "text.secondary",
+                display: { xs: "none", sm: "inline" }, // ✅ Ẩn icon trên mobile
+              }}
+            />
+            <Typography
+              variant="body2"
+              sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+            >
               {params.value}/{params.row.maxParticipants}
-              {params.row.status === 'completed' && (
-                <Typography variant="caption" color="success.main" sx={{ display: 'block' }}>
+              {params.row.status === "completed" && (
+                <Typography
+                  variant="caption"
+                  color="success.main"
+                  sx={{
+                    display: "block",
+                    fontSize: { xs: "0.65rem", sm: "0.75rem" },
+                  }}
+                >
                   {presentCount} có mặt
                 </Typography>
               )}
@@ -256,36 +342,46 @@ const Sessions: React.FC = () => {
       },
     },
     {
-      field: 'totalCost',
-      headerName: 'Chi phí',
+      field: "totalCost",
+      headerName: "Chi phí",
       width: 130,
+      minWidth: 100,
       renderCell: (params) => (
-        <Typography variant="body2" fontWeight="medium" color="success.main">
+        <Typography
+          variant="body2"
+          fontWeight="medium"
+          color="success.main"
+          sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+        >
           {formatCurrency(params.value)}
         </Typography>
       ),
     },
     {
-      field: 'status',
-      headerName: 'Trạng thái',
+      field: "status",
+      headerName: "Trạng thái",
       width: 140,
       renderCell: (params) => {
         const session = params.row as Session;
         const paymentProgress = getPaymentProgress(session);
-        
+
         return (
           <Box>
             <Chip
               label={getSessionStatusText(params.value)}
               color={getSessionStatusColor(params.value)}
               size="small"
-              variant={params.value === 'completed' ? 'filled' : 'outlined'}
+              variant={params.value === "completed" ? "filled" : "outlined"}
             />
-            {params.value === 'completed' && paymentProgress.total > 0 && (
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.5 }}>
-                <Payment fontSize="small" sx={{ mr: 0.5, color: 'text.secondary' }} />
+            {params.value === "completed" && paymentProgress.total > 0 && (
+              <Box sx={{ display: "flex", alignItems: "center", mt: 0.5 }}>
+                <Payment
+                  fontSize="small"
+                  sx={{ mr: 0.5, color: "text.secondary" }}
+                />
                 <Typography variant="caption" color="text.secondary">
-                  {paymentProgress.paid}/{paymentProgress.total} ({paymentProgress.percentage}%)
+                  {paymentProgress.paid}/{paymentProgress.total} (
+                  {paymentProgress.percentage}%)
                 </Typography>
               </Box>
             )}
@@ -294,9 +390,9 @@ const Sessions: React.FC = () => {
       },
     },
     {
-      field: 'actions',
-      type: 'actions',
-      headerName: 'Thao tác',
+      field: "actions",
+      type: "actions",
+      headerName: "Thao tác",
       width: 160,
       getActions: (params) => {
         const session = params.row as Session;
@@ -308,7 +404,11 @@ const Sessions: React.FC = () => {
           />,
           <GridActionsCellItem
             icon={
-              <Tooltip title={`Chỉnh sửa lịch đánh${session.status === 'completed' ? ' (bao gồm thanh toán)' : ''}`}>
+              <Tooltip
+                title={`Chỉnh sửa lịch đánh${
+                  session.status === "completed" ? " (bao gồm thanh toán)" : ""
+                }`}
+              >
                 <Edit />
               </Tooltip>
             }
@@ -317,10 +417,10 @@ const Sessions: React.FC = () => {
             showInMenu
           />,
         ];
-    
+
         // Thêm actions thay đổi trạng thái
         baseActions.push(...getStatusActions(session));
-    
+
         // Action xóa - cho phép xóa cả lịch đã hoàn thành
         baseActions.push(
           <GridActionsCellItem
@@ -330,21 +430,23 @@ const Sessions: React.FC = () => {
             showInMenu
           />
         );
-    
+
         return baseActions;
       },
-    }
+    },
   ];
 
   if (isLoading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'center', 
-        alignItems: 'center',
-        py: 8 
-      }}>
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          py: 8,
+        }}
+      >
         <CircularProgress size={60} sx={{ mb: 2 }} />
         <Typography variant="body1" color="text.secondary">
           Đang tải danh sách lịch đánh...
@@ -354,28 +456,54 @@ const Sessions: React.FC = () => {
   }
 
   // Statistics
-  const scheduledSessions = sessions?.filter(s => s.status === 'scheduled') || [];
-  const ongoingSessions = sessions?.filter(s => s.status === 'ongoing') || [];
-  const completedSessions = sessions?.filter(s => s.status === 'completed') || [];
-  const totalRevenue = completedSessions.reduce((sum, s) => sum + s.totalCost, 0);
-  
+  const scheduledSessions =
+    sessions?.filter((s) => s.status === "scheduled") || [];
+  const ongoingSessions = sessions?.filter((s) => s.status === "ongoing") || [];
+  const completedSessions =
+    sessions?.filter((s) => s.status === "completed") || [];
+  const totalRevenue = completedSessions.reduce(
+    (sum, s) => sum + s.totalCost,
+    0
+  );
+
   const totalCollected = completedSessions.reduce((sum, session) => {
-    return sum + (session.settlements?.reduce((settlementSum, settlement) => {
-      const memberIsPresent = session.members.find(m => m.memberId === settlement.memberId)?.isPresent;
-      return settlementSum + (memberIsPresent && settlement.isPaid ? settlement.amount : 0);
-    }, 0) || 0);
+    return (
+      sum +
+      (session.settlements?.reduce((settlementSum, settlement) => {
+        const memberIsPresent = session.members.find(
+          (m) => m.memberId === settlement.memberId
+        )?.isPresent;
+        return (
+          settlementSum +
+          (memberIsPresent && settlement.isPaid ? settlement.amount : 0)
+        );
+      }, 0) || 0)
+    );
   }, 0);
 
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 3,
+        }}
+      >
         <Box>
-          <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+          <Typography
+            variant="h4"
+            component="h1"
+            fontWeight="bold"
+            gutterBottom
+          >
             Quản lý lịch đánh
           </Typography>
           <Typography variant="body1" color="text.secondary">
-            Tạo, chỉnh sửa và theo dõi các lịch đánh cầu lông. Có thể chỉnh sửa và xóa tất cả các lịch.
+            Tạo, chỉnh sửa và theo dõi các lịch đánh cầu lông. Có thể chỉnh sửa
+            và xóa tất cả các lịch.
           </Typography>
         </Box>
         <Button
@@ -384,9 +512,9 @@ const Sessions: React.FC = () => {
           onClick={() => setCreateFormOpen(true)}
           size="large"
           sx={{
-            background: 'linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)',
-            '&:hover': {
-              background: 'linear-gradient(45deg, #388e3c 30%, #4caf50 90%)',
+            background: "linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)",
+            "&:hover": {
+              background: "linear-gradient(45deg, #388e3c 30%, #4caf50 90%)",
             },
           }}
         >
@@ -398,7 +526,7 @@ const Sessions: React.FC = () => {
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
+            <CardContent sx={{ textAlign: "center" }}>
               <Typography variant="h4" fontWeight="bold" color="primary.main">
                 {sessions?.length || 0}
               </Typography>
@@ -408,10 +536,10 @@ const Sessions: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
+            <CardContent sx={{ textAlign: "center" }}>
               <Typography variant="h4" fontWeight="bold" color="warning.main">
                 {ongoingSessions.length}
               </Typography>
@@ -421,10 +549,10 @@ const Sessions: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
+            <CardContent sx={{ textAlign: "center" }}>
               <Typography variant="h4" fontWeight="bold" color="info.main">
                 {scheduledSessions.length}
               </Typography>
@@ -434,10 +562,10 @@ const Sessions: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
+            <CardContent sx={{ textAlign: "center" }}>
               <Typography variant="h4" fontWeight="bold" color="success.main">
                 {formatCurrency(totalCollected)}
               </Typography>
@@ -455,21 +583,44 @@ const Sessions: React.FC = () => {
       {/* Info Alert */}
       <Alert severity="info" sx={{ mb: 3 }}>
         <Typography variant="body2">
-          <strong>Lưu ý:</strong> Bạn có thể chỉnh sửa và xóa tất cả các lịch đánh, kể cả những lịch đã hoàn thành. 
-          Với lịch hoàn thành, bạn có thể quản lý trạng thái thanh toán của từng thành viên.
+          <strong>Lưu ý:</strong> Bạn có thể chỉnh sửa và xóa tất cả các lịch
+          đánh, kể cả những lịch đã hoàn thành. Với lịch hoàn thành, bạn có thể
+          quản lý trạng thái thanh toán của từng thành viên.
         </Typography>
       </Alert>
 
       {/* Data Grid */}
       <Card>
         <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
             <Typography variant="h6" fontWeight="bold">
               Danh sách lịch đánh ({sessions?.length || 0})
             </Typography>
           </Box>
-          
-          <Box sx={{ height: 600, width: '100%' }}>
+
+          <Box
+            sx={{
+              height: { xs: 400, sm: 500, md: 600 }, // ✅ Responsive height
+              width: "100%",
+              "& .MuiDataGrid-root": {
+                fontSize: { xs: "0.75rem", sm: "0.875rem" }, // ✅ Font size responsive
+              },
+              "& .MuiDataGrid-columnHeaders": {
+                backgroundColor: "background.paper",
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
+              },
+              "& .MuiDataGrid-cell": {
+                padding: { xs: "8px 4px", sm: "8px 16px" }, // ✅ Padding responsive
+              },
+            }}
+          >
             <DataGrid
               rows={sessions || []}
               columns={columns}
@@ -477,12 +628,23 @@ const Sessions: React.FC = () => {
               slotProps={{
                 toolbar: {
                   showQuickFilter: true,
-                  quickFilterProps: { 
+                  quickFilterProps: {
                     debounceMs: 500,
-                    placeholder: 'Tìm kiếm lịch đánh...',
+                    placeholder: "Tìm kiếm...",
+                    sx: {
+                      width: { xs: "100%", sm: "auto" }, // ✅ Full width trên mobile
+                      mb: { xs: 1, sm: 0 },
+                    },
                   },
                   csvOptions: {
-                    fileName: `danh-sach-lich-${new Date().toISOString().split('T')[0]}`,
+                    fileName: `danh-sach-lich-${
+                      new Date().toISOString().split("T")[0]
+                    }`,
+                  },
+                  sx: {
+                    flexDirection: { xs: "column", sm: "row" }, // ✅ Stack vertically on mobile
+                    gap: 1,
+                    p: { xs: 1, sm: 2 },
                   },
                 },
               }}
@@ -492,34 +654,26 @@ const Sessions: React.FC = () => {
                   paginationModel: { pageSize: 10 },
                 },
                 sorting: {
-                  sortModel: [{ field: 'date', sort: 'desc' }],
+                  sortModel: [{ field: "date", sort: "desc" }],
+                },
+                columns: {
+                  columnVisibilityModel: {
+                    // ✅ Ẩn một số columns trên mobile
+                    currentParticipants: true, // Luôn hiện
+                    totalCost: true, // Luôn hiện
+                    // Có thể ẩn thêm columns khác nếu cần
+                  },
                 },
               }}
               checkboxSelection
               disableRowSelectionOnClick
-              getRowClassName={(params) => 
-                params.row.status === 'ongoing' ? 'ongoing-row' : 
-                params.row.status === 'completed' ? 'completed-row' : ''
-              }
+              density="comfortable" // ✅ Thêm density cho mobile
               sx={{
-                '& .MuiDataGrid-cell': {
-                  borderColor: 'divider',
-                },
-                '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: 'action.hover',
-                  fontWeight: 600,
-                },
-                '& .ongoing-row': {
-                  backgroundColor: 'rgba(255, 152, 0, 0.08)',
-                },
-                '& .completed-row': {
-                  backgroundColor: 'rgba(76, 175, 80, 0.08)',
-                },
-                '& .MuiDataGrid-row:hover': {
-                  backgroundColor: 'action.hover',
+                // ✅ Custom styles for mobile
+                "& .MuiDataGrid-row": {
+                  minHeight: { xs: "48px !important", sm: "52px !important" },
                 },
               }}
-              loading={updateSessionMutation.isPending || deleteSessionMutation.isPending}
             />
           </Box>
         </CardContent>
@@ -531,12 +685,12 @@ const Sessions: React.FC = () => {
         aria-label="add session"
         onClick={() => setCreateFormOpen(true)}
         sx={{
-          position: 'fixed',
+          position: "fixed",
           bottom: 24,
           right: 24,
-          background: 'linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)',
-          '&:hover': {
-            background: 'linear-gradient(45deg, #388e3c 30%, #4caf50 90%)',
+          background: "linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)",
+          "&:hover": {
+            background: "linear-gradient(45deg, #388e3c 30%, #4caf50 90%)",
           },
         }}
       >
@@ -549,7 +703,7 @@ const Sessions: React.FC = () => {
         onClose={() => setCreateFormOpen(false)}
         onSuccess={() => {
           setCreateFormOpen(false);
-          showSnackbar('Tạo lịch thành công!', 'success');
+          showSnackbar("Tạo lịch thành công!", "success");
         }}
       />
 
@@ -558,7 +712,7 @@ const Sessions: React.FC = () => {
         <SessionEditForm
           open={editFormOpen}
           onClose={() => {
-            console.log('Closing edit form');
+            console.log("Closing edit form");
             setEditFormOpen(false);
             setEditingSession(null);
           }}
@@ -568,64 +722,73 @@ const Sessions: React.FC = () => {
       )}
 
       {/* Delete Confirmation Dialog */}
-      <Dialog 
-        open={deleteConfirmOpen} 
+      <Dialog
+        open={deleteConfirmOpen}
         onClose={handleDeleteCancel}
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle sx={{ color: 'error.main' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <DialogTitle sx={{ color: "error.main" }}>
+          <Box sx={{ display: "flex", alignItems: "center" }}>
             <Delete sx={{ mr: 1 }} />
             Xác nhận xóa lịch đánh
           </Box>
         </DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Box sx={{ display: "flex", alignItems: "center" }}>
               <Warning sx={{ mr: 1 }} />
               <Typography variant="body2">
                 <strong>Cảnh báo:</strong> Hành động này không thể hoàn tác!
               </Typography>
             </Box>
           </Alert>
-          
+
           <Typography variant="body1" gutterBottom>
-            Bạn có chắc chắn muốn xóa lịch đánh <strong>"{sessionToDelete?.name}"</strong>?
+            Bạn có chắc chắn muốn xóa lịch đánh{" "}
+            <strong>"{sessionToDelete?.name}"</strong>?
           </Typography>
-          
+
           {sessionToDelete && (
-            <Box sx={{ mt: 2, p: 2, backgroundColor: 'action.hover', borderRadius: 1 }}>
+            <Box
+              sx={{
+                mt: 2,
+                p: 2,
+                backgroundColor: "action.hover",
+                borderRadius: 1,
+              }}
+            >
               <Typography variant="body2" color="text.secondary">
-                <strong>Ngày:</strong> {formatDate(sessionToDelete.date)} • {sessionToDelete.startTime} - {sessionToDelete.endTime}
+                <strong>Ngày:</strong> {formatDate(sessionToDelete.date)} •{" "}
+                {sessionToDelete.startTime} - {sessionToDelete.endTime}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                <strong>Thành viên:</strong> {sessionToDelete.currentParticipants} người
+                <strong>Thành viên:</strong>{" "}
+                {sessionToDelete.currentParticipants} người
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                <strong>Chi phí:</strong> {formatCurrency(sessionToDelete.totalCost)}
+                <strong>Chi phí:</strong>{" "}
+                {formatCurrency(sessionToDelete.totalCost)}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                <strong>Trạng thái:</strong> {getSessionStatusText(sessionToDelete.status)}
+                <strong>Trạng thái:</strong>{" "}
+                {getSessionStatusText(sessionToDelete.status)}
               </Typography>
-              {sessionToDelete.status === 'completed' && (
+              {sessionToDelete.status === "completed" && (
                 <Typography variant="body2" color="error.main" sx={{ mt: 1 }}>
-                  <strong>Chú ý:</strong> Đây là lịch đã hoàn thành. Việc xóa sẽ mất toàn bộ dữ liệu thanh toán.
+                  <strong>Chú ý:</strong> Đây là lịch đã hoàn thành. Việc xóa sẽ
+                  mất toàn bộ dữ liệu thanh toán.
                 </Typography>
               )}
             </Box>
           )}
-          
+
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             ID lịch đánh: <code>{sessionToDelete?.id}</code>
           </Typography>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button 
-            onClick={handleDeleteCancel}
-            size="large"
-            variant="outlined"
-          >
+          <Button onClick={handleDeleteCancel} size="large" variant="outlined">
             Hủy bỏ
           </Button>
           <Button
@@ -634,10 +797,16 @@ const Sessions: React.FC = () => {
             variant="contained"
             disabled={deleteSessionMutation.isPending}
             size="large"
-            startIcon={deleteSessionMutation.isPending ? <CircularProgress size={16} color="inherit" /> : <Delete />}
+            startIcon={
+              deleteSessionMutation.isPending ? (
+                <CircularProgress size={16} color="inherit" />
+              ) : (
+                <Delete />
+              )
+            }
             sx={{ minWidth: 140 }}
           >
-            {deleteSessionMutation.isPending ? 'Đang xóa...' : 'Xóa lịch đánh'}
+            {deleteSessionMutation.isPending ? "Đang xóa..." : "Xóa lịch đánh"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -647,12 +816,12 @@ const Sessions: React.FC = () => {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ width: "100%" }}
           variant="filled"
         >
           {snackbar.message}
