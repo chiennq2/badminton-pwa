@@ -1,4 +1,4 @@
-# 🏸 Quản Lý Cầu Lông - Badminton Session Management PWA
+# 🏸 Quản Lý Lịch Đánh Cầu - Badminton Session Management PWA
 
 Ứng dụng Progressive Web App (PWA) quản lý lịch đánh cầu lông được xây dựng với React + Firebase, hoàn toàn bằng tiếng Việt.
 

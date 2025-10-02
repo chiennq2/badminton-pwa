@@ -168,10 +168,10 @@ const Login: React.FC = () => {
                 mb: 1,
               }}
             >
-              🏸 Quản Lý Cầu Lông
+              🏸 Quản Lý Lịch Đánh Cầu
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Hệ thống quản lý lịch đánh cầu lông chuyên nghiệp
+              Badminton Session Management
             </Typography>
           </Box>
 
@@ -386,7 +386,7 @@ const Login: React.FC = () => {
           {/* Footer */}
           <Box sx={{ textAlign: 'center', mt: 3 }}>
             <Typography variant="caption" color="text.secondary">
-              © 2025 Hệ thống Quản lý Cầu lông
+              © 2025 Hệ thống Quản Lý Lịch Đánh Cầu
             </Typography>
           </Box>
         </Paper>

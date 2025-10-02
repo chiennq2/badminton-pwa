@@ -100,10 +100,10 @@ import {
   generateDetailedSettlements,
   calculateMemberSettlement,
   getSafeDateForPicker,
+  getCurrentUserLogin,
 } from "../utils";
 import { Snackbar } from "@mui/material"; // Thêm vào imports nếu chưa có
 import { useResponsive } from "../hooks/useResponsive";
-import { auth } from "../config/firebase";
 import { dateToString, stringToDate } from "../utils/dateUtils";
 
 interface SessionEditFormProps {
@@ -161,21 +161,6 @@ const removeUndefinedFields = <T extends Record<string, any>>(
   return cleaned;
 };
 
-// Get current user login
-const getCurrentUserLogin = () => {
-  const user = auth.currentUser;
-
-  if (user) {
-    return {
-      name: user.displayName || "Unknown",
-      isCustom: user.emailVerified,
-      memberId: user.uid,
-    };
-  }
-
-  return null;
-};
-
 const SessionEditForm: React.FC<SessionEditFormProps> = ({
   open,
   onClose,
@@ -231,9 +216,10 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       notes: session.notes || "",
       name: session.name || "",
       courtId: session.courtId || "",
-      date: session.date instanceof Date 
-      ? session.date 
-      : stringToDate(session.date),       
+      date:
+        session.date instanceof Date
+          ? session.date
+          : stringToDate(session.date),
       startTime: session.startTime || "19:30",
       endTime: session.endTime || "21:30",
       maxParticipants: session.maxParticipants || 60,
@@ -272,7 +258,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       let dateValue: Date;
       if (session.date instanceof Date) {
         dateValue = session.date;
-      } else if (typeof session.date === 'string') {
+      } else if (typeof session.date === "string") {
         dateValue = stringToDate(session.date);
       } else {
         dateValue = new Date();
@@ -805,51 +791,56 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                   label="Ngày"
                   value={(() => {
                     const dateValue = formik.values.date;
-                    console.log('DatePicker value:', dateValue);
-                    
+                    console.log("DatePicker value:", dateValue);
+
                     // ✅ Xử lý tất cả trường hợp
                     if (!dateValue) {
                       return dayjs();
                     }
-                    
+
                     // Nếu đã là Date object
-                    if (dateValue instanceof Date && !isNaN(dateValue.getTime())) {
+                    if (
+                      dateValue instanceof Date &&
+                      !isNaN(dateValue.getTime())
+                    ) {
                       return dayjs(dateValue);
                     }
-                    
+
                     // Nếu là string
-                    if (typeof dateValue === 'string') {
+                    if (typeof dateValue === "string") {
                       const converted = stringToDate(dateValue);
                       return dayjs(converted);
                     }
-                    
+
                     // Fallback
                     return dayjs();
                   })()}
                   onChange={(newValue) => {
-                    console.log('DatePicker onChange:', newValue);
-                    
+                    console.log("DatePicker onChange:", newValue);
+
                     if (newValue && newValue.isValid()) {
                       const dateObj = newValue.toDate();
                       // Set giờ về 00:00:00
                       dateObj.setHours(0, 0, 0, 0);
-                      
-                      console.log('Setting date to:', dateObj);
-                      formik.setFieldValue('date', dateObj);
+
+                      console.log("Setting date to:", dateObj);
+                      formik.setFieldValue("date", dateObj);
                     }
                   }}
                   dayOfWeekFormatter={(day) => {
-                    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                    const dayNames = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
                     return dayNames[day];
                   }}
                   slotProps={{
                     textField: {
                       fullWidth: true,
-                      size: 'small',
+                      size: "small",
                       error: formik.touched.date && Boolean(formik.errors.date),
-                      helperText: formik.touched.date && typeof formik.errors.date === 'string' 
-                        ? formik.errors.date 
-                        : undefined,
+                      helperText:
+                        formik.touched.date &&
+                        typeof formik.errors.date === "string"
+                          ? formik.errors.date
+                          : undefined,
                     },
                   }}
                 />

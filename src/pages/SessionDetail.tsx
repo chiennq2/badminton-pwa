@@ -352,52 +352,65 @@ const SessionDetail: React.FC = () => {
     if (!session) return;
 
     try {
-      // Lấy element cần export
       const element = document.getElementById("exportable-session-summary");
       if (!element) {
         showSnackbar("Không tìm thấy nội dung để xuất!", "error");
         return;
       }
 
-      // Hiển thị loading
       showSnackbar("Đang tạo ảnh...", "success");
 
-      // ✅ Hiển thị element tạm thời với position tốt hơn
+      // ✅ QUAN TRỌNG: Đặt width cố định để giữ tỉ lệ giống desktop
+      const FIXED_WIDTH = 1200;
+      const PADDING = 40;
+
       element.style.position = "fixed";
       element.style.left = "0";
       element.style.top = "0";
       element.style.zIndex = "9999";
       element.style.backgroundColor = "#ffffff";
-      element.style.padding = "20px";
+      element.style.padding = `${PADDING}px`;
+      element.style.width = `${FIXED_WIDTH}px`; // ✅ Width cố định
+      element.style.maxWidth = "none";
+      element.style.minHeight = "auto";
+      element.style.overflow = "visible";
+      element.style.boxSizing = "border-box";
 
-      // Wait một chút để render
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Đợi render hoàn tất
+      await new Promise((resolve) => setTimeout(resolve, 200));
 
-      // ✅ Capture với html2canvas - cải thiện options
+      // ✅ Capture với html2canvas với width cố định
       const canvas = await html2canvas(element, {
         backgroundColor: "#ffffff",
         scale: 2, // High quality
+        width: FIXED_WIDTH + PADDING * 2,
         logging: false,
         useCORS: true,
         allowTaint: true,
         imageTimeout: 0,
+        windowWidth: FIXED_WIDTH + PADDING * 2,
         onclone: (clonedDoc) => {
-          // Ensure fonts are loaded
           const clonedElement = clonedDoc.getElementById(
             "exportable-session-summary"
           );
           if (clonedElement) {
             clonedElement.style.fontFamily = "Inter, Roboto, Arial, sans-serif";
+            clonedElement.style.width = `${FIXED_WIDTH}px`;
+            clonedElement.style.boxSizing = "border-box";
           }
         },
       });
 
-      // ✅ Ẩn element lại
+      // ✅ Reset lại style của element
       element.style.position = "absolute";
       element.style.left = "-9999px";
       element.style.zIndex = "-1";
+      element.style.width = "";
+      element.style.maxWidth = "";
+      element.style.padding = "";
+      element.style.boxSizing = "";
 
-      // ✅ Tạo tên file với date an toàn
+      // Tạo tên file an toàn
       const safeDate = convertTimestampToDate(session.date);
       const dateStr = safeDate
         ? safeDate.toISOString().split("T")[0]
@@ -408,10 +421,10 @@ const SessionDetail: React.FC = () => {
         "-"
       )}-${dateStr}.png`;
 
-      // Download image
+      // Download image với quality 95%
       const link = document.createElement("a");
       link.download = fileName;
-      link.href = canvas.toDataURL("image/png");
+      link.href = canvas.toDataURL("image/png", 0.95);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -420,12 +433,16 @@ const SessionDetail: React.FC = () => {
     } catch (error) {
       console.error("Export error:", error);
 
-      // Đảm bảo ẩn element nếu có lỗi
+      // Đảm bảo reset element nếu có lỗi
       const element = document.getElementById("exportable-session-summary");
       if (element) {
         element.style.position = "absolute";
         element.style.left = "-9999px";
         element.style.zIndex = "-1";
+        element.style.width = "";
+        element.style.maxWidth = "";
+        element.style.padding = "";
+        element.style.boxSizing = "";
       }
 
       showSnackbar("❌ Có lỗi xảy ra khi xuất ảnh! Vui lòng thử lại.", "error");
