@@ -1,5 +1,6 @@
 import { Session, SessionExpense, Settlement } from '../types';
 import { toPng } from 'html-to-image';
+import { formatDateOnly } from './dateUtils';
 
 // Format currency
 export const formatCurrency = (amount: number): string => {
@@ -9,59 +10,73 @@ export const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
+export const convertFirestoreTimestamp = (data: any): any => {
+  if (!data) return data;
 
-// Format date - SAFE VERSION
+  // Nếu là Timestamp object của Firestore
+  if (data && typeof data === 'object' && 'toDate' in data && typeof data.toDate === 'function') {
+    return data.toDate();
+  }
+
+  // Nếu là object có seconds (Firestore Timestamp format)
+  if (data && typeof data === 'object' && 'seconds' in data && 'nanoseconds' in data) {
+    return new Date(data.seconds * 1000);
+  }
+
+  // Nếu là Date object
+  if (data instanceof Date) {
+    return data;
+  }
+
+  // Nếu là object, convert recursively
+  if (typeof data === 'object' && !Array.isArray(data)) {
+    const converted: any = {};
+    Object.keys(data).forEach(key => {
+      converted[key] = convertFirestoreTimestamp(data[key]);
+    });
+    return converted;
+  }
+
+  // Nếu là array
+  if (Array.isArray(data)) {
+    return data.map(item => convertFirestoreTimestamp(item));
+  }
+
+  // Trả về như cũ nếu không phải các type trên
+  return data;
+};
+
 export const formatDate = (date: any): string => {
+  console.log('date', date)
+  return formatDateOnly(date);
+};
+
+// ===== FORMAT DATETIME - AN TOÀN HỠN =====
+export const formatDateTime = (date: any): string => {
   if (!date) return 'N/A';
 
   try {
     let dateObj: Date;
-    
-    // ✅ Xử lý Firestore Timestamp
-    if (date && typeof date === 'object' && 'toDate' in date) {
+
+    // Xử lý Firestore Timestamp
+    if (date && typeof date === 'object' && 'toDate' in date && typeof date.toDate === 'function') {
       dateObj = date.toDate();
-    } else if (date instanceof Date) {
+    }
+    else if (date instanceof Date) {
       dateObj = date;
-    } else if (date && typeof date === 'object' && 'seconds' in date) {
+    }
+    else if (date && typeof date === 'object' && 'seconds' in date) {
       dateObj = new Date(date.seconds * 1000);
-    } else {
+    }
+    else {
       dateObj = new Date(date);
     }
 
     if (isNaN(dateObj.getTime())) {
-      return 'Ngày không hợp lệ';
+      console.warn('Invalid datetime:', date);
+      return 'Thời gian không hợp lệ';
     }
 
-    return new Intl.DateTimeFormat('vi-VN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(dateObj);
-  } catch (error) {
-    console.error('Error formatting date:', error);
-    return 'Lỗi định dạng';
-  }
-};
-
-// Format date time - SAFE VERSION
-export const formatDateTime = (date: Date | string | number | undefined | null): string => {
-  if (!date) {
-    return 'N/A';
-  }
-
-  let dateObj: Date;
-  if (date instanceof Date) {
-    dateObj = date;
-  } else {
-    dateObj = new Date(date);
-  }
-
-  if (isNaN(dateObj.getTime())) {
-    console.warn('Invalid datetime:', date);
-    return 'Invalid DateTime';
-  }
-
-  try {
     return new Intl.DateTimeFormat('vi-VN', {
       year: 'numeric',
       month: 'short',
@@ -71,9 +86,53 @@ export const formatDateTime = (date: Date | string | number | undefined | null):
     }).format(dateObj);
   } catch (error) {
     console.error('Error formatting datetime:', error);
-    return 'Error';
+    return 'Lỗi định dạng thời gian';
   }
 };
+
+// ===== CONVERT FIRESTORE TIMESTAMP TO DATE OBJECT =====
+export const convertTimestampToDate = (timestamp: any): Date | null => {
+  if (!timestamp) return null;
+
+  try {
+    // Firestore Timestamp với toDate()
+    if (timestamp && typeof timestamp === 'object' && 'toDate' in timestamp) {
+      return timestamp.toDate();
+    }
+
+    // Object có seconds
+    if (timestamp && typeof timestamp === 'object' && 'seconds' in timestamp) {
+      return new Date(timestamp.seconds * 1000);
+    }
+
+    // Date object
+    if (timestamp instanceof Date) {
+      return timestamp;
+    }
+
+    // String hoặc number
+    const date = new Date(timestamp);
+    return isNaN(date.getTime()) ? null : date;
+  } catch (error) {
+    console.error('Error converting timestamp:', error);
+    return null;
+  }
+};
+
+// ===== SAFE DATE FOR DATEPICKER =====
+// Trả về Date object an toàn cho DatePicker, tránh lỗi "Invalid Date"
+export const getSafeDateForPicker = (date: any): Date | null => {
+  const convertedDate = convertTimestampToDate(date);
+
+  // Nếu không có date hoặc không hợp lệ, trả về ngày hiện tại
+  if (!convertedDate || isNaN(convertedDate.getTime())) {
+    console.warn('Invalid date for picker, using current date:', date);
+    return new Date(); // Fallback to today
+  }
+
+  return convertedDate;
+};
+
 
 // Format time
 export const formatTime = (time: string): string => {
@@ -101,8 +160,8 @@ export const calculateSessionCost = (
 
 // Calculate cost per person for base costs (court + shuttlecock)
 export const calculateBaseCostPerPerson = (
-  courtCost: number, 
-  shuttlecockCost: number, 
+  courtCost: number,
+  shuttlecockCost: number,
   presentMemberCount: number
 ): number => {
   return presentMemberCount > 0 ? (courtCost + shuttlecockCost) / presentMemberCount : 0;
@@ -116,7 +175,7 @@ export const calculateBaseCostPerPerson = (
 // ): Settlement[] => {
 //   // Lấy danh sách thành viên có mặt (đã điểm danh)
 //   const presentMembers = session.members.filter(m => m.isPresent);
-  
+
 //   if (presentMembers.length === 0) {
 //     return [];
 //   }
@@ -128,17 +187,17 @@ export const calculateBaseCostPerPerson = (
 
 //   const courtCost = courtExpense?.amount || 0;
 //   const shuttlecockCost = shuttlecockExpense?.amount || 0;
-  
+
 //   // Chi phí cơ bản/người (tiền sân + tiền cầu chia đều cho thành viên có mặt)
 //   const baseCostPerPerson = (courtCost + shuttlecockCost) / presentMembers.length;
-  
+
 //   // Tính toán settlement cho từng thành viên
 //   const settlements: Settlement[] = [];
-  
+
 //   presentMembers.forEach(sessionMember => {
 //     const member = members.find(m => m.id === sessionMember.memberId);
 //     let totalAmount = baseCostPerPerson;
-    
+
 //     // Cộng chi phí bổ sung cho thành viên này
 //     additionalExpenses.forEach(expense => {
 //       // Kiểm tra xem thành viên này có trong danh sách chia tiền của expense không
@@ -150,7 +209,7 @@ export const calculateBaseCostPerPerson = (
 //         totalAmount += expense.amount / presentMembers.length;
 //       }
 //     });
-    
+
 //     settlements.push({
 //       memberId: sessionMember.memberId,
 //       memberName: member?.name || sessionMember.memberName || 'Unknown',
@@ -168,7 +227,7 @@ export const generateDetailedSettlements = (
 ): Settlement[] => {
   // Lấy danh sách thành viên có mặt (đã điểm danh)
   const presentMembers = session.members.filter(m => m.isPresent);
-  
+
   // Phân loại chi phí
   const courtExpense = session.expenses.find(exp => exp.type === 'court');
   const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
@@ -176,12 +235,12 @@ export const generateDetailedSettlements = (
 
   const courtCost = courtExpense?.amount || 0;
   const shuttlecockCost = shuttlecockExpense?.amount || 0;
-  
+
   // Chi phí cơ bản/người (tiền sân + tiền cầu chia đều cho thành viên có mặt)
-  const baseCostPerPerson = presentMembers.length > 0 
-    ? (courtCost + shuttlecockCost) / presentMembers.length 
+  const baseCostPerPerson = presentMembers.length > 0
+    ? (courtCost + shuttlecockCost) / presentMembers.length
     : 0;
-  
+
   // ===== LOGIC MỚI: Lấy tất cả memberIds từ chi phí bổ sung =====
   const membersWithAdditionalExpenses = new Set<string>();
   additionalExpenses.forEach(expense => {
@@ -189,24 +248,24 @@ export const generateDetailedSettlements = (
       expense.memberIds.forEach(memberId => membersWithAdditionalExpenses.add(memberId));
     }
   });
-  
+
   // Kết hợp: thành viên có mặt + thành viên có chi phí bổ sung
   const allRelevantMemberIds = new Set([
     ...presentMembers.map(m => m.memberId),
     ...Array.from(membersWithAdditionalExpenses)
   ]);
-  
+
   // Tính toán settlement cho từng thành viên
   const settlements: Settlement[] = [];
-  
+
   allRelevantMemberIds.forEach(memberId => {
     const sessionMember = session.members.find(m => m.memberId === memberId);
     const member = members.find(m => m.id === memberId);
     const isPresent = sessionMember?.isPresent || false;
-    
+
     // Chi phí cơ bản (chỉ tính cho người có mặt)
     let totalAmount = isPresent ? baseCostPerPerson : 0;
-    
+
     // Cộng chi phí bổ sung cho thành viên này
     additionalExpenses.forEach(expense => {
       // Kiểm tra xem thành viên này có trong danh sách chia tiền của expense không
@@ -220,7 +279,7 @@ export const generateDetailedSettlements = (
         }
       }
     });
-    
+
     // Chỉ tạo settlement nếu có số tiền cần thanh toán
     if (totalAmount > 0) {
       settlements.push({
@@ -295,10 +354,10 @@ export const calculateMemberSettlement = (
   session: Session,
   memberId: string,
   members: { id: string; name: string }[]
-): { 
-  baseCost: number; 
-  additionalCosts: { name: string; amount: number; sharedWith: number }[]; 
-  total: number 
+): {
+  baseCost: number;
+  additionalCosts: { name: string; amount: number; sharedWith: number }[];
+  total: number
 } => {
   const member = session.members.find(m => m.memberId === memberId);
   const isPresent = member?.isPresent || false;
@@ -310,7 +369,7 @@ export const calculateMemberSettlement = (
 
   const courtCost = courtExpense?.amount || 0;
   const shuttlecockCost = shuttlecockExpense?.amount || 0;
-  
+
   // Chi phí cơ bản (chỉ cho người có mặt)
   const baseCost = isPresent && presentMembers.length > 0
     ? (courtCost + shuttlecockCost) / presentMembers.length
@@ -368,7 +427,7 @@ export const exportSessionImage = async (elementId: string, filename: string): P
       backgroundColor: '#ffffff',
       pixelRatio: 2,
     });
-    
+
     const link = document.createElement('a');
     link.download = filename;
     link.href = dataUrl;
@@ -386,7 +445,7 @@ export const exportToCsv = (data: any[], filename: string): void => {
   const csvContent = convertArrayToCsv(data);
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
-  
+
   if (link.download !== undefined) {
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
@@ -400,29 +459,29 @@ export const exportToCsv = (data: any[], filename: string): void => {
 
 const convertArrayToCsv = (data: any[]): string => {
   if (data.length === 0) return '';
-  
+
   const headers = Object.keys(data[0]);
   const csvHeaders = headers.join(',');
-  
+
   const csvRows = data.map(row => {
     return headers.map(header => {
       const value = row[header];
       if (value === null || value === undefined) return '';
-      
+
       // Handle dates
       if (value instanceof Date) {
         return formatDateTime(value);
       }
-      
+
       // Handle strings with commas or quotes
       if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
         return `"${value.replace(/"/g, '""')}"`;
       }
-      
+
       return value.toString();
     }).join(',');
   });
-  
+
   return [csvHeaders, ...csvRows].join('\n');
 };
 
@@ -472,12 +531,12 @@ export const getSessionStatusText = (status: Session['status']): string => {
 export function isToday(date: Date | string | number): boolean {
   // Convert to Date object if it isn't already
   const dateObj = date instanceof Date ? date : new Date(date);
-  
+
   // Check if it's a valid date
   if (isNaN(dateObj.getTime())) {
     return false;
   }
-  
+
   const today = new Date();
   return dateObj.toDateString() === today.toDateString();
 }
