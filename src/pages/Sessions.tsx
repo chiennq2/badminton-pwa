@@ -49,6 +49,8 @@ import {
 } from "../utils";
 import SessionForm from "../components/SessionForm";
 import SessionEditForm from "../components/SessionEditForm";
+import { useResponsive } from "../hooks/useResponsive";
+import MobileSessionsToolbar from "../components/MobileSessionsToolbar";
 
 const Sessions: React.FC = () => {
   const navigate = useNavigate();
@@ -66,6 +68,7 @@ const Sessions: React.FC = () => {
     message: "",
     severity: "success" as "success" | "error",
   });
+  const { isMobile } = useResponsive(); // ✅ Thêm dòng này
 
   const handleEdit = (session: Session) => {
     console.log("Opening edit form for session:", session.id);
@@ -488,20 +491,30 @@ const Sessions: React.FC = () => {
         sx={{
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
+          alignItems: { xs: "flex-start", sm: "center" },
+          flexDirection: { xs: "column", sm: "row" },
+          gap: { xs: 2, sm: 0 },
+          mb: { xs: 2, sm: 3 },
         }}
       >
-        <Box>
+        <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
           <Typography
             variant="h4"
             component="h1"
             fontWeight="bold"
             gutterBottom
+            sx={{ fontSize: { xs: "1.5rem", sm: "2rem" } }}
           >
             Quản lý lịch đánh
           </Typography>
-          <Typography variant="body1" color="text.secondary">
+          <Typography
+            variant="body1"
+            color="text.secondary"
+            sx={{
+              fontSize: { xs: "0.875rem", sm: "1rem" },
+              display: { xs: "none", sm: "block" }, // ✅ Ẩn mô tả trên mobile
+            }}
+          >
             Tạo, chỉnh sửa và theo dõi các lịch đánh cầu lông. Có thể chỉnh sửa
             và xóa tất cả các lịch.
           </Typography>
@@ -510,7 +523,8 @@ const Sessions: React.FC = () => {
           variant="contained"
           startIcon={<Add />}
           onClick={() => setCreateFormOpen(true)}
-          size="large"
+          size={isMobile ? "medium" : "large"}
+          fullWidth={isMobile} // ✅ Full width trên mobile
           sx={{
             background: "linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)",
             "&:hover": {
@@ -523,56 +537,125 @@ const Sessions: React.FC = () => {
       </Box>
 
       {/* Statistics Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ textAlign: "center" }}>
-              <Typography variant="h4" fontWeight="bold" color="primary.main">
+      <Grid
+        container
+        spacing={{ xs: 1.5, sm: 3 }}
+        sx={{ mb: { xs: 2, sm: 3 } }} // ✅ Giảm margin bottom trên mobile
+      >
+        <Grid item xs={6} sm={6} md={3}>
+          {" "}
+          {/* ✅ Đổi từ xs={12} thành xs={6} */}
+          <Card sx={{ height: "100%" }}>
+            <CardContent
+              sx={{
+                textAlign: "center",
+                p: { xs: 1.5, sm: 2 }, // ✅ Giảm padding trên mobile
+              }}
+            >
+              <Typography
+                variant="h4"
+                fontWeight="bold"
+                color="primary.main"
+                sx={{ fontSize: { xs: "1.5rem", sm: "2rem" } }} // ✅ Font nhỏ hơn trên mobile
+              >
                 {sessions?.length || 0}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+              >
                 Tổng số lịch
               </Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ textAlign: "center" }}>
-              <Typography variant="h4" fontWeight="bold" color="warning.main">
+        <Grid item xs={6} sm={6} md={3}>
+          <Card sx={{ height: "100%" }}>
+            <CardContent
+              sx={{
+                textAlign: "center",
+                p: { xs: 1.5, sm: 2 },
+              }}
+            >
+              <Typography
+                variant="h4"
+                fontWeight="bold"
+                color="warning.main"
+                sx={{ fontSize: { xs: "1.5rem", sm: "2rem" } }}
+              >
                 {ongoingSessions.length}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+              >
                 Đang diễn ra
               </Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ textAlign: "center" }}>
-              <Typography variant="h4" fontWeight="bold" color="info.main">
+        <Grid item xs={6} sm={6} md={3}>
+          <Card sx={{ height: "100%" }}>
+            <CardContent
+              sx={{
+                textAlign: "center",
+                p: { xs: 1.5, sm: 2 },
+              }}
+            >
+              <Typography
+                variant="h4"
+                fontWeight="bold"
+                color="info.main"
+                sx={{ fontSize: { xs: "1.5rem", sm: "2rem" } }}
+              >
                 {scheduledSessions.length}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+              >
                 Đã lên lịch
               </Typography>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent sx={{ textAlign: "center" }}>
-              <Typography variant="h4" fontWeight="bold" color="success.main">
+        <Grid item xs={6} sm={6} md={3}>
+          <Card sx={{ height: "100%" }}>
+            <CardContent
+              sx={{
+                textAlign: "center",
+                p: { xs: 1.5, sm: 2 },
+              }}
+            >
+              <Typography
+                variant="h4"
+                fontWeight="bold"
+                color="success.main"
+                sx={{ fontSize: { xs: "1.25rem", sm: "2rem" } }}
+              >
                 {formatCurrency(totalCollected)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
+              >
                 Đã thu được
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  fontSize: { xs: "0.65rem", sm: "0.75rem" },
+                  display: { xs: "none", sm: "block" }, // ✅ Ẩn trên mobile
+                }}
+              >
                 /{formatCurrency(totalRevenue)} tổng
               </Typography>
             </CardContent>
@@ -581,7 +664,13 @@ const Sessions: React.FC = () => {
       </Grid>
 
       {/* Info Alert */}
-      <Alert severity="info" sx={{ mb: 3 }}>
+      <Alert
+        severity="info"
+        sx={{
+          mb: { xs: 2, sm: 3 }, // ✅ Giảm margin
+          display: { xs: "none", sm: "flex" }, // ✅ Ẩn hoàn toàn trên mobile
+        }}
+      >
         <Typography variant="body2">
           <strong>Lưu ý:</strong> Bạn có thể chỉnh sửa và xóa tất cả các lịch
           đánh, kể cả những lịch đã hoàn thành. Với lịch hoàn thành, bạn có thể
@@ -607,7 +696,12 @@ const Sessions: React.FC = () => {
 
           <Box
             sx={{
-              height: { xs: 400, sm: 500, md: 600 }, // ✅ Responsive height
+              height: {
+                xs: "calc(100vh - 420px)", // ✅ Dynamic height trên mobile
+                sm: 500,
+                md: 600,
+              },
+              minHeight: { xs: 350, sm: 400 }, // ✅ Minimum height
               width: "100%",
               "& .MuiDataGrid-root": {
                 fontSize: { xs: "0.75rem", sm: "0.875rem" }, // ✅ Font size responsive
@@ -624,7 +718,7 @@ const Sessions: React.FC = () => {
             <DataGrid
               rows={sessions || []}
               columns={columns}
-              slots={{ toolbar: GridToolbar }}
+              slots={{ toolbar: MobileSessionsToolbar }}
               slotProps={{
                 toolbar: {
                   showQuickFilter: true,
@@ -658,16 +752,19 @@ const Sessions: React.FC = () => {
                 },
                 columns: {
                   columnVisibilityModel: {
-                    // ✅ Ẩn một số columns trên mobile
+                    name: true, // Luôn hiện
+                    date: true, // Luôn hiện
+                    startTime: true, // Luôn hiện
                     currentParticipants: true, // Luôn hiện
                     totalCost: true, // Luôn hiện
-                    // Có thể ẩn thêm columns khác nếu cần
+                    status: true, // Luôn hiện
+                    actions: true, // Luôn hiện
                   },
                 },
               }}
-              checkboxSelection
+              checkboxSelection={!isMobile} // ✅ Tắt checkbox trên mobile
               disableRowSelectionOnClick
-              density="comfortable" // ✅ Thêm density cho mobile
+              density={isMobile ? "compact" : "comfortable"} // ✅ Compact trên mobile
               sx={{
                 // ✅ Custom styles for mobile
                 "& .MuiDataGrid-row": {

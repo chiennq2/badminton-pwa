@@ -78,7 +78,7 @@ const Settings: React.FC = () => {
           Cài đặt hệ thống
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Cấu hình các thông số mặc định cho hệ thống quản lý cầu lông
+          Cấu hình các thông số mặc định cho hệ thống Quản Lý Lịch Đánh Cầu
         </Typography>
       </Box>
 

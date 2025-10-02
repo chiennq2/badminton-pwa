@@ -331,7 +331,7 @@ const getPageTitle = (pathname: string): string => {
       if (pathname.includes('/sessions/')) {
         return 'Chi tiết lịch đánh';
       }
-      return 'Quản lý cầu lông';
+      return 'Quản Lý Lịch Đánh Cầu';
   }
 };
 
