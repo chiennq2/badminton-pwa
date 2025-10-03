@@ -223,6 +223,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       startTime: session.startTime || "19:30",
       endTime: session.endTime || "21:30",
       maxParticipants: session.maxParticipants || 60,
+      priceSlot: session.priceSlot || 0,
       status: session.status || "scheduled",
       host: session.host || currentUser,
       paymentQR: session.paymentQR || "",
@@ -270,6 +271,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
         startTime: session.startTime,
         endTime: session.endTime,
         maxParticipants: 60, // Không giới hạn
+        priceSlot: session.priceSlot || 0,
         notes: session.notes || "",
         status: session.status,
         host: session.host || currentUser,
@@ -940,6 +942,24 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                   helperText={
                     formik.touched.maxParticipants &&
                     formik.errors.maxParticipants
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  name="priceSlot"
+                  label="Tiền slot cố định (VNĐ)"
+                  type="number"
+                  value={formik.values.priceSlot}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  error={
+                    formik.touched.priceSlot &&
+                    Boolean(formik.errors.priceSlot)
+                  }
+                  helperText={
+                    formik.touched.priceSlot && formik.errors.priceSlot
                   }
                 />
               </Grid>

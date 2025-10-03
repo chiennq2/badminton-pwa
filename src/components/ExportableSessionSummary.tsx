@@ -350,7 +350,6 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   </Typography>
                 </Box>
               )}
-
               {/* Tổng cộng nếu có cả 2 */}
               {courtExpense && shuttlecockExpense && (
                 <>
@@ -400,7 +399,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                 color: "#666",
               }}
             >
-              ℹ️ Chi phí này được chia đều cho{" "}
+              ℹ️ Chi phí sân + cầu được chia đều cho{" "}
               <strong>{presentMembers.length} người có mặt</strong>
             </Typography>
           </Box>
@@ -408,6 +407,41 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
       })()}
       <Divider sx={{ my: 2 }} />
 
+      {session.priceSlot > 0 && (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            py: 0.5,
+            backgroundColor: "#e3f2fd",
+            px: 1,
+            borderRadius: 1,
+            mb: 3,
+          }}
+        >
+          <Typography
+            variant="body2"
+            fontWeight="bold"
+            color="#000000"
+            sx={{ fontSize: "0.95rem" }}
+          >
+            💰 Tiền slot (Vui lòng tự thanh toán với chủ pass slot!)
+          </Typography>
+          <Typography
+            variant="body2"
+            fontWeight="bold"
+            color="#000000"
+            sx={{ fontSize: "0.95rem" }}
+          >
+            {formatCurrency(session.priceSlot)}
+          </Typography>
+        </Box>
+        
+      )}
+
+      
+      <Divider sx={{ my: 2 }} />
       {/* Payment Table */}
       <Box sx={{ mb: 3 }}>
         <Typography
@@ -644,8 +678,9 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
         }}
       >
         <Typography variant="body2" color="#000000">
-          💡 <strong>Ghi chú:</strong> 📝 Sân + Cầu chia đều cho người có mặt. Chi phí bổ sung chỉ tính cho
-          người tham gia.
+          💡 <strong>Ghi chú:</strong> 📝 Sân + Cầu chia đều cho người có mặt.
+          Chi phí bổ sung chỉ tính cho người tham gia. Tiền slot vui lòng tự
+          thanh toán với chủ pass slot!
         </Typography>
       </Box>
 

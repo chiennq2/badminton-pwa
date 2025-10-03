@@ -90,6 +90,7 @@ export interface Session {
   startTime: string;
   endTime: string;
   maxParticipants: number;
+  priceSlot: number | 0;
   currentParticipants: number;
   status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   members: SessionMember[];
