@@ -88,6 +88,7 @@ const Login: React.FC = () => {
       email: '',
       password: '',
       confirmPassword: '',
+      isActive: false,
     },
     validationSchema: signupValidationSchema,
     onSubmit: async (values) => {

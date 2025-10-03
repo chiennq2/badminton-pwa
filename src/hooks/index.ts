@@ -533,3 +533,32 @@ export const useUpdateUser = () => {
     },
   });
 };
+
+export const useDeleteUser = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Unauthorized');
+
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data() as User;
+
+      // Chỉ admin mới có quyền xóa users
+      if (userData?.role !== 'admin') {
+        throw new Error('Bạn không có quyền thực hiện thao tác này');
+      }
+
+      // Không cho phép xóa chính mình
+      if (id === currentUser.uid) {
+        throw new Error('Bạn không thể xóa tài khoản của chính mình');
+      }
+
+      await deleteDoc(doc(db, 'users', id));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+    },
+  });
+};

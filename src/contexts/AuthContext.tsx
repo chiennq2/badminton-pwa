@@ -41,7 +41,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   
-  // ✅ QUAN TRỌNG: Lấy queryClient để clear cache
   const queryClient = useQueryClient();
 
   const createUserDocument = async (firebaseUser: FirebaseUser, additionalData?: any) => {
@@ -57,6 +56,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         email: email || '',
         role: 'user',
         photoURL: photoURL || '',
+        isActive: false, // ✅ Mặc định không kích hoạt khi đăng ký mới
         createdAt: new Date(),
         updatedAt: new Date(),
         ...additionalData,
@@ -82,14 +82,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const signIn = async (email: string, password: string) => {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
-      const userData = await createUserDocument(result.user);
-      setCurrentUser(userData);
       
-      // ✅ Clear cache khi đăng nhập user mới
+      // ✅ Kiểm tra xem user có tồn tại trong Firestore không
+      const userRef = doc(db, 'users', result.user.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (!userDoc.exists()) {
+        // Nếu chưa có document, tạo mới
+        await createUserDocument(result.user);
+      }
+      
+      const userData = userDoc.exists() 
+        ? { id: result.user.uid, ...userDoc.data() } as User
+        : await createUserDocument(result.user);
+
+      // ✅ KIỂM TRA TRẠNG THÁI KÍCH HOẠT
+      if (!userData?.isActive) {
+        // Đăng xuất ngay lập tức
+        await firebaseSignOut(auth);
+        throw new Error('Tài khoản của bạn chưa được kích hoạt. Vui lòng liên hệ quản trị viên.');
+      }
+
+      setCurrentUser(userData);
       queryClient.clear();
     } catch (error: any) {
       console.error('Sign in error:', error);
   
+      // Xử lý các lỗi đặc biệt
+      if (error.message.includes('chưa được kích hoạt')) {
+        throw error; // Giữ nguyên message về tài khoản chưa kích hoạt
+      }
+      
       if (error.code === 'auth/network-request-failed') {
         throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối internet.');
       } else if (error.code === 'auth/too-many-requests') {
@@ -120,53 +143,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Mật khẩu phải có ít nhất 6 ký tự.');
       }
 
-      console.log('Creating user with Firebase Auth...');
       const result = await createUserWithEmailAndPassword(auth, email, password);
       
-      console.log('Updating user profile...');
       await updateProfile(result.user, { displayName });
       
-      console.log('Creating user document in Firestore...');
-      const userData = await createUserDocument(result.user, { displayName });
-      setCurrentUser(userData);
+      // ✅ Tạo user document với isActive = true (hoặc false nếu cần admin duyệt)
+      const userData = await createUserDocument(result.user, { 
+        displayName,
+        isActive: true // Đổi thành false nếu muốn admin phải kích hoạt thủ công
+      });
       
-      console.log('User registration completed successfully');
+      setCurrentUser(userData);
+      queryClient.clear();
     } catch (error: any) {
       console.error('Sign up error:', error);
       
-      if (error.code === 'auth/network-request-failed') {
-        throw new Error('Không thể kết nối đến máy chủ Firebase. Vui lòng:\n1. Kiểm tra kết nối internet\n2. Kiểm tra cấu hình Firebase\n3. Thử lại sau vài phút');
-      } else if (error.code === 'auth/email-already-in-use') {
-        throw new Error('Email này đã được sử dụng cho tài khoản khác.');
+      if (error.code === 'auth/email-already-in-use') {
+        throw new Error('Email đã được sử dụng.');
       } else if (error.code === 'auth/invalid-email') {
         throw new Error('Email không hợp lệ.');
-      } else if (error.code === 'auth/operation-not-allowed') {
-        throw new Error('Đăng ký tài khoản chưa được kích hoạt. Vui lòng liên hệ quản trị viên.');
       } else if (error.code === 'auth/weak-password') {
         throw new Error('Mật khẩu quá yếu. Vui lòng chọn mật khẩu mạnh hơn.');
-      } else if (error.code === 'auth/too-many-requests') {
-        throw new Error('Quá nhiều lần thử. Vui lòng thử lại sau.');
+      } else if (error.code === 'auth/network-request-failed') {
+        throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối internet.');
       }
       
-      if (error.message && !error.code) {
-        throw error;
-      }
-      
-      throw new Error(`Đăng ký thất bại: ${error.message || 'Lỗi không xác định'}`);
+      throw new Error(error.message || 'Đăng ký thất bại. Vui lòng thử lại.');
     }
   };
 
   const signOut = async () => {
     try {
-      // ✅ QUAN TRỌNG: Clear tất cả cache trước khi logout
-      console.log('🧹 Clearing React Query cache...');
-      queryClient.clear();
-      
       await firebaseSignOut(auth);
       setCurrentUser(null);
-      setFirebaseUser(null);
-      
-      console.log('✅ Logged out successfully');
+      queryClient.clear();
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -174,49 +184,55 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const updateUserProfile = async (data: Partial<User>) => {
-    if (!currentUser) return;
-
-    try {
-      const userRef = doc(db, 'users', currentUser.id);
-      await setDoc(userRef, {
+    if (!firebaseUser) throw new Error('No user logged in');
+    
+    const userRef = doc(db, 'users', firebaseUser.uid);
+    await setDoc(userRef, {
+      ...data,
+      updatedAt: serverTimestamp(),
+    }, { merge: true });
+    
+    if (currentUser) {
+      setCurrentUser({
+        ...currentUser,
         ...data,
-        updatedAt: serverTimestamp(),
-      }, { merge: true });
-
-      setCurrentUser(prev => prev ? { ...prev, ...data, updatedAt: new Date() } : null);
-    } catch (error) {
-      console.error('Error updating user profile:', error);
-      throw error;
+        updatedAt: new Date(),
+      });
     }
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setLoading(true);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setFirebaseUser(user);
       
-      if (firebaseUser) {
-        setFirebaseUser(firebaseUser);
+      if (user) {
         try {
-          const userData = await createUserDocument(firebaseUser);
+          const userData = await createUserDocument(user);
+          
+          // ✅ Kiểm tra trạng thái kích hoạt
+          if (!userData?.isActive) {
+            await firebaseSignOut(auth);
+            setCurrentUser(null);
+            setLoading(false);
+            return;
+          }
+          
           setCurrentUser(userData);
         } catch (error) {
           console.error('Error loading user data:', error);
           setCurrentUser(null);
         }
       } else {
-        setFirebaseUser(null);
         setCurrentUser(null);
-        // ✅ Clear cache khi không có user (logout hoặc session expired)
-        queryClient.clear();
       }
       
       setLoading(false);
     });
 
     return unsubscribe;
-  }, [queryClient]);
+  }, []);
 
-  const value: AuthContextType = {
+  const value = {
     currentUser,
     firebaseUser,
     loading,
@@ -226,9 +242,5 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateUserProfile,
   };
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
