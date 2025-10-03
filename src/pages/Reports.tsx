@@ -13,6 +13,7 @@ import {
   MenuItem,
   CircularProgress,
   Autocomplete,
+  Alert,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar } from '@mui/x-data-grid';
 import { DatePicker } from '@mui/x-date-pickers';
@@ -30,6 +31,7 @@ import { Bar, Doughnut } from 'react-chartjs-2';
 import { FilterList, Analytics, Assessment } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import { useSessions, useMembers, useCourts } from '../hooks';
+import { useAuth } from '../contexts/AuthContext';
 import { Session, ReportFilter } from '../types';
 import { formatCurrency, formatDate, exportToCsv } from '../utils';
 
@@ -45,6 +47,7 @@ ChartJS.register(
 );
 
 const Reports: React.FC = () => {
+  const { currentUser } = useAuth();
   const { data: sessions, isLoading: sessionsLoading } = useSessions();
   const { data: members } = useMembers();
   const { data: courts } = useCourts();
@@ -54,16 +57,27 @@ const Reports: React.FC = () => {
     endDate: new Date(),
     memberName: '',
     courtId: '',
-    status: 'scheduled',
+    status: undefined, // Không filter status mặc định
   });
 
+  // Filter sessions theo role và filters
   const filteredSessions = useMemo(() => {
-    if (!sessions) return [];
+    if (!sessions) {
+      console.log('No sessions data');
+      return [];
+    }
+    
+    console.log('Total sessions:', sessions.length);
+    console.log('User role:', currentUser?.role);
     
     return sessions.filter(session => {
       // Date filter
-      if (filters.startDate && session.date < filters.startDate) return false;
-      if (filters.endDate && session.date > filters.endDate) return false;
+      if (filters.startDate && session.date < filters.startDate) {
+        return false;
+      }
+      if (filters.endDate && session.date > filters.endDate) {
+        return false;
+      }
       
       // Member filter
       if (filters.memberName) {
@@ -75,15 +89,22 @@ const Reports: React.FC = () => {
       }
       
       // Court filter
-      if (filters.courtId && session.courtId !== filters.courtId) return false;
+      if (filters.courtId && session.courtId !== filters.courtId) {
+        return false;
+      }
       
       // Status filter
-      if (filters.status && session.status !== filters.status) return false;
+      if (filters.status && session.status !== filters.status) {
+        return false;
+      }
       
       return true;
     });
-  }, [sessions, members, filters]);
+  }, [sessions, members, filters, currentUser]);
 
+  console.log('Filtered sessions:', filteredSessions.length);
+
+  // Statistics
   const stats = useMemo(() => {
     const totalSessions = filteredSessions.length;
     const totalRevenue = filteredSessions.reduce((sum, session) => sum + session.totalCost, 0);
@@ -238,8 +259,36 @@ const Reports: React.FC = () => {
 
   if (sessionsLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
         <CircularProgress size={60} />
+      </Box>
+    );
+  }
+
+  // Thông báo nếu user chưa có sessions
+  if (!sessions || sessions.length === 0) {
+    return (
+      <Box>
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
+            Báo cáo và thống kê
+          </Typography>
+          <Typography variant="body1" color="text.secondary">
+            {currentUser?.role === 'admin' 
+              ? 'Phân tích hoạt động và doanh thu của các lịch đánh cầu lông'
+              : 'Phân tích hoạt động và chi phí của các lịch đánh bạn đã tạo'
+            }
+          </Typography>
+        </Box>
+        
+        <Alert severity="info">
+          <Typography variant="body1">
+            {currentUser?.role === 'admin'
+              ? 'Chưa có lịch đánh nào trong hệ thống. Hãy tạo lịch đánh đầu tiên!'
+              : 'Bạn chưa tạo lịch đánh nào. Hãy tạo lịch đánh đầu tiên để xem thống kê!'
+            }
+          </Typography>
+        </Alert>
       </Box>
     );
   }
@@ -252,8 +301,17 @@ const Reports: React.FC = () => {
           Báo cáo và thống kê
         </Typography>
         <Typography variant="body1" color="text.secondary">
-          Phân tích hoạt động và doanh thu của các lịch đánh cầu lông
+          {currentUser?.role === 'admin' 
+            ? 'Phân tích hoạt động và doanh thu của các lịch đánh cầu lông'
+            : 'Phân tích hoạt động và chi phí của các lịch đánh bạn đã tạo'
+          }
         </Typography>
+        
+        {currentUser?.role === 'user' && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Bạn đang xem báo cáo của {sessions.length} lịch đánh do bạn tạo
+          </Alert>
+        )}
       </Box>
 
       {/* Filters */}
@@ -267,25 +325,25 @@ const Reports: React.FC = () => {
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6} md={3}>
               <DatePicker
-                  label="Từ ngày"
-                  value={dayjs(filters.startDate)}
-                  onChange={(newValue) => handleFilterChange('startDate', newValue?.toDate())}
-                  dayOfWeekFormatter={(day) => {  // ✅ THÊM
-                    const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-                    return dayNames[day];
-                  }}
-                  slotProps={{ 
-                    textField: { fullWidth: true, size: 'small' } 
-                  }}
-                />
+                label="Từ ngày"
+                value={dayjs(filters.startDate)}
+                onChange={(newValue) => handleFilterChange('startDate', newValue?.toDate())}
+                dayOfWeekFormatter={(day) => {
+                  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                  return dayNames[day];
+                }}
+                slotProps={{ 
+                  textField: { fullWidth: true, size: 'small' } 
+                }}
+              />
             </Grid>
             
             <Grid item xs={12} sm={6} md={3}>
-            <DatePicker
+              <DatePicker
                 label="Đến ngày"
                 value={dayjs(filters.endDate)}
                 onChange={(newValue) => handleFilterChange('endDate', newValue?.toDate())}
-                dayOfWeekFormatter={(day) => {  // ✅ THÊM
+                dayOfWeekFormatter={(day) => {
                   const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
                   return dayNames[day];
                 }}
@@ -301,7 +359,7 @@ const Reports: React.FC = () => {
                 getOptionLabel={(option) => option.name}
                 onChange={(_, value) => handleFilterChange('memberName', value?.name || '')}
                 renderInput={(params) => (
-                  <TextField {...params} label="Thành viên" size="small" />
+                  <TextField {...params} label="Thành viên" size="small" fullWidth />
                 )}
               />
             </Grid>
@@ -310,7 +368,7 @@ const Reports: React.FC = () => {
               <FormControl fullWidth size="small">
                 <InputLabel>Sân</InputLabel>
                 <Select
-                  value={filters.courtId}
+                  value={filters.courtId || ''}
                   onChange={(e) => handleFilterChange('courtId', e.target.value)}
                   label="Sân"
                 >
@@ -323,6 +381,23 @@ const Reports: React.FC = () => {
                 </Select>
               </FormControl>
             </Grid>
+            
+            <Grid item xs={12} sm={6} md={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Trạng thái</InputLabel>
+                <Select
+                  value={filters.status || ''}
+                  onChange={(e) => handleFilterChange('status', e.target.value || undefined)}
+                  label="Trạng thái"
+                >
+                  <MenuItem value="">Tất cả</MenuItem>
+                  <MenuItem value="scheduled">Đã lên lịch</MenuItem>
+                  <MenuItem value="ongoing">Đang diễn ra</MenuItem>
+                  <MenuItem value="completed">Hoàn thành</MenuItem>
+                  <MenuItem value="cancelled">Đã hủy</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
           </Grid>
         </CardContent>
       </Card>
@@ -331,59 +406,64 @@ const Reports: React.FC = () => {
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Analytics sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Assessment sx={{ mr: 1, color: 'primary.main' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Tổng số lịch
+                </Typography>
+              </Box>
               <Typography variant="h4" fontWeight="bold">
                 {stats.totalSessions}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Tổng số lịch
-              </Typography>
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Assessment sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold">
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Analytics sx={{ mr: 1, color: 'success.main' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Tổng doanh thu
+                </Typography>
+              </Box>
+              <Typography variant="h4" fontWeight="bold" color="success.main">
                 {formatCurrency(stats.totalRevenue)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Tổng doanh thu
-              </Typography>
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" fontWeight="bold">
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Analytics sx={{ mr: 1, color: 'info.main' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Trung bình/lịch
+                </Typography>
+              </Box>
+              <Typography variant="h4" fontWeight="bold" color="info.main">
                 {formatCurrency(stats.averageCostPerSession)}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Chi phí TB/lịch
-              </Typography>
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} sm={6} md={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" fontWeight="bold">
-                {stats.mostActiveMembers[0]?.sessionCount || 0}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Lịch nhiều nhất
-              </Typography>
-              {stats.mostActiveMembers[0] && (
-                <Typography variant="caption" color="text.secondary">
-                  {stats.mostActiveMembers[0].memberName}
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                <Assessment sx={{ mr: 1, color: 'warning.main' }} />
+                <Typography variant="body2" color="text.secondary">
+                  Sân được dùng
                 </Typography>
-              )}
+              </Box>
+              <Typography variant="h4" fontWeight="bold" color="warning.main">
+                {stats.courtUsage.length}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -397,17 +477,14 @@ const Reports: React.FC = () => {
               <Typography variant="h6" gutterBottom>
                 Doanh thu theo tháng
               </Typography>
-              <Box sx={{ height: 300 }}>
+              {revenueChartData.labels.length > 0 ? (
                 <Bar
                   data={revenueChartData}
                   options={{
                     responsive: true,
-                    maintainAspectRatio: false,
+                    maintainAspectRatio: true,
                     plugins: {
                       legend: {
-                        position: 'top',
-                      },
-                      title: {
                         display: false,
                       },
                     },
@@ -415,63 +492,59 @@ const Reports: React.FC = () => {
                       y: {
                         beginAtZero: true,
                         ticks: {
-                          callback: function(value) {
-                            return new Intl.NumberFormat('vi-VN').format(value as number) + ' đ';
-                          },
+                          callback: (value) => formatCurrency(value as number),
                         },
                       },
                     },
                   }}
                 />
-              </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                  Không có dữ liệu
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} md={4}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Sử dụng sân
+                Tỷ lệ sử dụng sân
               </Typography>
-              <Box sx={{ height: 300, display: 'flex', justifyContent: 'center' }}>
-                {stats.courtUsage.length > 0 ? (
-                  <Doughnut
-                    data={courtUsageChartData}
-                    options={{
-                      responsive: true,
-                      maintainAspectRatio: false,
-                      plugins: {
-                        legend: {
-                          position: 'bottom',
-                        },
+              {stats.courtUsage.length > 0 ? (
+                <Doughnut
+                  data={courtUsageChartData}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                      legend: {
+                        position: 'bottom',
                       },
-                    }}
-                  />
-                ) : (
-                  <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
-                    Không có dữ liệu
-                  </Typography>
-                )}
-              </Box>
+                    },
+                  }}
+                />
+              ) : (
+                <Typography variant="body2" color="text.secondary" align="center" sx={{ py: 4 }}>
+                  Không có dữ liệu
+                </Typography>
+              )}
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Top Members */}
+      {/* Additional Stats */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Thành viên tích cực nhất
+                Top 5 thành viên tích cực
               </Typography>
-              {stats.mostActiveMembers.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  Không có dữ liệu
-                </Typography>
-              ) : (
+              {stats.mostActiveMembers.length > 0 ? (
                 <Box>
                   {stats.mostActiveMembers.map((member, index) => (
                     <Box
@@ -485,48 +558,31 @@ const Reports: React.FC = () => {
                         borderColor: 'divider',
                       }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <Typography
-                          variant="h6"
-                          sx={{
-                            minWidth: 24,
-                            height: 24,
-                            borderRadius: '50%',
-                            backgroundColor: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? '#cd7f32' : 'primary.main',
-                            color: 'white',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '0.875rem',
-                            mr: 2,
-                          }}
-                        >
-                          {index + 1}
-                        </Typography>
-                        <Typography>{member.memberName}</Typography>
-                      </Box>
+                      <Typography>
+                        {index + 1}. {member.memberName}
+                      </Typography>
                       <Typography fontWeight="bold">
                         {member.sessionCount} lịch
                       </Typography>
                     </Box>
                   ))}
                 </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Không có dữ liệu
+                </Typography>
               )}
             </CardContent>
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Thống kê sân
+                Thống kê sử dụng sân
               </Typography>
-              {stats.courtUsage.length === 0 ? (
-                <Typography variant="body2" color="text.secondary">
-                  Không có dữ liệu
-                </Typography>
-              ) : (
+              {stats.courtUsage.length > 0 ? (
                 <Box>
                   {stats.courtUsage.map((court, index) => (
                     <Box
@@ -547,6 +603,10 @@ const Reports: React.FC = () => {
                     </Box>
                   ))}
                 </Box>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  Không có dữ liệu
+                </Typography>
               )}
             </CardContent>
           </Card>
@@ -564,6 +624,7 @@ const Reports: React.FC = () => {
               variant="outlined"
               onClick={handleExportSessions}
               size="small"
+              disabled={filteredSessions.length === 0}
             >
               Xuất CSV
             </Button>

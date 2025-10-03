@@ -45,7 +45,8 @@ interface LayoutProps {
 
 const drawerWidth = 280;
 
-const menuItems = [
+// Menu cho admin - full quyền
+const adminMenuItems = [
   { text: 'Tổng quan', icon: <Dashboard />, path: '/' },
   { text: 'Sân cầu lông', icon: <SportsTennis />, path: '/courts' },
   { text: 'Thành viên', icon: <People />, path: '/members' },
@@ -54,9 +55,15 @@ const menuItems = [
   { text: 'Báo cáo', icon: <Assessment />, path: '/reports' },
 ];
 
-const adminMenuItems = [
+const adminSettingsItems = [
   { text: 'Quản trị viên', icon: <AdminPanelSettings />, path: '/admin/users' },
   { text: 'Cài đặt', icon: <Settings />, path: '/settings' },
+];
+
+// Menu cho user - chỉ có lịch đánh
+const userMenuItems = [
+  { text: 'Lịch đánh của tôi', icon: <CalendarMonth />, path: '/sessions' },
+  { text: 'Báo cáo của tôi', icon: <Assessment />, path: '/reports' },
 ];
 
 const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle }) => {
@@ -68,6 +75,10 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  // Lấy menu items dựa trên role
+  const menuItems = currentUser?.role === 'admin' ? adminMenuItems : userMenuItems;
+  const settingsItems = currentUser?.role === 'admin' ? adminSettingsItems : [];
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -86,102 +97,137 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
       await signOut();
       navigate('/login');
     } catch (error) {
-      console.error('Sign out error:', error);
-    }
-    handleProfileMenuClose();
-  };
-
-  const handleNavigate = (path: string) => {
-    navigate(path);
-    if (isMobile) {
-      setMobileOpen(false);
+      console.error('Error signing out:', error);
     }
   };
 
   const drawer = (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Logo */}
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography
-          variant="h5"
-          sx={{
-            fontWeight: 700,
-            background: 'linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-        >
-          🏸 Cầu Lông
-        </Typography>
-      </Box>
+      <Toolbar sx={{ py: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Avatar
+            sx={{
+              bgcolor: 'primary.main',
+              width: 40,
+              height: 40,
+            }}
+          >
+            <SportsTennis />
+          </Avatar>
+          <Box>
+            <Typography variant="h6" component="div" fontWeight="bold">
+              Quản Lý Cầu Lông
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {currentUser?.role === 'admin' ? 'Quản trị viên' : 'Người dùng'}
+            </Typography>
+          </Box>
+        </Box>
+      </Toolbar>
 
       <Divider />
 
-      {/* Main Menu */}
-      <List sx={{ flex: 1, px: 2 }}>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
-            <ListItemButton
-              onClick={() => handleNavigate(item.path)}
-              selected={location.pathname === item.path}
-              sx={{
-                borderRadius: 2,
-                '&.Mui-selected': {
-                  backgroundColor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '&:hover': {
-                    backgroundColor: 'primary.dark',
-                  },
-                  '& .MuiListItemIcon-root': {
-                    color: 'inherit',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-        
-        {/* Admin Menu */}
-        {currentUser?.role === 'admin' && (
-          <>
-            <Divider sx={{ my: 2 }} />
-            {adminMenuItems.map((item) => (
-              <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
-                <ListItemButton
-                  onClick={() => handleNavigate(item.path)}
-                  selected={location.pathname === item.path}
-                  sx={{
-                    borderRadius: 2,
-                    '&.Mui-selected': {
-                      backgroundColor: 'primary.main',
-                      color: 'primary.contrastText',
-                      '&:hover': {
-                        backgroundColor: 'primary.dark',
-                      },
-                      '& .MuiListItemIcon-root': {
-                        color: 'inherit',
-                      },
+      {/* Main Menu Items */}
+      <List sx={{ flexGrow: 1, px: 2, py: 1 }}>
+        {menuItems.map((item) => {
+          const isActive = location.pathname === item.path;
+          return (
+            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+              <ListItemButton
+                onClick={() => {
+                  navigate(item.path);
+                  if (isMobile) setMobileOpen(false);
+                }}
+                selected={isActive}
+                sx={{
+                  borderRadius: 2,
+                  '&.Mui-selected': {
+                    bgcolor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '&:hover': {
+                      bgcolor: 'primary.dark',
                     },
+                    '& .MuiListItemIcon-root': {
+                      color: 'primary.contrastText',
+                    },
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    color: isActive ? 'inherit' : 'text.secondary',
+                    minWidth: 40,
                   }}
                 >
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText primary={item.text} />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </>
-        )}
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{
+                    fontWeight: isActive ? 600 : 400,
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          );
+        })}
       </List>
 
-      {/* Theme Toggle */}
+      {/* Settings Menu (chỉ cho admin) */}
+      {settingsItems.length > 0 && (
+        <>
+          <Divider />
+          <List sx={{ px: 2, py: 1 }}>
+            {settingsItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+                  <ListItemButton
+                    onClick={() => {
+                      navigate(item.path);
+                      if (isMobile) setMobileOpen(false);
+                    }}
+                    selected={isActive}
+                    sx={{
+                      borderRadius: 2,
+                      '&.Mui-selected': {
+                        bgcolor: 'primary.main',
+                        color: 'primary.contrastText',
+                        '&:hover': {
+                          bgcolor: 'primary.dark',
+                        },
+                        '& .MuiListItemIcon-root': {
+                          color: 'primary.contrastText',
+                        },
+                      },
+                    }}
+                  >
+                    <ListItemIcon
+                      sx={{
+                        color: isActive ? 'inherit' : 'text.secondary',
+                        minWidth: 40,
+                      }}
+                    >
+                      {item.icon}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={item.text}
+                      primaryTypographyProps={{
+                        fontWeight: isActive ? 600 : 400,
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
+          </List>
+        </>
+      )}
+
+      <Divider />
+
+      {/* Dark Mode Toggle */}
       <Box sx={{ p: 2 }}>
         <FormControlLabel
           control={
@@ -219,7 +265,7 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
           </IconButton>
 
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            {getPageTitle(location.pathname)}
+            {getPageTitle(location.pathname, currentUser?.role)}
           </Typography>
 
           {/* User Profile */}
@@ -245,11 +291,15 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
             transformOrigin={{ horizontal: 'right', vertical: 'top' }}
             anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
           >
-            <MenuItem onClick={handleProfileMenuClose}>
-              <ListItemIcon>
-                <Settings fontSize="small" />
-              </ListItemIcon>
-              Hồ sơ cá nhân
+            <MenuItem disabled>
+              <Box>
+                <Typography variant="body2" fontWeight="bold">
+                  {currentUser?.displayName}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {currentUser?.email}
+                </Typography>
+              </Box>
             </MenuItem>
             <Divider />
             <MenuItem onClick={handleSignOut}>
@@ -272,7 +322,7 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
           open={isMobile ? mobileOpen : true}
           onClose={handleDrawerToggle}
           ModalProps={{
-            keepMounted: true, // Better mobile performance
+            keepMounted: true,
           }}
           sx={{
             '& .MuiDrawer-paper': {
@@ -309,7 +359,11 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
   );
 };
 
-const getPageTitle = (pathname: string): string => {
+const getPageTitle = (pathname: string, role?: string): string => {
+  if (role === 'user') {
+    return 'Lịch đánh của tôi';
+  }
+  
   switch (pathname) {
     case '/':
       return 'Tổng quan';

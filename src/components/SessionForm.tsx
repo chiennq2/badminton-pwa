@@ -303,6 +303,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         priceSlot: values.priceSlot,
         currentParticipants: selectedMembers.length,
         status: values.status,
+        createdBy: editingSession?.createdBy || currentUser?.memberId || "",
 
         // CẢI THIỆN: Lưu cả memberName cho custom members
         members: selectedMembers.map((member) => ({
@@ -332,7 +333,6 @@ const SessionForm: React.FC<SessionFormProps> = ({
         settlements: editingSession?.settlements || [],
         notes: values.notes,
         qrImage: qrImage ?? "",
-        createdBy: editingSession?.createdBy || "current-user",
         ...(editingSession
           ? { updatedAt: new Date() }
           : { createdAt: new Date(), updatedAt: new Date() }),

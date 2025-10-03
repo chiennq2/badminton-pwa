@@ -18,6 +18,7 @@ import {
 import { Save, Settings as SettingsIcon } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
+import SessionsMigrationPanel from '../components/SessionsMigrationPanel';
 
 const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -81,7 +82,9 @@ const Settings: React.FC = () => {
           Cấu hình các thông số mặc định cho hệ thống Quản Lý Lịch Đánh Cầu
         </Typography>
       </Box>
-
+      <Box sx={{ mb: 3 }}>
+        <SessionsMigrationPanel />
+      </Box>
       <form onSubmit={formik.handleSubmit}>
         <Grid container spacing={3}>
           {/* Session Settings */}
@@ -91,7 +94,7 @@ const Settings: React.FC = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                   <SettingsIcon sx={{ mr: 1, color: 'primary.main' }} />
                   <Typography variant="h6" fontWeight="bold">
-                    Cài đặt lịch đánh
+                    Cài đặt hệ thống
                   </Typography>
                 </Box>
 

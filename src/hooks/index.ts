@@ -13,7 +13,7 @@ import {
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db, auth } from '../config/firebase';
 import { Court, Member, Group, Session, User } from '../types';
 import { convertFirestoreTimestamp } from '../utils';
 import { dateToString, stringToDate } from '../utils/dateUtils';
@@ -32,7 +32,7 @@ const convertTimestamp = (data: any) => {
 const convertSessionDates = (data: any) => {
   return {
     ...data,
-    date: stringToDate(data.date), // Convert string -> Date
+    date: stringToDate(data.date),
     createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
     updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
   };
@@ -41,7 +41,8 @@ const convertSessionDates = (data: any) => {
 // Courts hooks
 export const useCourts = () => {
   return useQuery({
-    queryKey: ['courts'],
+    // ✅ Thêm userId để mỗi user có cache riêng
+    queryKey: ['courts', auth.currentUser?.uid],
     queryFn: async () => {
       const snapshot = await getDocs(collection(db, 'courts'));
       return snapshot.docs.map(doc => ({
@@ -49,6 +50,8 @@ export const useCourts = () => {
         ...convertTimestamp(doc.data())
       })) as Court[];
     },
+    enabled: !!auth.currentUser,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
 
@@ -97,7 +100,8 @@ export const useUpdateCourt = () => {
         updatedAt: serverTimestamp(),
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['court', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['courts'] });
     },
   });
@@ -119,16 +123,33 @@ export const useDeleteCourt = () => {
 // Members hooks
 export const useMembers = () => {
   return useQuery({
-    queryKey: ['members'],
+    // ✅ Thêm userId để mỗi user có cache riêng
+    queryKey: ['members', auth.currentUser?.uid],
     queryFn: async () => {
-      const snapshot = await getDocs(
-        query(collection(db, 'members'), orderBy('name'))
-      );
+      const snapshot = await getDocs(collection(db, 'members'));
       return snapshot.docs.map(doc => ({
         id: doc.id,
         ...convertTimestamp(doc.data())
       })) as Member[];
     },
+    enabled: !!auth.currentUser,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+export const useMember = (id: string) => {
+  return useQuery({
+    queryKey: ['member', id],
+    queryFn: async () => {
+      const docRef = doc(db, 'members', id);
+      const snapshot = await getDoc(docRef);
+      if (!snapshot.exists()) throw new Error('Member not found');
+      return {
+        id: snapshot.id,
+        ...convertTimestamp(snapshot.data())
+      } as Member;
+    },
+    enabled: !!id,
   });
 };
 
@@ -161,7 +182,8 @@ export const useUpdateMember = () => {
         updatedAt: serverTimestamp(),
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['member', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['members'] });
     },
   });
@@ -183,7 +205,8 @@ export const useDeleteMember = () => {
 // Groups hooks
 export const useGroups = () => {
   return useQuery({
-    queryKey: ['groups'],
+    // ✅ Thêm userId để mỗi user có cache riêng
+    queryKey: ['groups', auth.currentUser?.uid],
     queryFn: async () => {
       const snapshot = await getDocs(collection(db, 'groups'));
       return snapshot.docs.map(doc => ({
@@ -191,6 +214,24 @@ export const useGroups = () => {
         ...convertTimestamp(doc.data())
       })) as Group[];
     },
+    enabled: !!auth.currentUser,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+};
+
+export const useGroup = (id: string) => {
+  return useQuery({
+    queryKey: ['group', id],
+    queryFn: async () => {
+      const docRef = doc(db, 'groups', id);
+      const snapshot = await getDoc(docRef);
+      if (!snapshot.exists()) throw new Error('Group not found');
+      return {
+        id: snapshot.id,
+        ...convertTimestamp(snapshot.data())
+      } as Group;
+    },
+    enabled: !!id,
   });
 };
 
@@ -223,7 +264,8 @@ export const useUpdateGroup = () => {
         updatedAt: serverTimestamp(),
       });
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['group', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
     },
   });
@@ -242,60 +284,116 @@ export const useDeleteGroup = () => {
   });
 };
 
-// Sessions hooks
-// ✅ QUAN TRỌNG: Convert date ngay khi fetch từ Firestore
+// Sessions hooks - CÓ PHÂN QUYỀN
 export const useSessions = () => {
   return useQuery({
-    queryKey: ['sessions'],
+    // ✅ QUAN TRỌNG: Thêm userId vào queryKey để mỗi user có cache riêng
+    queryKey: ['sessions', auth.currentUser?.uid],
     queryFn: async () => {
-      const snapshot = await getDocs(collection(db, 'sessions'));
-      
-      return snapshot.docs.map(doc => {
-        const data = doc.data();
-        const converted = convertSessionDates(data);
-        
-        return {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        console.log('No current user in useSessions');
+        return [];
+      }
+
+      console.log('Current user UID:', currentUser.uid);
+
+      // Lấy thông tin user từ Firestore để kiểm tra role
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data() as User;
+
+      console.log('User role:', userData?.role);
+
+      // Nếu là admin - lấy tất cả sessions
+      if (userData?.role === 'admin') {
+        console.log('Admin user - fetching all sessions');
+        const sessionsQuery = query(collection(db, 'sessions'), orderBy('date', 'desc'));
+        const snapshot = await getDocs(sessionsQuery);
+        console.log('Admin: Found', snapshot.docs.length, 'sessions');
+        return snapshot.docs.map(doc => ({
           id: doc.id,
-          ...converted,
-        } as Session;
-      });
+          ...convertSessionDates(doc.data())
+        })) as Session[];
+      } else {
+        // Nếu là user - lấy tất cả sessions và filter phía client
+        console.log('Regular user - fetching and filtering sessions');
+        const sessionsQuery = query(collection(db, 'sessions'), orderBy('date', 'desc'));
+        const snapshot = await getDocs(sessionsQuery);
+        
+        console.log('User: Total sessions in DB:', snapshot.docs.length);
+        
+        // Filter phía client để xử lý cả sessions cũ không có createdBy
+        const allSessions = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...convertSessionDates(doc.data())
+        })) as Session[];
+
+        const userSessions = allSessions.filter(session => {
+          // Nếu session không có createdBy, không hiển thị cho user (chỉ admin mới thấy)
+          if (!session.createdBy) {
+            console.log('Session', session.id, 'has no createdBy');
+            return false;
+          }
+          return session.createdBy === currentUser.uid;
+        });
+
+        console.log('User: Filtered to', userSessions.length, 'sessions created by user');
+        return userSessions;
+      }
     },
+    // ✅ Chỉ fetch khi có currentUser
+    enabled: !!auth.currentUser,
+    // ✅ Không dùng stale cache khi switch user
+    staleTime: 0,
   });
 };
 
-// useSession: Đọc từ Firebase
 export const useSession = (id: string) => {
   return useQuery({
-    queryKey: ['session', id],
+    // ✅ Thêm userId vào queryKey
+    queryKey: ['session', id, auth.currentUser?.uid],
     queryFn: async () => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Unauthorized');
+
       const docRef = doc(db, 'sessions', id);
-      const docSnap = await getDoc(docRef);
+      const snapshot = await getDoc(docRef);
       
-      if (!docSnap.exists()) {
-        throw new Error('Session not found');
-      }
-      
-      const data = docSnap.data();
-      const converted = convertSessionDates(data);
-      
-      return {
-        id: docSnap.id,
-        ...converted,
+      if (!snapshot.exists()) throw new Error('Session not found');
+
+      const sessionData = {
+        id: snapshot.id,
+        ...convertSessionDates(snapshot.data())
       } as Session;
+
+      // Lấy thông tin user để kiểm tra quyền
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data() as User;
+
+      // Nếu là user và không phải người tạo session => không cho xem
+      if (userData?.role !== 'admin' && sessionData.createdBy !== currentUser.uid) {
+        throw new Error('Bạn không có quyền xem lịch đánh này');
+      }
+
+      return sessionData;
     },
-    enabled: !!id,
+    enabled: !!id && !!auth.currentUser,
+    staleTime: 0,
   });
 };
 
-// useCreateSession: Lưu vào Firebase
 export const useCreateSession = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async (sessionData: Omit<Session, 'id' | 'createdAt' | 'updatedAt'>) => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Unauthorized');
+
       const docRef = await addDoc(collection(db, 'sessions'), {
         ...sessionData,
-        date: dateToString(sessionData.date), // Convert Date -> string
+        date: dateToString(sessionData.date),
+        createdBy: currentUser.uid, // Lưu ID người tạo
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
@@ -307,18 +405,32 @@ export const useCreateSession = () => {
   });
 };
 
-// useUpdateSession: Lưu vào Firebase
 export const useUpdateSession = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<Session> }) => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Unauthorized');
+
+      // Kiểm tra quyền trước khi update
       const docRef = doc(db, 'sessions', id);
+      const snapshot = await getDoc(docRef);
       
+      if (!snapshot.exists()) throw new Error('Session not found');
+
+      const sessionData = snapshot.data() as Session;
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data() as User;
+
+      // Nếu là user và không phải người tạo => không cho sửa
+      if (userData?.role !== 'admin' && sessionData.createdBy !== currentUser.uid) {
+        throw new Error('Bạn không có quyền chỉnh sửa lịch đánh này');
+      }
+
       // Prepare data
       const updateData: any = { ...data };
       
-      // Convert date nếu có
       if (data.date) {
         updateData.date = dateToString(data.date);
       }
@@ -340,7 +452,25 @@ export const useDeleteSession = () => {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      await deleteDoc(doc(db, 'sessions', id));
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Unauthorized');
+
+      // Kiểm tra quyền trước khi xóa
+      const docRef = doc(db, 'sessions', id);
+      const snapshot = await getDoc(docRef);
+      
+      if (!snapshot.exists()) throw new Error('Session not found');
+
+      const sessionData = snapshot.data() as Session;
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data() as User;
+
+      // Nếu là user và không phải người tạo => không cho xóa
+      if (userData?.role !== 'admin' && sessionData.createdBy !== currentUser.uid) {
+        throw new Error('Bạn không có quyền xóa lịch đánh này');
+      }
+
+      await deleteDoc(docRef);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
@@ -348,17 +478,31 @@ export const useDeleteSession = () => {
   });
 };
 
-// Users/Admins hooks
+// Users/Admins hooks - CHỈ ADMIN MỚI DÙNG ĐƯỢC
 export const useUsers = () => {
   return useQuery({
-    queryKey: ['users'],
+    // ✅ Thêm userId để mỗi admin có cache riêng
+    queryKey: ['users', auth.currentUser?.uid],
     queryFn: async () => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Unauthorized');
+
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data() as User;
+
+      // Chỉ admin mới có quyền xem danh sách users
+      if (userData?.role !== 'admin') {
+        throw new Error('Bạn không có quyền truy cập chức năng này');
+      }
+
       const snapshot = await getDocs(collection(db, 'users'));
       return snapshot.docs.map(doc => ({
         id: doc.id,
         ...convertTimestamp(doc.data())
       })) as User[];
     },
+    enabled: !!auth.currentUser,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 };
 
@@ -367,6 +511,17 @@ export const useUpdateUser = () => {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<User> }) => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Unauthorized');
+
+      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+      const userData = userDoc.data() as User;
+
+      // Chỉ admin mới có quyền update users
+      if (userData?.role !== 'admin') {
+        throw new Error('Bạn không có quyền thực hiện thao tác này');
+      }
+
       const docRef = doc(db, 'users', id);
       await updateDoc(docRef, {
         ...data,

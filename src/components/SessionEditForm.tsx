@@ -479,6 +479,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
         totalCost,
         costPerPerson: baseSharedCost,
         settlements,
+        createdBy: session?.createdBy || currentUser?.memberId || "",
       };
 
       console.log("Saving session with data:", {

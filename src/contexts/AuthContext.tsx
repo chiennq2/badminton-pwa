@@ -8,6 +8,7 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { useQueryClient } from '@tanstack/react-query';
 import { auth, db } from '../config/firebase';
 import { User } from '../types';
 
@@ -39,6 +40,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  
+  // ✅ QUAN TRỌNG: Lấy queryClient để clear cache
+  const queryClient = useQueryClient();
 
   const createUserDocument = async (firebaseUser: FirebaseUser, additionalData?: any) => {
     if (!firebaseUser) return;
@@ -77,16 +81,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signIn = async (email: string, password: string) => {
     try {
-      // Attempt to sign in with email and password
       const result = await signInWithEmailAndPassword(auth, email, password);
-      
-      // Create user document if sign-in is successful
       const userData = await createUserDocument(result.user);
       setCurrentUser(userData);
+      
+      // ✅ Clear cache khi đăng nhập user mới
+      queryClient.clear();
     } catch (error: any) {
       console.error('Sign in error:', error);
   
-      // Enhanced error handling
       if (error.code === 'auth/network-request-failed') {
         throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối internet.');
       } else if (error.code === 'auth/too-many-requests') {
@@ -103,14 +106,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Thông tin đăng nhập không hợp lệ. Vui lòng kiểm tra lại.');
       }
       
-      // General error message
       throw new Error(error.message || 'Đăng nhập thất bại. Vui lòng thử lại.');
     }
   };
 
   const signUp = async (email: string, password: string, displayName: string) => {
     try {
-      // Validate inputs first
       if (!email || !password || !displayName) {
         throw new Error('Vui lòng điền đầy đủ thông tin.');
       }
@@ -133,7 +134,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error: any) {
       console.error('Sign up error:', error);
       
-      // Enhanced error handling for signup
       if (error.code === 'auth/network-request-failed') {
         throw new Error('Không thể kết nối đến máy chủ Firebase. Vui lòng:\n1. Kiểm tra kết nối internet\n2. Kiểm tra cấu hình Firebase\n3. Thử lại sau vài phút');
       } else if (error.code === 'auth/email-already-in-use') {
@@ -148,7 +148,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         throw new Error('Quá nhiều lần thử. Vui lòng thử lại sau.');
       }
       
-      // If it's a custom error we threw, re-throw it
       if (error.message && !error.code) {
         throw error;
       }
@@ -159,9 +158,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const signOut = async () => {
     try {
+      // ✅ QUAN TRỌNG: Clear tất cả cache trước khi logout
+      console.log('🧹 Clearing React Query cache...');
+      queryClient.clear();
+      
       await firebaseSignOut(auth);
       setCurrentUser(null);
       setFirebaseUser(null);
+      
+      console.log('✅ Logged out successfully');
     } catch (error) {
       console.error('Sign out error:', error);
       throw error;
@@ -201,13 +206,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } else {
         setFirebaseUser(null);
         setCurrentUser(null);
+        // ✅ Clear cache khi không có user (logout hoặc session expired)
+        queryClient.clear();
       }
       
       setLoading(false);
     });
 
     return unsubscribe;
-  }, []);
+  }, [queryClient]);
 
   const value: AuthContextType = {
     currentUser,
