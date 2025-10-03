@@ -47,7 +47,7 @@ dayjs.extend(localeData);
 dayjs.locale("vi");
 
 dayjs.updateLocale("vi", {
-  weekStart: 1, // Monday
+  weekStart: 1,
   weekdays: [
     "Chủ Nhật",
     "Thứ Hai",
@@ -160,20 +160,34 @@ const AppContent: React.FC = () => {
       <Router>
         <Layout darkMode={darkMode} onDarkModeToggle={handleDarkModeToggle}>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/courts" element={<Courts />} />
-            <Route path="/members" element={<Members />} />
-            <Route path="/groups" element={<Groups />} />
-            <Route path="/sessions" element={<Sessions />} />
-            <Route path="/sessions/:id" element={<SessionDetail />} />
-            <Route path="/reports" element={<Reports />} />
+            {/* Routes cho role ADMIN - full quyền */}
             {currentUser.role === "admin" && (
               <>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/courts" element={<Courts />} />
+                <Route path="/members" element={<Members />} />
+                <Route path="/groups" element={<Groups />} />
+                <Route path="/sessions" element={<Sessions />} />
+                <Route path="/sessions/:id" element={<SessionDetail />} />
+                <Route path="/reports" element={<Reports />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/settings" element={<Settings />} />
               </>
             )}
-            <Route path="*" element={<Navigate to="/" replace />} />
+
+            {/* Routes cho role USER - chỉ có quyền với sessions của mình */}
+            {currentUser.role === "user" && (
+              <>
+                <Route path="/sessions" element={<Sessions />} />
+                <Route path="/sessions/:id" element={<SessionDetail />} />
+                <Route path="/reports" element={<Reports />} />
+                {/* Redirect về sessions nếu cố truy cập route khác */}
+                <Route path="*" element={<Navigate to="/sessions" replace />} />
+              </>
+            )}
+
+            {/* Fallback route */}
+            <Route path="*" element={<Navigate to={currentUser.role === 'admin' ? "/" : "/sessions"} replace />} />
           </Routes>
         </Layout>
       </Router>
@@ -198,37 +212,7 @@ const App: React.FC = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <LocalizationProvider
-        dateAdapter={AdapterDayjs}
-        adapterLocale="vi"
-        localeText={{
-          cancelButtonLabel: "Hủy",
-          clearButtonLabel: "Xóa",
-          okButtonLabel: "OK",
-          todayButtonLabel: "Hôm nay",
-          calendarWeekNumberHeaderLabel: "Tuần",
-          calendarWeekNumberHeaderText: "#",
-          calendarWeekNumberAriaLabelText: (weekNumber: number) =>
-            `Tuần ${weekNumber}`,
-          calendarWeekNumberText: (weekNumber: number) => `${weekNumber}`,
-          datePickerToolbarTitle: "Chọn ngày",
-          dateTimePickerToolbarTitle: "Chọn ngày và giờ",
-          timePickerToolbarTitle: "Chọn giờ",
-          openPreviousView: "Mở khung trước",
-          openNextView: "Mở khung tiếp",
-          previousMonth: "Tháng trước",
-          nextMonth: "Tháng sau",
-          clockLabelText: (view, time, adapter) =>
-            `Chọn ${view}. ${
-              time === null
-                ? "Chưa chọn giờ"
-                : `Giờ đã chọn: ${adapter.format(time, "fullTime")}`
-            }`,
-          hoursClockNumberText: (hours: string) => `${hours} giờ`,
-          minutesClockNumberText: (minutes: string) => `${minutes} phút`,
-          secondsClockNumberText: (seconds: string) => `${seconds} giây`,
-        }}
-      >
+      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="vi">
         <AuthProvider>
           <AppContent />
         </AuthProvider>
