@@ -129,6 +129,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         .min(2, "Tối thiểu 2 người")
         .max(60, "Tối đa 60 người")
         .required("Số người tối đa là bắt buộc"),
+      priceSlot: Yup.number().min(0, "Tối thiểu 0"),
     }),
     Yup.object({}), // Step 2
     Yup.object({}), // Step 3
@@ -144,6 +145,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
       startTime: editingSession?.startTime || "19:30",
       endTime: editingSession?.endTime || "21:30",
       maxParticipants: editingSession?.maxParticipants || 60,
+      priceSlot: editingSession?.priceSlot || 0,
       notes: editingSession?.notes || "",
       status: editingSession?.status || "scheduled",
       host: editingSession?.host || currentUser,
@@ -298,6 +300,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         startTime: values.startTime,
         endTime: values.endTime,
         maxParticipants: values.maxParticipants,
+        priceSlot: values.priceSlot,
         currentParticipants: selectedMembers.length,
         status: values.status,
 
@@ -673,6 +676,25 @@ const SessionForm: React.FC<SessionFormProps> = ({
                   helperText={
                     formik.touched.maxParticipants &&
                     formik.errors.maxParticipants
+                  }
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  name="priceSlot"
+                  label="Tiền slot cố định (VNĐ)"
+                  type="number"
+                  value={formik.values.priceSlot}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  error={
+                    formik.touched.priceSlot &&
+                    Boolean(formik.errors.priceSlot)
+                  }
+                  helperText={
+                    formik.touched.priceSlot &&
+                    formik.errors.priceSlot
                   }
                 />
               </Grid>
