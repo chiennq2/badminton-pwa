@@ -6,6 +6,7 @@ export interface User {
   photoURL?: string;
   createdAt: Date;
   updatedAt: Date;
+  isActive: boolean;
 }
 
 export interface Court {

@@ -20,19 +20,13 @@ import {
   Grid,
   Avatar,
   Tooltip,
-  IconButton,
   Paper,
-  Divider,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  ListItemSecondaryAction,
-  Badge,
+  DialogContentText,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem, GridRowParams } from '@mui/x-data-grid';
 import { 
   Edit, 
+  Delete,
   Block, 
   CheckCircle, 
   AdminPanelSettings,
@@ -43,20 +37,28 @@ import {
   AccessTime,
   MoreVert,
   FileDownload,
+  PersonOff,
 } from '@mui/icons-material';
-import { useUsers, useUpdateUser } from '../hooks';
+import { useUsers, useUpdateUser, useDeleteUser } from '../hooks';
 import { User } from '../types';
 import { formatDate, exportToCsv } from '../utils';
+import { useAuth } from '../contexts/AuthContext';
 
 const AdminUsers: React.FC = () => {
   const { data: users, isLoading } = useUsers();
   const updateUserMutation = useUpdateUser();
+  const deleteUserMutation = useDeleteUser();
+  const { currentUser } = useAuth();
 
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newRole, setNewRole] = useState<'admin' | 'user'>('user');
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [viewingUser, setViewingUser] = useState<User | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<User | null>(null);
+  const [toggleActiveDialogOpen, setToggleActiveDialogOpen] = useState(false);
+  const [togglingUser, setTogglingUser] = useState<User | null>(null);
   const [snackbar, setSnackbar] = useState({ 
     open: false, 
     message: '', 
@@ -72,6 +74,53 @@ const AdminUsers: React.FC = () => {
   const handleViewUser = (user: User) => {
     setViewingUser(user);
     setViewDialogOpen(true);
+  };
+
+  const handleDeleteClick = (user: User) => {
+    setDeletingUser(user);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleToggleActiveClick = (user: User) => {
+    setTogglingUser(user);
+    setToggleActiveDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deletingUser) return;
+
+    try {
+      await deleteUserMutation.mutateAsync(deletingUser.id);
+      showSnackbar('Xóa người dùng thành công!', 'success');
+      setDeleteDialogOpen(false);
+      setDeletingUser(null);
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      showSnackbar(`Có lỗi xảy ra: ${error.message}`, 'error');
+    }
+  };
+
+  const handleToggleActive = async () => {
+    if (!togglingUser) return;
+
+    try {
+      await updateUserMutation.mutateAsync({
+        id: togglingUser.id,
+        data: { 
+          isActive: !togglingUser.isActive,
+          updatedAt: new Date(),
+        },
+      });
+      showSnackbar(
+        `${togglingUser.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'} người dùng thành công!`, 
+        'success'
+      );
+      setToggleActiveDialogOpen(false);
+      setTogglingUser(null);
+    } catch (error: any) {
+      console.error('Error toggling user active status:', error);
+      showSnackbar(`Có lỗi xảy ra: ${error.message}`, 'error');
+    }
   };
 
   const handleUpdateRole = async () => {
@@ -107,6 +156,7 @@ const AdminUsers: React.FC = () => {
       'Tên hiển thị': user.displayName,
       'Email': user.email,
       'Quyền': user.role === 'admin' ? 'Quản trị viên' : 'Người dùng',
+      'Trạng thái': user.isActive ? 'Đã kích hoạt' : 'Chưa kích hoạt',
       'Ngày tạo': formatDate(user.createdAt),
       'Cập nhật cuối': formatDate(user.updatedAt),
     }));
@@ -115,36 +165,15 @@ const AdminUsers: React.FC = () => {
   };
 
   const getRoleColor = (role: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
-    switch (role) {
-      case 'admin':
-        return 'error';
-      case 'user':
-        return 'primary';
-      default:
-        return 'default';
-    }
+    return role === 'admin' ? 'error' : 'primary';
   };
 
   const getRoleText = (role: string): string => {
-    switch (role) {
-      case 'admin':
-        return 'Quản trị viên';
-      case 'user':
-        return 'Người dùng';
-      default:
-        return 'Không xác định';
-    }
+    return role === 'admin' ? 'Quản trị viên' : 'Người dùng';
   };
 
   const getRoleIcon = (role: string) => {
-    switch (role) {
-      case 'admin':
-        return <AdminPanelSettings />;
-      case 'user':
-        return <Person />;
-      default:
-        return <Person />;
-    }
+    return role === 'admin' ? <AdminPanelSettings /> : <Person />;
   };
 
   const columns: GridColDef[] = [
@@ -162,6 +191,7 @@ const AdminUsers: React.FC = () => {
               width: 40, 
               height: 40,
               bgcolor: params.row.role === 'admin' ? 'error.main' : 'primary.main',
+              opacity: params.row.isActive ? 1 : 0.5,
             }}
           >
             {params.row.displayName?.charAt(0).toUpperCase() || 'U'}
@@ -178,31 +208,31 @@ const AdminUsers: React.FC = () => {
       ),
     },
     {
-      field: 'email',
-      headerName: 'Email',
-      flex: 1,
-      minWidth: 200,
-      renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Email fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />
-          <Typography variant="body2">{params.value}</Typography>
-        </Box>
-      ),
-    },
-    {
       field: 'role',
       headerName: 'Quyền',
       width: 160,
       renderCell: (params) => (
-        <Tooltip title={`Quyền: ${getRoleText(params.value)}`}>
-          <Chip
-            label={getRoleText(params.value)}
-            color={getRoleColor(params.value)}
-            size="small"
-            icon={getRoleIcon(params.value)}
-            variant={params.value === 'admin' ? 'filled' : 'outlined'}
-          />
-        </Tooltip>
+        <Chip
+          label={getRoleText(params.value)}
+          color={getRoleColor(params.value)}
+          size="small"
+          icon={getRoleIcon(params.value)}
+          variant={params.value === 'admin' ? 'filled' : 'outlined'}
+        />
+      ),
+    },
+    {
+      field: 'isActive',
+      headerName: 'Trạng thái',
+      width: 160,
+      renderCell: (params) => (
+        <Chip
+          label={params.value ? 'Đã kích hoạt' : 'Chưa kích hoạt'}
+          color={params.value ? 'success' : 'default'}
+          size="small"
+          icon={params.value ? <CheckCircle /> : <Block />}
+          variant={params.value ? 'filled' : 'outlined'}
+        />
       ),
     },
     {
@@ -219,41 +249,49 @@ const AdminUsers: React.FC = () => {
       ),
     },
     {
-      field: 'updatedAt',
-      headerName: 'Cập nhật cuối',
-      width: 140,
-      renderCell: (params) => (
-        <Typography variant="body2" color="text.secondary">
-          {formatDate(new Date(params.value))}
-        </Typography>
-      ),
-    },
-    {
       field: 'actions',
       type: 'actions',
       headerName: 'Thao tác',
-      width: 120,
-      getActions: (params: GridRowParams) => [
-        <GridActionsCellItem
-          icon={
-            <Tooltip title="Xem chi tiết">
-              <MoreVert />
-            </Tooltip>
-          }
-          label="Xem chi tiết"
-          onClick={() => handleViewUser(params.row as User)}
-        />,
-        <GridActionsCellItem
-          icon={
-            <Tooltip title="Sửa quyền">
-              <Edit />
-            </Tooltip>
-          }
-          label="Sửa quyền"
-          onClick={() => handleEditRole(params.row as User)}
-          showInMenu
-        />,
-      ],
+      width: 150,
+      getActions: (params: GridRowParams) => {
+        const user = params.row as User;
+        const isCurrentUser = user.id === currentUser?.id;
+        
+        return [
+          <GridActionsCellItem
+            icon={
+              <Tooltip title={user.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}>
+                {user.isActive ? <Block /> : <CheckCircle />}
+              </Tooltip>
+            }
+            label={user.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
+            onClick={() => handleToggleActiveClick(user)}
+            disabled={isCurrentUser}
+          />,
+          <GridActionsCellItem
+            icon={
+              <Tooltip title="Sửa quyền">
+                <Edit />
+              </Tooltip>
+            }
+            label="Sửa quyền"
+            onClick={() => handleEditRole(user)}
+            disabled={isCurrentUser}
+            showInMenu
+          />,
+          <GridActionsCellItem
+            icon={
+              <Tooltip title="Xóa">
+                <Delete />
+              </Tooltip>
+            }
+            label="Xóa"
+            onClick={() => handleDeleteClick(user)}
+            disabled={isCurrentUser}
+            showInMenu
+          />,
+        ];
+      },
     },
   ];
 
@@ -276,6 +314,8 @@ const AdminUsers: React.FC = () => {
 
   const adminUsers = users?.filter(u => u.role === 'admin') || [];
   const regularUsers = users?.filter(u => u.role === 'user') || [];
+  const activeUsers = users?.filter(u => u.isActive) || [];
+  const inactiveUsers = users?.filter(u => !u.isActive) || [];
 
   return (
     <Box>
@@ -322,12 +362,12 @@ const AdminUsers: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent sx={{ textAlign: 'center' }}>
-              <Person sx={{ fontSize: 40, color: 'info.main', mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold" color="info.main">
-                {regularUsers.length}
+              <CheckCircle sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
+              <Typography variant="h4" fontWeight="bold" color="success.main">
+                {activeUsers.length}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Người dùng
+                Đã kích hoạt
               </Typography>
             </CardContent>
           </Card>
@@ -336,171 +376,224 @@ const AdminUsers: React.FC = () => {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent sx={{ textAlign: 'center' }}>
-              <Security sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold" color="success.main">
-                {((adminUsers.length / (users?.length || 1)) * 100).toFixed(1)}%
+              <PersonOff sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
+              <Typography variant="h4" fontWeight="bold" color="warning.main">
+                {inactiveUsers.length}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Tỷ lệ admin
+                Chưa kích hoạt
               </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Quick Actions */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" fontWeight="bold" gutterBottom>
-                Quản trị viên gần đây
-              </Typography>
-              <List dense>
-                {adminUsers.slice(0, 3).map((admin) => (
-                  <ListItem key={admin.id} divider>
-                    <ListItemAvatar>
-                      <Badge
-                        badgeContent={<AdminPanelSettings fontSize="small" />}
-                        color="error"
-                        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                      >
-                        <Avatar src={admin.photoURL} sx={{ width: 32, height: 32 }}>
-                          {admin.displayName?.charAt(0).toUpperCase()}
-                        </Avatar>
-                      </Badge>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={admin.displayName}
-                      secondary={admin.email}
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton onClick={() => handleViewUser(admin)} size="small">
-                        <MoreVert />
-                      </IconButton>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                ))}
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-        
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" fontWeight="bold" gutterBottom>
-                Người dùng mới nhất
-              </Typography>
-              <List dense>
-                {users?.slice(-3).reverse().map((user) => (
-                  <ListItem key={user.id} divider>
-                    <ListItemAvatar>
-                      <Avatar src={user.photoURL} sx={{ width: 32, height: 32 }}>
-                        {user.displayName?.charAt(0).toUpperCase()}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={user.displayName}
-                      secondary={`${user.email} • ${formatDate(user.createdAt)}`}
-                    />
-                    <ListItemSecondaryAction>
-                      <Chip
-                        label={getRoleText(user.role)}
-                        color={getRoleColor(user.role)}
-                        size="small"
-                      />
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                ))}
-              </List>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      {/* Actions Bar */}
+      <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
+        <Button
+          variant="outlined"
+          startIcon={<FileDownload />}
+          onClick={handleExport}
+        >
+          Xuất CSV
+        </Button>
+      </Box>
 
-      {/* Data Grid */}
+      {/* Users Table */}
       <Card>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" fontWeight="bold">
-              Danh sách người dùng ({users?.length || 0})
-            </Typography>
-            <Button
-              variant="outlined"
-              startIcon={<FileDownload />}
-              onClick={handleExport}
-              size="small"
-            >
-              Xuất CSV
-            </Button>
-          </Box>
-          
-          <Box sx={{ height: 600, width: '100%' }}>
-            <DataGrid
-              rows={users || []}
-              columns={columns}
-              slots={{ toolbar: GridToolbar }}
-              slotProps={{
-                toolbar: {
-                  showQuickFilter: true,
-                  quickFilterProps: { 
-                    debounceMs: 500,
-                    placeholder: 'Tìm kiếm người dùng...',
-                  },
-                  csvOptions: {
-                    fileName: `danh-sach-nguoi-dung-${new Date().toISOString().split('T')[0]}`,
-                  },
-                },
-              }}
-              pageSizeOptions={[10, 25, 50, 100]}
-              initialState={{
-                pagination: {
-                  paginationModel: { pageSize: 10 },
-                },
-                sorting: {
-                  sortModel: [{ field: 'createdAt', sort: 'desc' }],
-                },
-              }}
-              checkboxSelection
-              disableRowSelectionOnClick
-              getRowClassName={(params) => 
-                params.row.role === 'admin' ? 'admin-row' : ''
-              }
-              sx={{
-                '& .MuiDataGrid-cell': {
-                  borderColor: 'divider',
-                },
-                '& .MuiDataGrid-columnHeaders': {
-                  backgroundColor: 'action.hover',
-                  fontWeight: 600,
-                },
-                '& .admin-row': {
-                  backgroundColor: 'rgba(244, 67, 54, 0.04)',
-                },
-                '& .MuiDataGrid-row:hover': {
-                  backgroundColor: 'action.hover',
-                },
-              }}
-              loading={updateUserMutation.isPending}
-            />
-          </Box>
-        </CardContent>
+        <DataGrid
+          rows={users || []}
+          columns={columns}
+          autoHeight
+          pageSizeOptions={[10, 25, 50, 100]}
+          initialState={{
+            pagination: { paginationModel: { pageSize: 25 } },
+          }}
+          slots={{ toolbar: GridToolbar }}
+          slotProps={{
+            toolbar: {
+              showQuickFilter: true,
+              quickFilterProps: { debounceMs: 500 },
+            },
+          }}
+          sx={{
+            '& .MuiDataGrid-row': {
+              cursor: 'pointer',
+            },
+          }}
+        />
       </Card>
 
-      {/* View User Details Dialog */}
-      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="sm" fullWidth>
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Person sx={{ mr: 1, color: 'primary.main' }} />
-            Chi tiết người dùng
+            <Delete sx={{ mr: 1, color: 'error.main' }} />
+            Xác nhận xóa người dùng
           </Box>
         </DialogTitle>
         <DialogContent>
+          <DialogContentText>
+            Bạn có chắc chắn muốn xóa người dùng <strong>{deletingUser?.displayName}</strong> ({deletingUser?.email})?
+          </DialogContentText>
+          <Alert severity="error" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              <strong>Cảnh báo:</strong> Hành động này không thể hoàn tác!
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>
+            Hủy
+          </Button>
+          <Button
+            onClick={handleDeleteConfirm}
+            variant="contained"
+            color="error"
+            disabled={deleteUserMutation.isPending}
+            startIcon={deleteUserMutation.isPending ? <CircularProgress size={20} /> : <Delete />}
+          >
+            {deleteUserMutation.isPending ? 'Đang xóa...' : 'Xóa'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Toggle Active Confirmation Dialog */}
+      <Dialog
+        open={toggleActiveDialogOpen}
+        onClose={() => setToggleActiveDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {togglingUser?.isActive ? (
+              <Block sx={{ mr: 1, color: 'warning.main' }} />
+            ) : (
+              <CheckCircle sx={{ mr: 1, color: 'success.main' }} />
+            )}
+            {togglingUser?.isActive ? 'Vô hiệu hóa tài khoản' : 'Kích hoạt tài khoản'}
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {togglingUser && (
+            <Box>
+              <Paper sx={{ p: 2, mb: 2, backgroundColor: 'action.hover' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Avatar 
+                    src={togglingUser.photoURL} 
+                    sx={{ 
+                      mr: 2,
+                      bgcolor: togglingUser.role === 'admin' ? 'error.main' : 'primary.main',
+                    }}
+                  >
+                    {togglingUser.displayName?.charAt(0).toUpperCase() || 'U'}
+                  </Avatar>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="body1" fontWeight="medium">
+                      {togglingUser.displayName}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {togglingUser.email}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label={getRoleText(togglingUser.role)}
+                    color={getRoleColor(togglingUser.role)}
+                    size="small"
+                  />
+                </Box>
+              </Paper>
+
+              {togglingUser.isActive ? (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Vô hiệu hóa tài khoản này?</strong>
+                  </Typography>
+                  <Typography variant="body2">
+                    Người dùng sẽ:
+                  </Typography>
+                  <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+                    <li>Không thể đăng nhập vào hệ thống</li>
+                    <li>Bị đăng xuất ngay lập tức nếu đang online</li>
+                    <li>Không thể truy cập bất kỳ chức năng nào</li>
+                  </ul>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Bạn có thể kích hoạt lại tài khoản bất cứ lúc nào.
+                  </Typography>
+                </Alert>
+              ) : (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Kích hoạt tài khoản này?</strong>
+                  </Typography>
+                  <Typography variant="body2">
+                    Người dùng sẽ có thể:
+                  </Typography>
+                  <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
+                    <li>Đăng nhập vào hệ thống</li>
+                    <li>Truy cập các chức năng theo quyền của mình</li>
+                    <li>Sử dụng ứng dụng bình thường</li>
+                  </ul>
+                </Alert>
+              )}
+
+              {togglingUser.role === 'admin' && togglingUser.isActive && (
+                <Alert severity="error">
+                  <Typography variant="body2">
+                    <strong>Lưu ý:</strong> Đây là tài khoản quản trị viên. Vô hiệu hóa có thể ảnh hưởng đến quản lý hệ thống!
+                  </Typography>
+                </Alert>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => setToggleActiveDialogOpen(false)}
+            size="large"
+          >
+            Hủy
+          </Button>
+          <Button
+            onClick={handleToggleActive}
+            variant="contained"
+            color={togglingUser?.isActive ? 'warning' : 'success'}
+            disabled={updateUserMutation.isPending}
+            size="large"
+            startIcon={
+              updateUserMutation.isPending ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : togglingUser?.isActive ? (
+                <Block />
+              ) : (
+                <CheckCircle />
+              )
+            }
+          >
+            {updateUserMutation.isPending 
+              ? 'Đang xử lý...' 
+              : togglingUser?.isActive 
+                ? 'Vô hiệu hóa' 
+                : 'Kích hoạt'
+            }
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View User Dialog */}
+      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Thông tin người dùng
+        </DialogTitle>
+        <DialogContent>
           {viewingUser && (
-            <Box sx={{ pt: 1 }}>
-              <Paper sx={{ p: 3, mb: 3, textAlign: 'center' }}>
-                <Avatar
+            <Box sx={{ pt: 2 }}>
+              <Paper sx={{ p: 3, textAlign: 'center', mb: 3 }}>
+                <Avatar 
                   src={viewingUser.photoURL}
                   sx={{ 
                     width: 80, 
@@ -515,12 +608,19 @@ const AdminUsers: React.FC = () => {
                 <Typography variant="h6" gutterBottom>
                   {viewingUser.displayName || 'Không có tên'}
                 </Typography>
-                <Chip
-                  label={getRoleText(viewingUser.role)}
-                  color={getRoleColor(viewingUser.role)}
-                  icon={getRoleIcon(viewingUser.role)}
-                  variant={viewingUser.role === 'admin' ? 'filled' : 'outlined'}
-                />
+                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                  <Chip
+                    label={getRoleText(viewingUser.role)}
+                    color={getRoleColor(viewingUser.role)}
+                    icon={getRoleIcon(viewingUser.role)}
+                    variant={viewingUser.role === 'admin' ? 'filled' : 'outlined'}
+                  />
+                  <Chip
+                    label={viewingUser.isActive ? 'Đã kích hoạt' : 'Chưa kích hoạt'}
+                    color={viewingUser.isActive ? 'success' : 'default'}
+                    icon={viewingUser.isActive ? <CheckCircle /> : <Block />}
+                  />
+                </Box>
               </Paper>
 
               <Grid container spacing={2}>
@@ -539,8 +639,6 @@ const AdminUsers: React.FC = () => {
                   </Box>
                   <Typography variant="body1">
                     {getRoleText(viewingUser.role)}
-                    {viewingUser.role === 'admin' && ' - Có thể quản lý toàn bộ hệ thống'}
-                    {viewingUser.role === 'user' && ' - Chỉ có thể xem và tạo lịch đánh'}
                   </Typography>
                 </Grid>
                 
@@ -567,18 +665,6 @@ const AdminUsers: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setViewDialogOpen(false)}>Đóng</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              setViewDialogOpen(false);
-              if (viewingUser) {
-                handleEditRole(viewingUser);
-              }
-            }}
-            startIcon={<Edit />}
-          >
-            Chỉnh sửa quyền
-          </Button>
         </DialogActions>
       </Dialog>
 
@@ -597,41 +683,22 @@ const AdminUsers: React.FC = () => {
                 Thay đổi quyền cho người dùng <strong>{editingUser.displayName}</strong>
               </Alert>
 
-              <Paper sx={{ p: 2, mb: 3, backgroundColor: 'action.hover' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Avatar src={editingUser.photoURL} sx={{ mr: 2 }}>
-                    {editingUser.displayName?.charAt(0).toUpperCase()}
-                  </Avatar>
-                  <Box>
-                    <Typography variant="body1" fontWeight="medium">
-                      {editingUser.displayName}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {editingUser.email}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Quyền hiện tại: {getRoleText(editingUser.role)}
-                    </Typography>
-                  </Box>
-                </Box>
-              </Paper>
-              
               <FormControl fullWidth>
-                <InputLabel>Quyền mới *</InputLabel>
+                <InputLabel>Quyền</InputLabel>
                 <Select
                   value={newRole}
+                  label="Quyền"
                   onChange={(e) => setNewRole(e.target.value as 'admin' | 'user')}
-                  label="Quyền mới *"
                 >
                   <MenuItem value="user">
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <Person sx={{ mr: 1 }} />
+                      <Person sx={{ mr: 1, color: 'primary.main' }} />
                       <Box>
                         <Typography variant="body2" fontWeight="medium">
                           Người dùng
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Có thể xem và tạo lịch đánh
+                          Chỉ có thể xem và tạo lịch đánh
                         </Typography>
                       </Box>
                     </Box>
