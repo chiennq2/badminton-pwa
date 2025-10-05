@@ -21,6 +21,8 @@ import {
   QrCode2,
   CheckCircle,
   Cancel,
+  Groups,
+  Paid,
 } from "@mui/icons-material";
 import {
   formatCurrency,
@@ -28,6 +30,7 @@ import {
   formatTime,
   calculateMemberSettlement,
   convertTimestampToDate,
+  getLocalStorageItem,
 } from "../utils";
 import { Session } from "../types";
 
@@ -42,6 +45,8 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
   members,
   courtName,
 }) => {
+  const isDarkMode = getLocalStorageItem("darkMode");
+
   // ✅ CHUYỂN ĐỔI DATE AN TOÀN TRƯỚC KHI RENDER
   const safeDate = convertTimestampToDate(session.date);
   const formattedDate = safeDate ? formatDate(safeDate) : "Ngày không xác định";
@@ -203,6 +208,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
               color: "#000000",
             }}
           >
+            <Paid sx={{ mr: 1, color: "success.main", fontSize: 20 }} />
             <Typography variant="body1">
               <strong>Tổng chi phí:</strong>{" "}
               <span style={{ color: "#2196f3", fontWeight: "bold" }}>
@@ -219,6 +225,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
               color: "#000000",
             }}
           >
+            <Groups sx={{ mr: 1, color: "success.main", fontSize: 20 }} />
             <Typography variant="body1" color="#000000">
               <strong>Có mặt:</strong> {presentMembers.length} /{" "}
               {memberPayments.length} người
@@ -426,12 +433,12 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             color="#000000"
             sx={{ fontSize: "0.95rem" }}
           >
-            💰 Tiền slot (Vui lòng tự thanh toán với chủ pass slot!)
+            💰 Tiền slot <Typography sx={{color: 'error.main'}}>(Vui lòng tự thanh toán với chủ pass Slot)</Typography>
           </Typography>
           <Typography
             variant="body2"
             fontWeight="bold"
-            color="#000000"
+            color="#ff0000ff"
             sx={{ fontSize: "0.95rem" }}
           >
             {formatCurrency(session.priceSlot)}
@@ -525,7 +532,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                           width: 28,
                           height: 28,
                           fontSize: "0.9rem",
-                          color: "#ffffffff",
+                          color: isDarkMode ? "#ffffffff" : "#000000ff",
                         }}
                       >
                         {payment.name.charAt(0).toUpperCase()}
@@ -534,7 +541,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                         <Typography
                           variant="body2"
                           fontWeight="medium"
-                          color="#ffffffff"
+                          sx={ {color : isDarkMode ? "#ffffffff" : "#000000ff"} }
                         >
                           {payment.name}
                         </Typography>
@@ -559,7 +566,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
 
                   <TableCell
                     align="right"
-                    sx={{ border: "1px solid #ddd", color: "#30ff06ff" }}
+                    sx={{ border: "1px solid #ddd", color: isDarkMode ? "#2dd90bff" : "#000000ff" }}
                   >
                     {formatCurrency(payment.baseCost)}
                   </TableCell>
@@ -571,7 +578,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       <TableCell
                         key={expense.id}
                         align="right"
-                        sx={{ border: "1px solid #ddd", color: "#30ff06ff" }}
+                        sx={{ border: "1px solid #ddd", color: isDarkMode ? "#2dd90bff" : "#000000ff"  }}
                       >
                         {amount ? formatCurrency(amount) : "-"}
                       </TableCell>

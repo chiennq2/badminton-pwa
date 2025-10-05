@@ -10,7 +10,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
       manifest: {
         name: 'Quản Lý Cầu Lông',
-        short_name: 'CầuLông',
+        short_name: 'DrunkSmasherS',
         description: 'Ứng dụng quản lý lịch đánh cầu lông',
         theme_color: '#4caf50',
         background_color: '#ffffff',
@@ -28,6 +28,12 @@ export default defineConfig({
             src: 'pwa-512x512.png',
             sizes: '512x512',
             type: 'image/png'
+          },
+          {
+            "src": "masked-icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
           }
         ]
       },

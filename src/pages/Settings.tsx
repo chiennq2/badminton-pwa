@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -14,14 +14,18 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Skeleton,
 } from '@mui/material';
-import { Save, Settings as SettingsIcon } from '@mui/icons-material';
+import { Save, Settings as SettingsIcon, RestartAlt } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import SessionsMigrationPanel from '../components/SessionsMigrationPanel';
+import { getOrCreateSettings, resetSettings, updateSettings } from '../hooks';
+
 
 const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [snackbar, setSnackbar] = useState({ 
     open: false, 
     message: '', 
@@ -35,7 +39,7 @@ const Settings: React.FC = () => {
       .required('Thời lượng mặc định là bắt buộc'),
     defaultMaxParticipants: Yup.number()
       .min(2, 'Tối thiểu 2 người')
-      .max(20, 'Tối đa 20 người')
+      .max(60, 'Tối đa 60 người')
       .required('Số người tối đa là bắt buộc'),
     defaultShuttlecockCost: Yup.number()
       .min(0, 'Giá phải >= 0')
@@ -46,9 +50,9 @@ const Settings: React.FC = () => {
 
   const formik = useFormik({
     initialValues: {
-      defaultSessionDuration: 120, // 2 hours
-      defaultMaxParticipants: 8,
-      defaultShuttlecockCost: 50000,
+      defaultSessionDuration: 120,
+      defaultMaxParticipants: 16,
+      defaultShuttlecockCost: 25000,
       currency: 'VND',
       timezone: 'Asia/Ho_Chi_Minh',
     },
@@ -56,10 +60,10 @@ const Settings: React.FC = () => {
     onSubmit: async (values) => {
       setLoading(true);
       try {
-        // Here you would save settings to Firebase
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
+        await updateSettings(values);
         showSnackbar('Lưu cài đặt thành công!', 'success');
       } catch (error) {
+        console.error('Save settings error:', error);
         showSnackbar('Có lỗi xảy ra khi lưu cài đặt!', 'error');
       } finally {
         setLoading(false);
@@ -67,9 +71,67 @@ const Settings: React.FC = () => {
     },
   });
 
+  // Load settings khi component mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    setInitialLoading(true);
+    try {
+      const settings = await getOrCreateSettings();
+      formik.setValues({
+        defaultSessionDuration: settings.defaultSessionDuration,
+        defaultMaxParticipants: settings.defaultMaxParticipants,
+        defaultShuttlecockCost: settings.defaultShuttlecockCost,
+        currency: settings.currency,
+        timezone: settings.timezone,
+      });
+    } catch (error) {
+      console.error('Load settings error:', error);
+      showSnackbar('Không thể tải cài đặt từ máy chủ', 'error');
+    } finally {
+      setInitialLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!window.confirm('Bạn có chắc muốn khôi phục cài đặt mặc định?')) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await resetSettings();
+      await loadSettings();
+      showSnackbar('Đã khôi phục cài đặt mặc định!', 'success');
+    } catch (error) {
+      console.error('Reset settings error:', error);
+      showSnackbar('Có lỗi xảy ra khi reset cài đặt!', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
   };
+
+  if (initialLoading) {
+    return (
+      <Box>
+        <Box sx={{ mb: 3 }}>
+          <Skeleton variant="text" width={300} height={40} />
+          <Skeleton variant="text" width={500} height={24} />
+        </Box>
+        <Card>
+          <CardContent>
+            <Skeleton variant="rectangular" height={400} />
+          </CardContent>
+        </Card>
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -82,9 +144,11 @@ const Settings: React.FC = () => {
           Cấu hình các thông số mặc định cho hệ thống Quản Lý Lịch Đánh Cầu
         </Typography>
       </Box>
+
       <Box sx={{ mb: 3 }}>
         <SessionsMigrationPanel />
       </Box>
+
       <form onSubmit={formik.handleSubmit}>
         <Grid container spacing={3}>
           {/* Session Settings */}
@@ -225,9 +289,20 @@ const Settings: React.FC = () => {
             </Card>
           </Grid>
 
-          {/* Save Button */}
+          {/* Action Buttons */}
           <Grid item xs={12}>
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<RestartAlt />}
+                onClick={handleReset}
+                disabled={loading}
+                size="large"
+              >
+                Khôi phục mặc định
+              </Button>
+
               <Button
                 type="submit"
                 variant="contained"
@@ -236,7 +311,7 @@ const Settings: React.FC = () => {
                 size="large"
               >
                 {loading ? (
-                  <CircularProgress size={20} />
+                  <CircularProgress size={20} color="inherit" />
                 ) : (
                   'Lưu cài đặt'
                 )}

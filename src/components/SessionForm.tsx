@@ -58,6 +58,7 @@ import {
   useGroups,
   useCreateSession,
   useUpdateSession,
+  getSettings,
 } from "../hooks";
 import {
   Session,
@@ -65,6 +66,7 @@ import {
   Member,
   Court,
   Group as GroupType,
+  AppSettings,
 } from "../types";
 import {
   formatCurrency,
@@ -110,7 +112,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const [waitingList, setWaitingList] = useState<CustomMember[]>([]);
   const [expenses, setExpenses] = useState<ExpenseWithMembers[]>([]);
   const [courtCost, setCourtCost] = useState(0);
-  const [shuttlecockCount, setShuttlecockCount] = useState(0);
+  const [shuttlecockCount, setShuttlecockCount] = useState(1);
   const [shuttlecockPrice, setShuttlecockPrice] = useState(25000);
   const [customMemberName, setCustomMemberName] = useState("");
   const [customWaitingMemberName, setCustomWaitingMemberName] = useState("");
@@ -144,7 +146,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
       date: editingSession?.date || dayjs().add(1, "day").toDate(),
       startTime: editingSession?.startTime || "19:30",
       endTime: editingSession?.endTime || "21:30",
-      maxParticipants: editingSession?.maxParticipants || 60,
+      maxParticipants: editingSession?.maxParticipants || 24,
       priceSlot: editingSession?.priceSlot || 0,
       notes: editingSession?.notes || "",
       status: editingSession?.status || "scheduled",
@@ -241,6 +243,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         setQrImage(editingSession.qrImage);
       }
     }
+
   }, [
     editingSession,
     members,
@@ -373,7 +376,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     setWaitingList([]);
     setExpenses([]);
     setCourtCost(0);
-    setShuttlecockCount(0);
+    setShuttlecockCount(1);
     setShuttlecockPrice(25000);
     setQrImage(null);
     setCustomMemberName("");
