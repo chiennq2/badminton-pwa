@@ -33,43 +33,136 @@ Sau khi tạo xong, cập nhật rules:
 
 ```javascript
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can read/write their own data
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    // Kiểm tra user đã đăng nhập
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Kiểm tra user có phải admin không
+    function isAdmin() {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Kiểm tra user có active không
+    function isActive() {
+      return isSignedIn() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isActive == true;
+    }
+    
+    // Kiểm tra user có phải chủ sở hữu document không
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Đọc: Chỉ user đã đăng nhập
+      allow read: if isSignedIn();
+      
+      // Tạo: Chỉ khi đăng ký tài khoản mới (tự động tạo document cho chính mình)
+      allow create: if isSignedIn() && 
+                       request.auth.uid == userId &&
+                       request.resource.data.role == 'user' && // Mặc định là user
+                       request.resource.data.isActive == true; // Mặc định active
+      
+      // Cập nhật: 
+      // - Admin có thể cập nhật bất kỳ user nào
+      // - User chỉ có thể cập nhật thông tin cá nhân của mình (KHÔNG được đổi role, isActive)
+      allow update: if isAdmin() || 
+                       (isOwner(userId) && 
+                        request.resource.data.role == resource.data.role && // Không được tự đổi role
+                        request.resource.data.isActive == resource.data.isActive); // Không được tự đổi isActive
+      
+      // Xóa: Chỉ admin
+      allow delete: if isAdmin();
     }
     
-    // Authenticated users can read all data
-    match /{collection=**} {
-      allow read: if request.auth != null;
+    // ============================================
+    // COURTS COLLECTION
+    // ============================================
+    match /courts/{courtId} {
+      // Đọc: User đã đăng nhập và active
+      allow read: if isActive();
+      
+      // Tạo/Cập nhật/Xóa: Chỉ admin
+      allow create, update, delete: if isAdmin();
     }
     
-    // Only admins can write to most collections
-    match /courts/{document=**} {
-      allow write: if request.auth != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    // ============================================
+    // MEMBERS COLLECTION
+    // ============================================
+    match /members/{memberId} {
+      // Đọc: User đã đăng nhập và active
+      allow read: if isActive();
+      
+      // Tạo/Cập nhật/Xóa: Chỉ admin
+      allow create, update, delete: if isAdmin();
     }
     
-    match /members/{document=**} {
-      allow write: if request.auth != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    // ============================================
+    // GROUPS COLLECTION
+    // ============================================
+    match /groups/{groupId} {
+      // Đọc: User đã đăng nhập và active
+      allow read: if isActive();
+      
+      // Tạo/Cập nhật/Xóa: Chỉ admin
+      allow create, update, delete: if isAdmin();
     }
     
-    match /groups/{document=**} {
-      allow write: if request.auth != null && 
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    // Sessions can be created/updated by authenticated users
+    // ============================================
+    // SESSIONS COLLECTION
+    // ============================================
     match /sessions/{sessionId} {
-      allow create, update: if request.auth != null;
-      allow delete: if request.auth != null && 
-        (resource.data.createdBy == request.auth.uid || 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      // Đọc: User đã đăng nhập và active
+      allow read: if isActive();
+      
+      // Tạo: User active có thể tạo session
+      allow create: if isActive() && 
+                       request.resource.data.createdBy == request.auth.uid;
+      
+      // Cập nhật: 
+      // - Admin có thể cập nhật bất kỳ session nào
+      // - User chỉ có thể cập nhật session của mình
+      allow update: if isActive() && 
+                       (isAdmin() || resource.data.createdBy == request.auth.uid);
+      
+      // Xóa:
+      // - Admin có thể xóa bất kỳ session nào
+      // - User chỉ có thể xóa session của mình
+      allow delete: if isActive() && 
+                       (isAdmin() || resource.data.createdBy == request.auth.uid);
+    }
+    
+    // ============================================
+    // SETTINGS COLLECTION
+    // ============================================
+    match /settings/{settingId} {
+      // Đọc: Tất cả user đã đăng nhập và active có thể đọc settings
+      allow read: if isActive();
+      
+      // Tạo/Cập nhật/Xóa: Chỉ admin
+      // Settings là cấu hình hệ thống, chỉ admin được thay đổi
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // DEFAULT: DENY ALL
+    // ============================================
+    // Mọi collection khác đều bị từ chối truy cập
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

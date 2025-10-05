@@ -105,6 +105,7 @@ import {
 import { Snackbar } from "@mui/material"; // Thêm vào imports nếu chưa có
 import { useResponsive } from "../hooks/useResponsive";
 import { dateToString, stringToDate } from "../utils/dateUtils";
+import { DroppableProps } from "@hello-pangea/dnd";
 
 interface SessionEditFormProps {
   open: boolean;
@@ -161,6 +162,24 @@ const removeUndefinedFields = <T extends Record<string, any>>(
   return cleaned;
 };
 
+const StrictModeDroppable = ({ children, ...props }: DroppableProps) => {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const animation = requestAnimationFrame(() => setEnabled(true));
+    return () => {
+      cancelAnimationFrame(animation);
+      setEnabled(false);
+    };
+  }, []);
+
+  if (!enabled) {
+    return null;
+  }
+
+  return <Droppable {...props}>{children}</Droppable>;
+};
+
 const SessionEditForm: React.FC<SessionEditFormProps> = ({
   open,
   onClose,
@@ -185,9 +204,9 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
   const [customWaitingName, setCustomWaitingName] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const [useAutoCourt, setUseAutoCourt] = useState(true);
+  const [useAutoCourt, setUseAutoCourt] = useState(false);
   const [manualCourtCost, setManualCourtCost] = useState(0);
-  const [shuttlecockCount, setShuttlecockCount] = useState(2);
+  const [shuttlecockCount, setShuttlecockCount] = useState(1);
   const [shuttlecockPrice, setShuttlecockPrice] = useState(25000);
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editingMemberName, setEditingMemberName] = useState("");
@@ -222,7 +241,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
           : stringToDate(session.date),
       startTime: session.startTime || "19:30",
       endTime: session.endTime || "21:30",
-      maxParticipants: session.maxParticipants || 60,
+      maxParticipants: session.maxParticipants || 24,
       priceSlot: session.priceSlot || 0,
       status: session.status || "scheduled",
       host: session.host || currentUser,
@@ -270,7 +289,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
         date: dateValue,
         startTime: session.startTime,
         endTime: session.endTime,
-        maxParticipants: 60, // Không giới hạn
+        maxParticipants: session.maxParticipants,
         priceSlot: session.priceSlot || 0,
         notes: session.notes || "",
         status: session.status,
@@ -292,7 +311,6 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
           replacementNote: sm.replacementNote, // ✅ Đọc ghi chú
         };
       });
-      console.log("Loading session members:", sessionMembers);
       setSelectedMembers(sessionMembers);
 
       const waitingMembers: CustomMember[] = session.waitingList.map((wm) => {
@@ -308,7 +326,6 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
           isCustom: wm.isCustom || !member,
         };
       });
-      console.log("Loading waiting members:", waitingMembers);
       setWaitingList(waitingMembers);
 
       const sessionExpenses: SessionExpenseExtended[] = session.expenses
@@ -317,7 +334,6 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
           ...exp,
           memberIds: exp.memberIds || sessionMembers.map((m) => m.id),
         }));
-      console.log("Loading expenses:", sessionExpenses);
       setExpenses(sessionExpenses);
 
       setSettlements(session.settlements || []);
@@ -334,7 +350,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
 
       if (shuttlecockExpense) {
         const count = parseInt(
-          shuttlecockExpense.description?.split(" ")[0] || "2"
+          shuttlecockExpense.description?.split(" ")[0] || "0"
         );
         setShuttlecockCount(count);
         setShuttlecockPrice(shuttlecockExpense.amount / count);
@@ -474,7 +490,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
           return waitingData;
         }),
         currentParticipants: selectedMembers.length,
-        maxParticipants: 60, // Không giới hạn
+        maxParticipants: values.maxParticipants, // Không giới hạn
         expenses: sessionExpenses,
         totalCost,
         costPerPerson: baseSharedCost,
@@ -482,12 +498,12 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
         createdBy: session?.createdBy || currentUser?.memberId || "",
       };
 
-      console.log("Saving session with data:", {
-        membersCount: sessionData.members.length,
-        waitingListCount: sessionData.waitingList.length,
-        members: sessionData.members,
-        waitingList: sessionData.waitingList,
-      });
+      // console.log("Saving session with data:", {
+      //   membersCount: sessionData.members.length,
+      //   waitingListCount: sessionData.waitingList.length,
+      //   members: sessionData.members,
+      //   waitingList: sessionData.waitingList,
+      // });
 
       const cleanedData = removeUndefinedFields(sessionData);
 
@@ -530,9 +546,9 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
     setSettlements([]);
     setCustomMemberName("");
     setCustomWaitingName("");
-    setUseAutoCourt(true);
+    setUseAutoCourt(false);
     setManualCourtCost(0);
-    setShuttlecockCount(2);
+    setShuttlecockCount(1);
     setShuttlecockPrice(25000);
     formik.resetForm();
     onClose();
@@ -598,7 +614,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       // ✅ THÊM GHI CHÚ THAY THẾ cho thành viên mới
       const memberWithNote: CustomMember = {
         ...firstWaiting,
-        replacementNote: `Thay thế cho ${removedMemberName}`, // ✅ Lưu ghi chú
+        replacementNote: `Slot của ${removedMemberName}`, // ✅ Lưu ghi chú
       };
 
       // Xóa khỏi sảnh chờ
@@ -671,13 +687,29 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
 
   // THÊM HÀM XỬ LÝ DRAG & DROP CHO SẢNH CHỜ
   const handleWaitingListReorder = (result: DropResult) => {
-    if (!result.destination) return;
+    // Check if dropped outside the list
+    if (!result.destination) {
+      return;
+    }
+
+    // Check if position actually changed
+    if (result.source.index === result.destination.index) {
+      return;
+    }
 
     const items = Array.from(waitingList);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
     setWaitingList(items);
+
+    // Optional: Show feedback
+    showSnackbar(
+      `Đã di chuyển ${reorderedItem.name} từ vị trí ${
+        result.source.index + 1
+      } sang ${result.destination.index + 1}`,
+      "info"
+    );
   };
 
   const addExpense = () => {
@@ -956,8 +988,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
                   error={
-                    formik.touched.priceSlot &&
-                    Boolean(formik.errors.priceSlot)
+                    formik.touched.priceSlot && Boolean(formik.errors.priceSlot)
                   }
                   helperText={
                     formik.touched.priceSlot && formik.errors.priceSlot
@@ -1538,7 +1569,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                   </Alert>
                 ) : (
                   <DragDropContext onDragEnd={handleWaitingListReorder}>
-                    <Droppable droppableId="waiting-list">
+                    <StrictModeDroppable droppableId="waiting-list">
                       {(provided, snapshot) => (
                         <List
                           {...provided.droppableProps}
@@ -1551,6 +1582,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                             borderRadius: 1,
                             transition: "background-color 0.2s ease",
                             p: 1,
+                            minHeight: 100,
                           }}
                         >
                           {waitingList.map((member, index) => (
@@ -1575,6 +1607,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                       : "divider",
                                     boxShadow: snapshot.isDragging ? 3 : 0,
                                     transition: "all 0.2s ease",
+                                    cursor: "default",
                                     "&:hover": {
                                       backgroundColor: "action.hover",
                                     },
@@ -1595,6 +1628,8 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                       "&:hover": {
                                         color: "primary.main",
                                       },
+                                      touchAction: "none",
+                                      userSelect: "none",
                                     }}
                                   >
                                     <DragHandle />
@@ -1690,7 +1725,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                           {provided.placeholder}
                         </List>
                       )}
-                    </Droppable>
+                    </StrictModeDroppable>
                   </DragDropContext>
                 )}
 

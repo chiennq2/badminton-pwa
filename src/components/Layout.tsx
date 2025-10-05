@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   AppBar,
   Box,
@@ -19,7 +19,7 @@ import {
   useMediaQuery,
   Switch,
   FormControlLabel,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Menu as MenuIcon,
   Dashboard,
@@ -33,9 +33,9 @@ import {
   Settings,
   DarkMode,
   LightMode,
-} from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+} from "@mui/icons-material";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -43,42 +43,48 @@ interface LayoutProps {
   onDarkModeToggle: () => void;
 }
 
-const drawerWidth = 280;
-
 // Menu cho admin - full quyền
 const adminMenuItems = [
-  { text: 'Tổng quan', icon: <Dashboard />, path: '/' },
-  { text: 'Sân cầu lông', icon: <SportsTennis />, path: '/courts' },
-  { text: 'Thành viên', icon: <People />, path: '/members' },
-  { text: 'Nhóm', icon: <Groups />, path: '/groups' },
-  { text: 'Lịch đánh', icon: <CalendarMonth />, path: '/sessions' },
-  { text: 'Báo cáo', icon: <Assessment />, path: '/reports' },
+  { text: "Tổng quan", icon: <Dashboard />, path: "/" },
+  { text: "Sân cầu lông", icon: <SportsTennis />, path: "/courts" },
+  { text: "Thành viên", icon: <People />, path: "/members" },
+  { text: "Nhóm", icon: <Groups />, path: "/groups" },
+  { text: "Lịch đánh", icon: <CalendarMonth />, path: "/sessions" },
+  { text: "Báo cáo", icon: <Assessment />, path: "/reports" },
 ];
 
 const adminSettingsItems = [
-  { text: 'Quản trị viên', icon: <AdminPanelSettings />, path: '/admin/users' },
-  { text: 'Cài đặt', icon: <Settings />, path: '/settings' },
+  { text: "Quản trị viên", icon: <AdminPanelSettings />, path: "/admin/users" },
+  { text: "Cài đặt", icon: <Settings />, path: "/settings" },
 ];
 
 // Menu cho user - chỉ có lịch đánh
 const userMenuItems = [
-  { text: 'Lịch đánh của tôi', icon: <CalendarMonth />, path: '/sessions' },
-  { text: 'Báo cáo của tôi', icon: <Assessment />, path: '/reports' },
+  { text: "Lịch đánh của tôi", icon: <CalendarMonth />, path: "/sessions" },
+  { text: "Báo cáo của tôi", icon: <Assessment />, path: "/reports" },
 ];
 
-const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle }) => {
+const Layout: React.FC<LayoutProps> = ({
+  children,
+  darkMode,
+  onDarkModeToggle,
+}) => {
   const { currentUser, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [collapsed, setCollapsed] = useState(false);
+
+  const drawerWidth = collapsed ? 72 : 280;
 
   // Lấy menu items dựa trên role
-  const menuItems = currentUser?.role === 'admin' ? adminMenuItems : userMenuItems;
-  const settingsItems = currentUser?.role === 'admin' ? adminSettingsItems : [];
+  const menuItems =
+    currentUser?.role === "admin" ? adminMenuItems : userMenuItems;
+  const settingsItems = currentUser?.role === "admin" ? adminSettingsItems : [];
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -95,35 +101,37 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
   const handleSignOut = async () => {
     try {
       await signOut();
-      navigate('/login');
+      navigate("/login");
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error signing out:", error);
     }
   };
 
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Logo */}
-      <Toolbar sx={{ py: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Avatar
-            sx={{
-              bgcolor: 'primary.main',
-              width: 40,
-              height: 40,
-            }}
-          >
-            <SportsTennis />
-          </Avatar>
-          <Box>
-            <Typography variant="h6" component="div" fontWeight="bold">
+      <Toolbar
+        sx={{
+          py: 2,
+          display: "flex",
+          justifyContent: collapsed ? "center" : "space-between",
+          alignItems: "center",
+        }}
+      >
+        {!collapsed && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Avatar sx={{ bgcolor: "primary.main", width: 36, height: 36 }}>
+              <SportsTennis />
+            </Avatar>
+            <Typography variant="h6" fontWeight="bold">
               Quản Lý Cầu Lông
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {currentUser?.role === 'admin' ? 'Quản trị viên' : 'Người dùng'}
-            </Typography>
           </Box>
-        </Box>
+        )}
+
+        <IconButton onClick={() => setCollapsed(!collapsed)} size="small">
+          <MenuIcon />
+        </IconButton>
       </Toolbar>
 
       <Divider />
@@ -142,21 +150,21 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
                 selected={isActive}
                 sx={{
                   borderRadius: 2,
-                  '&.Mui-selected': {
-                    bgcolor: 'primary.main',
-                    color: 'primary.contrastText',
-                    '&:hover': {
-                      bgcolor: 'primary.dark',
+                  "&.Mui-selected": {
+                    bgcolor: "primary.main",
+                    color: "primary.contrastText",
+                    "&:hover": {
+                      bgcolor: "primary.dark",
                     },
-                    '& .MuiListItemIcon-root': {
-                      color: 'primary.contrastText',
+                    "& .MuiListItemIcon-root": {
+                      color: "primary.contrastText",
                     },
                   },
                 }}
               >
                 <ListItemIcon
                   sx={{
-                    color: isActive ? 'inherit' : 'text.secondary',
+                    color: isActive ? "inherit" : "text.secondary",
                     minWidth: 40,
                   }}
                 >
@@ -191,21 +199,21 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
                     selected={isActive}
                     sx={{
                       borderRadius: 2,
-                      '&.Mui-selected': {
-                        bgcolor: 'primary.main',
-                        color: 'primary.contrastText',
-                        '&:hover': {
-                          bgcolor: 'primary.dark',
+                      "&.Mui-selected": {
+                        bgcolor: "primary.main",
+                        color: "primary.contrastText",
+                        "&:hover": {
+                          bgcolor: "primary.dark",
                         },
-                        '& .MuiListItemIcon-root': {
-                          color: 'primary.contrastText',
+                        "& .MuiListItemIcon-root": {
+                          color: "primary.contrastText",
                         },
                       },
                     }}
                   >
                     <ListItemIcon
                       sx={{
-                        color: isActive ? 'inherit' : 'text.secondary',
+                        color: isActive ? "inherit" : "text.secondary",
                         minWidth: 40,
                       }}
                     >
@@ -238,14 +246,14 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
               checkedIcon={<DarkMode />}
             />
           }
-          label={darkMode ? 'Chế độ tối' : 'Chế độ sáng'}
+          label={darkMode ? "Chế độ tối" : "Chế độ sáng"}
         />
       </Box>
     </Box>
   );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <Box sx={{ display: "flex", minHeight: "100vh" }}>
       {/* App Bar */}
       <AppBar
         position="fixed"
@@ -259,7 +267,7 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
             color="inherit"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
+            sx={{ mr: 2, display: { md: "none" } }}
           >
             <MenuIcon />
           </IconButton>
@@ -288,8 +296,8 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
             onClose={handleProfileMenuClose}
-            transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-            anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            transformOrigin={{ horizontal: "right", vertical: "top" }}
+            anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
           >
             <MenuItem disabled>
               <Box>
@@ -318,21 +326,23 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
         sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}
       >
         <Drawer
-          variant={isMobile ? 'temporary' : 'permanent'}
+          variant={isMobile ? "temporary" : "permanent"}
           open={isMobile ? mobileOpen : true}
           onClose={handleDrawerToggle}
           ModalProps={{
             keepMounted: true,
           }}
           sx={{
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
+            "& .MuiDrawer-paper": {
               width: drawerWidth,
-              borderRight: 'none',
+              overflowX: "hidden",
+              transition: "width 0.3s ease",
+              boxSizing: "border-box",
+              borderRight: "none",
               background: (theme) =>
-                theme.palette.mode === 'dark'
-                  ? 'linear-gradient(180deg, #1e1e1e 0%, #121212 100%)'
-                  : 'linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%)',
+                theme.palette.mode === "dark"
+                  ? "linear-gradient(180deg, #1e1e1e 0%, #121212 100%)"
+                  : "linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%)",
             },
           }}
         >
@@ -346,46 +356,45 @@ const Layout: React.FC<LayoutProps> = ({ children, darkMode, onDarkModeToggle })
         sx={{
           flexGrow: 1,
           width: { md: `calc(100% - ${drawerWidth}px)` },
-          minHeight: '100vh',
-          backgroundColor: 'background.default',
+          transition: "width 0.3s ease",
+          minHeight: "100vh",
+          backgroundColor: "background.default",
         }}
       >
         <Toolbar />
-        <Box sx={{ p: 3 }}>
-          {children}
-        </Box>
+        <Box sx={{ p: 3 }}>{children}</Box>
       </Box>
     </Box>
   );
 };
 
 const getPageTitle = (pathname: string, role?: string): string => {
-  if (role === 'user') {
-    return 'Lịch đánh của tôi';
+  if (role === "user") {
+    return "Lịch đánh của tôi";
   }
-  
+
   switch (pathname) {
-    case '/':
-      return 'Tổng quan';
-    case '/courts':
-      return 'Quản lý sân';
-    case '/members':
-      return 'Quản lý thành viên';
-    case '/groups':
-      return 'Quản lý nhóm';
-    case '/sessions':
-      return 'Lịch đánh cầu lông';
-    case '/reports':
-      return 'Báo cáo thống kê';
-    case '/admin/users':
-      return 'Quản lý người dùng';
-    case '/settings':
-      return 'Cài đặt hệ thống';
+    case "/":
+      return "Tổng quan";
+    case "/courts":
+      return "Quản lý sân";
+    case "/members":
+      return "Quản lý thành viên";
+    case "/groups":
+      return "Quản lý nhóm";
+    case "/sessions":
+      return "Lịch đánh cầu lông";
+    case "/reports":
+      return "Báo cáo thống kê";
+    case "/admin/users":
+      return "Quản lý người dùng";
+    case "/settings":
+      return "Cài đặt hệ thống";
     default:
-      if (pathname.includes('/sessions/')) {
-        return 'Chi tiết lịch đánh';
+      if (pathname.includes("/sessions/")) {
+        return "Chi tiết lịch đánh";
       }
-      return 'Quản Lý Lịch Đánh Cầu';
+      return "Quản Lý Lịch Đánh Cầu";
   }
 };
 

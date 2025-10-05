@@ -1,7 +1,7 @@
 {
   "name": "Quản Lý Lịch Đánh Cầu",
-  "short_name": "CầuLông",
-  "description": "Ứng dụng quản lý lịch đánh cầu lông chuyên nghiệp",
+  "short_name": "DrunkSmasherS",
+  "description": "Ứng dụng quản lý lịch đánh cầu - DrunkSmasherS",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

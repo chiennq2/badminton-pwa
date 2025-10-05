@@ -148,7 +148,6 @@ export interface MemberSettlementDetail {
 }
 
 export interface AppSettings {
-  id: string;
   defaultSessionDuration: number; // minutes
   defaultMaxParticipants: number;
   defaultShuttlecockCost: number;

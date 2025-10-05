@@ -48,7 +48,6 @@ export const convertFirestoreTimestamp = (data: any): any => {
 };
 
 export const formatDate = (date: any): string => {
-  console.log('date', date)
   return formatDateOnly(date);
 };
 

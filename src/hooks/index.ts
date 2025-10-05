@@ -11,10 +11,11 @@ import {
   where,
   orderBy,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  setDoc
 } from 'firebase/firestore';
 import { db, auth } from '../config/firebase';
-import { Court, Member, Group, Session, User } from '../types';
+import { Court, Member, Group, Session, User, AppSettings } from '../types';
 import { convertFirestoreTimestamp } from '../utils';
 import { dateToString, stringToDate } from '../utils/dateUtils';
 
@@ -28,6 +29,9 @@ const convertTimestamp = (data: any) => {
   });
   return converted;
 };
+
+const SETTINGS_DOC_ID = 'app_settings';
+const SETTINGS_COLLECTION = 'settings';
 
 const convertSessionDates = (data: any) => {
   return {
@@ -561,4 +565,119 @@ export const useDeleteUser = () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
     },
   });
+};
+
+/**
+ * Lấy settings từ Firestore
+ */
+export const getSettings = async (): Promise<AppSettings | null> => {
+  try {
+    const settingsRef = doc(db, SETTINGS_COLLECTION, SETTINGS_DOC_ID);
+    const settingsSnap = await getDoc(settingsRef);
+
+    if (settingsSnap.exists()) {
+      return settingsSnap.data() as AppSettings;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error getting settings:', error);
+    throw new Error('Không thể tải cài đặt từ máy chủ');
+  }
+};
+
+/**
+ * Tạo settings mới (chỉ dùng lần đầu)
+ * Sử dụng setDoc() để tạo document với ID cố định
+ */
+export const createSettings = async (settings: AppSettings): Promise<void> => {
+  try {
+    const settingsRef = doc(db, SETTINGS_COLLECTION, SETTINGS_DOC_ID);
+    
+    // setDoc() - dùng khi muốn chỉ định document ID
+    await setDoc(settingsRef, {
+      ...settings,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error('Error creating settings:', error);
+    throw new Error('Không thể tạo cài đặt mới');
+  }
+};
+
+/**
+ * Cập nhật settings
+ */
+export const updateSettings = async (settings: Partial<AppSettings>): Promise<void> => {
+  try {
+    const settingsRef = doc(db, SETTINGS_COLLECTION, SETTINGS_DOC_ID);
+    
+    // Kiểm tra xem document có tồn tại không
+    const settingsSnap = await getDoc(settingsRef);
+    
+    if (!settingsSnap.exists()) {
+      // Nếu chưa tồn tại, tạo mới
+      await createSettings(settings as AppSettings);
+    } else {
+      // Nếu đã tồn tại, cập nhật
+      await updateDoc(settingsRef, {
+        ...settings,
+        updatedAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    throw new Error('Không thể cập nhật cài đặt');
+  }
+};
+
+/**
+ * Lấy hoặc tạo settings với giá trị mặc định
+ */
+export const getOrCreateSettings = async (): Promise<AppSettings> => {
+  try {
+    const existingSettings = await getSettings();
+    
+    if (existingSettings) {
+      return existingSettings;
+    }
+    
+    // Tạo settings mặc định nếu chưa tồn tại
+    const defaultSettings: AppSettings = {
+      defaultSessionDuration: 120,
+      defaultMaxParticipants: 16,
+      defaultShuttlecockCost: 25000,
+      currency: 'VND',
+      timezone: 'Asia/Ho_Chi_Minh',
+      updatedAt: new Date()
+    };
+    
+    await createSettings(defaultSettings);
+    return defaultSettings;
+  } catch (error) {
+    console.error('Error getting or creating settings:', error);
+    throw new Error('Không thể tải cài đặt');
+  }
+};
+
+/**
+ * Reset settings về mặc định
+ */
+export const resetSettings = async (): Promise<void> => {
+  try {
+    const defaultSettings: AppSettings = {
+      defaultSessionDuration: 120,
+      defaultMaxParticipants: 16,
+      defaultShuttlecockCost: 25000,
+      currency: 'VND',
+      timezone: 'Asia/Ho_Chi_Minh',
+      updatedAt: new Date()
+    };
+    
+    await updateSettings(defaultSettings);
+  } catch (error) {
+    console.error('Error resetting settings:', error);
+    throw new Error('Không thể reset cài đặt');
+  }
 };
