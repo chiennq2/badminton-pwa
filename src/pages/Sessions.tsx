@@ -16,6 +16,9 @@ import {
   CardContent,
   Grid,
   Tooltip,
+  Tabs,
+  Tab,
+  Badge,
 } from "@mui/material";
 import {
   DataGrid,
@@ -36,6 +39,8 @@ import {
   Payment,
   CheckCircle,
   Warning,
+  Schedule,
+  Done,
 } from "@mui/icons-material";
 import { useNavigate } from "react-router-dom";
 import { useSessions, useDeleteSession, useUpdateSession } from "../hooks";
@@ -68,7 +73,8 @@ const Sessions: React.FC = () => {
     message: "",
     severity: "success" as "success" | "error",
   });
-  const { isMobile } = useResponsive(); // ✅ Thêm dòng này
+  const [currentTab, setCurrentTab] = useState(0); // 0: Đang hoạt động, 1: Đã hoàn thành
+  const { isMobile } = useResponsive();
 
   const handleEdit = (session: Session) => {
     console.log("Opening edit form for session:", session.id);
@@ -230,7 +236,7 @@ const Sessions: React.FC = () => {
       field: "name",
       headerName: "Tên lịch",
       flex: 1,
-      minWidth: 150, // ✅ Thêm minWidth cho responsive
+      minWidth: 150,
       renderCell: (params) => (
         <Box
           sx={{ cursor: "pointer" }}
@@ -244,7 +250,7 @@ const Sessions: React.FC = () => {
               overflow: "hidden",
               textOverflow: "ellipsis",
               whiteSpace: "nowrap",
-              maxWidth: "100%", // ✅ Tránh text bị tràn trên mobile
+              maxWidth: "100%",
             }}
           >
             {params.value}
@@ -252,7 +258,7 @@ const Sessions: React.FC = () => {
           <Typography
             variant="caption"
             color="text.secondary"
-            sx={{ display: { xs: "none", sm: "block" } }} // ✅ Ẩn ID trên mobile
+            sx={{ display: { xs: "none", sm: "block" } }}
           >
             ID: {params.id.toString().slice(-8)}
           </Typography>
@@ -262,16 +268,15 @@ const Sessions: React.FC = () => {
     {
       field: "date",
       headerName: "Ngày",
-      width: 140, // ✅ Tăng width một chút
-      minWidth: 120, // ✅ Thêm minWidth
+      width: 140,
+      minWidth: 120,
       renderCell: (params) => {
         try {
-          // ✅ SỬ DỤNG FUNCTION formatDate ĐÃ CẢI THIỆN
           return (
             <Typography
               variant="body2"
               sx={{
-                fontSize: { xs: "0.75rem", sm: "0.875rem" }, // ✅ Nhỏ hơn trên mobile
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
               }}
             >
               {formatDate(params.value)}
@@ -291,13 +296,13 @@ const Sessions: React.FC = () => {
       field: "startTime",
       headerName: "Thời gian",
       width: 140,
-      minWidth: 100, // ✅ Thêm minWidth
+      minWidth: 100,
       renderCell: (params) => (
         <Typography
           variant="body2"
           sx={{
             fontFamily: "monospace",
-            fontSize: { xs: "0.7rem", sm: "0.875rem" }, // ✅ Responsive font
+            fontSize: { xs: "0.7rem", sm: "0.875rem" },
           }}
         >
           {formatTime(params.value)} - {formatTime(params.row.endTime)}
@@ -319,7 +324,7 @@ const Sessions: React.FC = () => {
               sx={{
                 mr: 0.5,
                 color: "text.secondary",
-                display: { xs: "none", sm: "inline" }, // ✅ Ẩn icon trên mobile
+                display: { xs: "none", sm: "inline" },
               }}
             />
             <Typography
@@ -421,10 +426,8 @@ const Sessions: React.FC = () => {
           />,
         ];
 
-        // Thêm actions thay đổi trạng thái
         baseActions.push(...getStatusActions(session));
 
-        // Action xóa - cho phép xóa cả lịch đã hoàn thành
         baseActions.push(
           <GridActionsCellItem
             icon={<Delete />}
@@ -458,16 +461,14 @@ const Sessions: React.FC = () => {
     );
   }
 
-  // Statistics
-  const scheduledSessions =
-    sessions?.filter((s) => s.status === "scheduled") || [];
-  const ongoingSessions = sessions?.filter((s) => s.status === "ongoing") || [];
-  const completedSessions =
-    sessions?.filter((s) => s.status === "completed") || [];
-  const totalRevenue = completedSessions.reduce(
-    (sum, s) => sum + s.totalCost,
-    0
-  );
+  // ✅ PHÂN LOẠI SESSIONS THEO TRẠNG THÁI
+  const activeSessions = sessions?.filter((s) => s.status !== "completed") || [];
+  const completedSessions = sessions?.filter((s) => s.status === "completed") || [];
+  
+  // Statistics cho các trạng thái
+  const scheduledSessions = activeSessions.filter((s) => s.status === "scheduled");
+  const ongoingSessions = activeSessions.filter((s) => s.status === "ongoing");
+  const totalRevenue = completedSessions.reduce((sum, s) => sum + s.totalCost, 0);
 
   const totalCollected = completedSessions.reduce((sum, session) => {
     return (
@@ -483,6 +484,9 @@ const Sessions: React.FC = () => {
       }, 0) || 0)
     );
   }, 0);
+
+  // ✅ LẤY SESSIONS THEO TAB HIỆN TẠI
+  const displayedSessions = currentTab === 0 ? activeSessions : completedSessions;
 
   return (
     <Box>
@@ -512,7 +516,7 @@ const Sessions: React.FC = () => {
             color="text.secondary"
             sx={{
               fontSize: { xs: "0.875rem", sm: "1rem" },
-              display: { xs: "none", sm: "block" }, // ✅ Ẩn mô tả trên mobile
+              display: { xs: "none", sm: "block" },
             }}
           >
             Tạo, chỉnh sửa và theo dõi các lịch đánh cầu lông. Có thể chỉnh sửa
@@ -524,7 +528,7 @@ const Sessions: React.FC = () => {
           startIcon={<Add />}
           onClick={() => setCreateFormOpen(true)}
           size={isMobile ? "medium" : "large"}
-          fullWidth={isMobile} // ✅ Full width trên mobile
+          fullWidth={isMobile}
           sx={{
             background: "linear-gradient(45deg, #4caf50 30%, #66bb6a 90%)",
             "&:hover": {
@@ -540,23 +544,21 @@ const Sessions: React.FC = () => {
       <Grid
         container
         spacing={{ xs: 1.5, sm: 3 }}
-        sx={{ mb: { xs: 2, sm: 3 } }} // ✅ Giảm margin bottom trên mobile
+        sx={{ mb: { xs: 2, sm: 3 } }}
       >
         <Grid item xs={6} sm={6} md={3}>
-          {" "}
-          {/* ✅ Đổi từ xs={12} thành xs={6} */}
           <Card sx={{ height: "100%" }}>
             <CardContent
               sx={{
                 textAlign: "center",
-                p: { xs: 1.5, sm: 2 }, // ✅ Giảm padding trên mobile
+                p: { xs: 1.5, sm: 2 },
               }}
             >
               <Typography
                 variant="h4"
                 fontWeight="bold"
                 color="primary.main"
-                sx={{ fontSize: { xs: "1.5rem", sm: "2rem" } }} // ✅ Font nhỏ hơn trên mobile
+                sx={{ fontSize: { xs: "1.5rem", sm: "2rem" } }}
               >
                 {sessions?.length || 0}
               </Typography>
@@ -653,7 +655,7 @@ const Sessions: React.FC = () => {
                 color="text.secondary"
                 sx={{
                   fontSize: { xs: "0.65rem", sm: "0.75rem" },
-                  display: { xs: "none", sm: "block" }, // ✅ Ẩn trên mobile
+                  display: { xs: "none", sm: "block" },
                 }}
               >
                 /{formatCurrency(totalRevenue)} tổng
@@ -667,8 +669,8 @@ const Sessions: React.FC = () => {
       <Alert
         severity="info"
         sx={{
-          mb: { xs: 2, sm: 3 }, // ✅ Giảm margin
-          display: { xs: "none", sm: "flex" }, // ✅ Ẩn hoàn toàn trên mobile
+          mb: { xs: 2, sm: 3 },
+          display: { xs: "none", sm: "flex" },
         }}
       >
         <Typography variant="body2">
@@ -678,8 +680,56 @@ const Sessions: React.FC = () => {
         </Typography>
       </Alert>
 
-      {/* Data Grid */}
+      {/* ✅ TABS PHÂN LOẠI SESSIONS */}
       <Card>
+        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+          <Tabs
+            value={currentTab}
+            onChange={(_, newValue) => setCurrentTab(newValue)}
+            variant={isMobile ? "fullWidth" : "standard"}
+            sx={{
+              px: 2,
+              "& .MuiTab-root": {
+                fontSize: { xs: "0.875rem", sm: "1rem" },
+                minHeight: { xs: 48, sm: 64 },
+              },
+            }}
+          >
+            <Tab
+              icon={<Schedule />}
+              iconPosition="start"
+              label={
+                <Badge
+                  badgeContent={activeSessions.length}
+                  color="primary"
+                  sx={{ "& .MuiBadge-badge": { right: 0, top: 10 } }}
+                >
+                  <Typography variant="inherit" sx={{ pr: 2 }}>
+                    Đang hoạt động
+                  </Typography>
+                </Badge>
+              }
+              sx={{ textTransform: "none" }}
+            />
+            <Tab
+              icon={<Done />}
+              iconPosition="start"
+              label={
+                <Badge
+                  badgeContent={completedSessions.length}
+                  color="success"
+                  sx={{ "& .MuiBadge-badge": { right: 0, top: 10 } }}
+                >
+                  <Typography variant="inherit" sx={{ pr: 2 }}>
+                    Đã hoàn thành
+                  </Typography>
+                </Badge>
+              }
+              sx={{ textTransform: "none" }}
+            />
+          </Tabs>
+        </Box>
+
         <CardContent>
           <Box
             sx={{
@@ -690,33 +740,63 @@ const Sessions: React.FC = () => {
             }}
           >
             <Typography variant="h6" fontWeight="bold">
-              Danh sách lịch đánh ({sessions?.length || 0})
+              {currentTab === 0 ? (
+                <>
+                  Lịch đang hoạt động ({activeSessions.length})
+                  {scheduledSessions.length > 0 && (
+                    <Chip
+                      label={`${scheduledSessions.length} đã lên lịch`}
+                      size="small"
+                      color="info"
+                      sx={{ ml: 1 }}
+                    />
+                  )}
+                  {ongoingSessions.length > 0 && (
+                    <Chip
+                      label={`${ongoingSessions.length} đang chơi`}
+                      size="small"
+                      color="warning"
+                      sx={{ ml: 1 }}
+                    />
+                  )}
+                </>
+              ) : (
+                <>
+                  Lịch đã hoàn thành ({completedSessions.length})
+                  <Chip
+                    label={`Tổng: ${formatCurrency(totalRevenue)}`}
+                    size="small"
+                    color="success"
+                    sx={{ ml: 1 }}
+                  />
+                </>
+              )}
             </Typography>
           </Box>
 
           <Box
             sx={{
               height: {
-                xs: "calc(100vh - 420px)", // ✅ Dynamic height trên mobile
+                xs: "calc(100vh - 480px)",
                 sm: 500,
                 md: 600,
               },
-              minHeight: { xs: 350, sm: 400 }, // ✅ Minimum height
+              minHeight: { xs: 350, sm: 400 },
               width: "100%",
               "& .MuiDataGrid-root": {
-                fontSize: { xs: "0.75rem", sm: "0.875rem" }, // ✅ Font size responsive
+                fontSize: { xs: "0.75rem", sm: "0.875rem" },
               },
               "& .MuiDataGrid-columnHeaders": {
                 backgroundColor: "background.paper",
                 fontSize: { xs: "0.75rem", sm: "0.875rem" },
               },
               "& .MuiDataGrid-cell": {
-                padding: { xs: "8px 4px", sm: "8px 16px" }, // ✅ Padding responsive
+                padding: { xs: "8px 4px", sm: "8px 16px" },
               },
             }}
           >
             <DataGrid
-              rows={sessions || []}
+              rows={displayedSessions}
               columns={columns}
               slots={{ toolbar: MobileSessionsToolbar }}
               slotProps={{
@@ -726,17 +806,17 @@ const Sessions: React.FC = () => {
                     debounceMs: 500,
                     placeholder: "Tìm kiếm...",
                     sx: {
-                      width: { xs: "100%", sm: "auto" }, // ✅ Full width trên mobile
+                      width: { xs: "100%", sm: "auto" },
                       mb: { xs: 1, sm: 0 },
                     },
                   },
                   csvOptions: {
-                    fileName: `danh-sach-lich-${
+                    fileName: `danh-sach-lich-${currentTab === 0 ? "hoat-dong" : "hoan-thanh"}-${
                       new Date().toISOString().split("T")[0]
                     }`,
                   },
                   sx: {
-                    flexDirection: { xs: "column", sm: "row" }, // ✅ Stack vertically on mobile
+                    flexDirection: { xs: "column", sm: "row" },
                     gap: 1,
                     p: { xs: 1, sm: 2 },
                   },
@@ -752,21 +832,20 @@ const Sessions: React.FC = () => {
                 },
                 columns: {
                   columnVisibilityModel: {
-                    name: true, // Luôn hiện
-                    date: true, // Luôn hiện
-                    startTime: true, // Luôn hiện
-                    currentParticipants: true, // Luôn hiện
-                    totalCost: true, // Luôn hiện
-                    status: true, // Luôn hiện
-                    actions: true, // Luôn hiện
+                    name: true,
+                    date: true,
+                    startTime: true,
+                    currentParticipants: true,
+                    totalCost: true,
+                    status: true,
+                    actions: true,
                   },
                 },
               }}
-              checkboxSelection={!isMobile} // ✅ Tắt checkbox trên mobile
+              checkboxSelection={!isMobile}
               disableRowSelectionOnClick
-              density={isMobile ? "compact" : "comfortable"} // ✅ Compact trên mobile
+              density={isMobile ? "compact" : "comfortable"}
               sx={{
-                // ✅ Custom styles for mobile
                 "& .MuiDataGrid-row": {
                   minHeight: { xs: "48px !important", sm: "52px !important" },
                 },

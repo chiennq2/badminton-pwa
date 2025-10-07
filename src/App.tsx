@@ -37,6 +37,9 @@ import SessionDetail from "./pages/SessionDetail";
 import Reports from "./pages/Reports";
 import AdminUsers from "./pages/AdminUsers";
 import Settings from "./pages/Settings";
+import { useResponsive } from "./hooks/useResponsive";
+import SessionsMobile from "./components/SessionsMobile";
+import ReportsMobile from "./components/ReportsMobile";
 
 // ===== CONFIG DAYJS =====
 dayjs.extend(updateLocale);
@@ -115,6 +118,7 @@ const AppContent: React.FC = () => {
   });
 
   const theme = getTheme(darkMode ? "dark" : "light");
+  const { isMobile } = useResponsive();
 
   const handleDarkModeToggle = () => {
     const newDarkMode = !darkMode;
@@ -167,9 +171,9 @@ const AppContent: React.FC = () => {
                 <Route path="/courts" element={<Courts />} />
                 <Route path="/members" element={<Members />} />
                 <Route path="/groups" element={<Groups />} />
-                <Route path="/sessions" element={<Sessions />} />
+                <Route path="/sessions" element={isMobile ? <SessionsMobile /> : <Sessions />} />
                 <Route path="/sessions/:id" element={<SessionDetail />} />
-                <Route path="/reports" element={<Reports />} />
+                <Route path="/reports" element={isMobile ? <ReportsMobile/> :<Reports />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/settings" element={<Settings />} />
               </>
@@ -178,9 +182,9 @@ const AppContent: React.FC = () => {
             {/* Routes cho role USER - chỉ có quyền với sessions của mình */}
             {currentUser.role === "user" && (
               <>
-                <Route path="/sessions" element={<Sessions />} />
+                <Route path="/sessions" element={isMobile ? <SessionsMobile /> : <Sessions />} />
                 <Route path="/sessions/:id" element={<SessionDetail />} />
-                <Route path="/reports" element={<Reports />} />
+                <Route path="/reports" element={isMobile ? <ReportsMobile/> : <Reports />} />
                 {/* Redirect về sessions nếu cố truy cập route khác */}
                 <Route path="*" element={<Navigate to="/sessions" replace />} />
               </>

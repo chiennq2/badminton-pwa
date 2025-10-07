@@ -449,6 +449,74 @@ const SessionDetail: React.FC = () => {
     }
   };
 
+  const handleCopyMemberList = async () => {
+    if (!session) return;
+
+    try {
+      // ==== Danh sách tham gia ====
+      const joinedList = sessionMembers
+        .filter((m) => m.isPresent)
+        .map((m, i) =>
+          m.replacementNote
+            ? `${i + 1}. ${m.name} <- ${m.replacementNote}`
+            : `${i + 1}. ${m.name}`
+        )
+        .join("\n");
+
+      // ==== Sảnh chờ ====
+      const waitingList = waitingMembers
+        .map((m, i) => {
+          const replacementSource = sessionMembers.find(
+            (sm) =>
+              sm.replacementNote &&
+              sm.replacementNote
+                .toString()
+                .toLowerCase()
+                .includes(m.name.toLowerCase())
+          );
+
+          if (replacementSource?.replacementNote) {
+            return `${i + 1}. ${m.name} -> ${
+              replacementSource.replacementNote
+            }`;
+          }
+
+          return `${i + 1}. ${m.name}`;
+        })
+        .join("\n");
+
+      // ==== Nội dung đầy đủ ====
+      const content = `${session.name}\n\nDanh sách:\n${joinedList}\n\nSảnh chờ:\n${waitingList}`;
+
+      // Copy vào clipboard
+      await navigator.clipboard.writeText(content);
+
+      // Phát hiện mobile (dựa theo user agent)
+      const isMobile =
+        /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(
+          navigator.userAgent
+        );
+
+      if (isMobile && navigator.share) {
+        // Gọi native share API
+        await navigator.share({
+          title: session.name,
+          text: content,
+        });
+      }
+
+      showSnackbar(
+        isMobile
+          ? "✅ Đã sao chép & chia sẻ danh sách thành công!"
+          : "✅ Đã sao chép danh sách vào clipboard!",
+        "success"
+      );
+    } catch (error) {
+      console.error("Clipboard copy/share error:", error);
+      showSnackbar("❌ Không thể sao chép hoặc chia sẻ!", "error");
+    }
+  };
+
   const showSnackbar = (message: string, severity: "success" | "error") => {
     setSnackbar({ open: true, message, severity });
   };
@@ -580,6 +648,16 @@ const SessionDetail: React.FC = () => {
             size={isMobile ? "medium" : "large"}
           >
             Xuất ảnh
+          </Button>
+          <Button
+            variant="outlined"
+            color="info"
+            onClick={handleCopyMemberList}
+            startIcon={<Groups />}
+            fullWidth={isMobile}
+            size={isMobile ? "medium" : "large"}
+          >
+            Xuất danh sách
           </Button>
         </Box>
       </Box>
