@@ -99,6 +99,7 @@ const SessionDetail: React.FC = () => {
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [editFormOpen, setEditFormOpen] = useState(false);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
+  
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -299,6 +300,26 @@ const SessionDetail: React.FC = () => {
     }
   };
 
+  const handleNoteChange = async (memberId: string, note: string) => {
+    if (!session) return;
+    try {
+      const updatedSettlements = (session.settlements || []).map(s =>
+        s.memberId === memberId ? { ...s, paymentNote: note } : s,
+      );
+  
+      await updateSessionMutation.mutateAsync({
+        id: session.id,
+        data: { settlements: updatedSettlements },
+      });
+  
+      await queryClient.invalidateQueries({ queryKey: ["session", session.id] });
+      showSnackbar("✅ Đã cập nhật ghi chú!", "success");
+    } catch (err) {
+      console.error(err);
+      showSnackbar("❌ Lỗi khi cập nhật ghi chú!", "error");
+    }
+  };
+  
   const handleWaitingListReorder = async (result: DropResult) => {
     if (!result.destination || !session) return;
 
@@ -455,7 +476,7 @@ const SessionDetail: React.FC = () => {
     try {
       // ==== Danh sách tham gia ====
       const joinedList = sessionMembers
-        .filter((m) => m.isPresent)
+        // .filter((m) => m.isPresent)
         .map((m, i) =>
           m.replacementNote
             ? `${i + 1}. ${m.name} <- ${m.replacementNote}`
@@ -951,6 +972,7 @@ const SessionDetail: React.FC = () => {
             members={members || []}
             onPaymentStatusChange={handlePaymentStatusChange}
             isUpdating={updateSessionMutation.isPending}
+            onNoteChange={handleNoteChange} 
           />
         </Grid>
 
