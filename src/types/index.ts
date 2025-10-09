@@ -60,6 +60,8 @@ export interface SessionMember {
   isCustom?: boolean;
   replacementNote?: string;
   notePayment?:  string; // ✅ thêm dòng này
+  isWaitingPass?: boolean; // ✅ THÊM MỚI
+
 }
 
 export interface WaitingListMember {
@@ -98,6 +100,7 @@ export interface Session {
   status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   members: SessionMember[];
   waitingList: WaitingListMember[];
+  passWaitingList?: string[]; // ✅ THÊM MỚI
   expenses: SessionExpense[];
   totalCost: number;
   costPerPerson: number;

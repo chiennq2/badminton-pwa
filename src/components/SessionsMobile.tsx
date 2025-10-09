@@ -34,6 +34,7 @@ import {
   Warning,
   Payment,
   People,
+  SwapHoriz,
 } from "@mui/icons-material";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -47,6 +48,8 @@ import {
 } from "../utils";
 import SessionForm from "../components/SessionForm";
 import SessionEditForm from "../components/SessionEditForm";
+import { Session } from "../types";
+import { Snackbar } from "@mui/material";
 
 const SessionsMobile: React.FC = () => {
   const navigate = useNavigate();
@@ -60,7 +63,21 @@ const SessionsMobile: React.FC = () => {
   const [createFormOpen, setCreateFormOpen] = useState(false);
   const [editFormOpen, setEditFormOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error" | "info" | "warning",
+  });
+  const showSnackbar = (
+    message: string,
+    severity: "success" | "error" | "info" | "warning" = "success"
+  ) => {
+    setSnackbar({
+      open: true,
+      message,
+      severity,
+    });
+  };
   if (isLoading)
     return (
       <Box
@@ -93,14 +110,32 @@ const SessionsMobile: React.FC = () => {
     setSelectedSession(null);
   };
 
-  const handleStatusChange = async (newStatus: any) => {
-    if (!selectedSession) return;
+  const handleStatusChange = async (newStatus: any, sessionId: any) => {
+    if (!sessionId) return;
     await updateSessionMutation.mutateAsync({
-      id: selectedSession.id,
+      id: sessionId,
       data: { status: newStatus },
-    });
+    }).then(() => {
+      showSnackbar('Cập nhật trạng thái thành công!', 'success');
+    }).catch(() => {
+      showSnackbar('Cập nhật trạng thái thất bại!', 'error')});
     handleMenuClose();
   };
+
+  const handleStatusLabel = (status: Session['status']) => {
+    switch (status) {
+      case 'scheduled':
+        return 'Bắt đầu';
+      case 'ongoing':
+        return 'Đang diễn ra';
+      case 'completed':
+        return 'Đã hoàn thành';
+      case 'cancelled':
+        return 'Đã hủy';
+      default:
+        return 'Không xác định';
+    }
+  }
 
   const handleDeleteConfirm = async () => {
     if (!selectedSession) return;
@@ -277,11 +312,11 @@ const SessionsMobile: React.FC = () => {
                     }
                     onClick={() =>
                       handleStatusChange(
-                        session.status === "scheduled" ? "ongoing" : "completed"
+                        session.status === "scheduled" ? "ongoing" : "completed", session.id
                       )
                     }
                   >
-                    {session.status === "scheduled" ? "Bắt đầu" : "Hoàn thành"}
+                    {handleStatusLabel(session.status)}
                   </Button>
                 )}
               </CardActions>
@@ -329,12 +364,12 @@ const SessionsMobile: React.FC = () => {
           <Edit fontSize="small" sx={{ mr: 1 }} /> Chỉnh sửa
         </MenuItem>
         {selectedSession?.status === "scheduled" && (
-          <MenuItem onClick={() => handleStatusChange("ongoing")}>
+          <MenuItem onClick={() => handleStatusChange("ongoing", selectedSession.id)}>
             <PlayArrow fontSize="small" sx={{ mr: 1 }} /> Bắt đầu
           </MenuItem>
         )}
         {selectedSession?.status === "ongoing" && (
-          <MenuItem onClick={() => handleStatusChange("completed")}>
+          <MenuItem onClick={() => handleStatusChange("completed", selectedSession.id)}>
             <Stop fontSize="small" sx={{ mr: 1 }} /> Hoàn thành
           </MenuItem>
         )}
@@ -397,6 +432,28 @@ const SessionsMobile: React.FC = () => {
             Xóa
           </Button>
         </DialogActions>
+        {/* ===== THÊM SNACKBAR MỚI ===== */}
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        >
+          <Alert
+            onClose={() => setSnackbar({ ...snackbar, open: false })}
+            severity={snackbar.severity}
+            sx={{
+              width: "100%",
+              fontSize: "1rem",
+              fontWeight: "bold",
+              boxShadow: 3,
+            }}
+            variant="filled"
+            icon={snackbar.severity === "info" ? <SwapHoriz /> : undefined}
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
       </Dialog>
     </Box>
   );
