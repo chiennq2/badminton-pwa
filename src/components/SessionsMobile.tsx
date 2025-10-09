@@ -107,7 +107,7 @@ const SessionsMobile: React.FC = () => {
   };
   const handleMenuClose = () => {
     setMenuAnchor(null);
-    setSelectedSession(null);
+    // setSelectedSession(null);
   };
 
   const handleStatusChange = async (newStatus: any, sessionId: any) => {

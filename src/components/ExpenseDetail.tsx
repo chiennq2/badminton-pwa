@@ -298,7 +298,11 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
             <People sx={{ mr: 1 }} />
             Danh sách thanh toán thành viên
           </Typography>
-
+          <Alert severity="info" sx={{ mb: 2 }} component="div">
+              <Typography variant="body2">
+                Lịch đánh ở trạng thái "Hoàn Thành" thì mới đánh dấu được trạng thái thanh toán.
+              </Typography>
+          </Alert>
           <TableContainer component={Paper} variant="outlined" sx={{ mt: 2 }}>
             <Table size="small">
               <TableHead>
