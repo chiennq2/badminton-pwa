@@ -38,14 +38,15 @@ interface ExportableSessionSummaryProps {
   session: Session;
   members: { id: string; name: string }[];
   courtName?: string;
+  isDarkMode: boolean;
 }
 
 const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
   session,
   members,
   courtName,
+  isDarkMode
 }) => {
-  const isDarkMode = getLocalStorageItem("darkMode");
 
   // ✅ CHUYỂN ĐỔI DATE AN TOÀN TRƯỚC KHI RENDER
   const safeDate = convertTimestampToDate(session.date);
@@ -531,7 +532,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                           width: 28,
                           height: 28,
                           fontSize: "0.9rem",
-                          color: isDarkMode ? "#ffffffff" : "#000000",
+                          color: "#ff4500",
                         }}
                       >
                         {payment.name.charAt(0).toUpperCase()}
@@ -540,7 +541,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                         <Typography
                           variant="body2"
                           fontWeight="medium"
-                          sx={ {color : isDarkMode ? "#ffffffff" : "#000000"} }
+                          sx={ {color : "#ff4500"} }
                         >
                           {payment.name}
                         </Typography>
@@ -553,7 +554,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                               display: "block",
                               fontStyle: "italic",
                               mt: 0.3,
-                              fontSize: "0.8rem",
+                              fontSize: "0.9rem",
                             }}
                           >
                             🔄 {payment.replacementNote}
@@ -565,7 +566,10 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
 
                   <TableCell
                     align="right"
-                    sx={{ border: "1px solid #ddd", color: isDarkMode ? "#2dd90bff" : "#000000" }}
+                    sx={{ 
+                      border: "1px solid #ddd", 
+                      fontWeight: "bold",
+                      color: "#ff4500" }}
                   >
                     {formatCurrency(payment.baseCost)}
                   </TableCell>
@@ -577,7 +581,10 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       <TableCell
                         key={expense.id}
                         align="right"
-                        sx={{ border: "1px solid #ddd", color: isDarkMode ? "#2dd90bff" : "#000000"  }}
+                        sx={{ 
+                          border: "1px solid #ddd", 
+                          fontWeight: "bold",
+                          color: "#ff4500"  }}
                       >
                         {amount ? formatCurrency(amount) : "-"}
                       </TableCell>

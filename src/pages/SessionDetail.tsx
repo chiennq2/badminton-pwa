@@ -80,7 +80,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import html2canvas from "html2canvas";
 import ExportableSessionSummary from "../components/ExportableSessionSummary";
 import { getSafeDateForPicker, convertTimestampToDate } from "../utils";
-import { useResponsive } from "../hooks/useResponsive";
+import { checkDarkModeTheme, useResponsive } from "../hooks/useResponsive";
+import SessionDetailPassList from "../components/SessionDetailPassList";
 
 const SessionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -106,6 +107,8 @@ const SessionDetail: React.FC = () => {
     severity: "success" as "success" | "error",
   });
   const { isMobile, isDesktop } = useResponsive();
+  const {isDarkMode} = checkDarkModeTheme();
+  
 
   // ===== COMPUTED VALUES - PHẢI GỌI TRƯỚC KHI CHECK LOADING =====
   const sessionMembers = useMemo(() => {
@@ -589,6 +592,11 @@ const SessionDetail: React.FC = () => {
     );
   }
 
+  // ✅ Event handler for check điểm danh
+  const handleOnRollCallChange = (data: any) => {
+    handleAttendanceChange(data.memberId, data.isPresent);
+  }
+
   // ===== RENDER =====
   return (
     <Box>
@@ -790,8 +798,15 @@ const SessionDetail: React.FC = () => {
 
       <Grid container spacing={3}>
         {/* Members Attendance */}
-        <Grid item xs={12} md={6}>
-          <Card>
+        {/* <Grid item xs={12} md={6}> */}
+          <Grid item xs={12} md={12}>
+            <SessionDetailPassList 
+                session={session} 
+                onUpdate={() => queryClient.invalidateQueries({ queryKey: ["session", session.id] })}
+                onRollCallChange={handleOnRollCallChange}
+              />
+          </Grid>
+          {/* <Card>
             <CardContent sx={{ p: { xs: 1.5, sm: 2 } }}>
               <Box
                 sx={{
@@ -816,6 +831,7 @@ const SessionDetail: React.FC = () => {
                   Điểm danh thành viên ({presentMembers.length}/
                   {sessionMembers.length})
                 </Typography>
+
               </Box>
 
               <List
@@ -914,11 +930,11 @@ const SessionDetail: React.FC = () => {
                 })}
               </List>
             </CardContent>
-          </Card>
-        </Grid>
+          </Card> */}
+        {/* </Grid> */}
 
         {/* Waiting List */}
-        <Grid item xs={12} md={6}>
+        {/* <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
               <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
@@ -963,7 +979,7 @@ const SessionDetail: React.FC = () => {
               )}
             </CardContent>
           </Card>
-        </Grid>
+        </Grid> */}
 
         {/* CHI TIẾT CHI PHÍ + DANH SÁCH THANH TOÁN - DÙNG CHUNG COMPONENT */}
         <Grid item xs={12}>
@@ -1097,6 +1113,7 @@ const SessionDetail: React.FC = () => {
           session={session}
           members={members || []}
           courtName={court?.name}
+          isDarkMode={isDarkMode}
         />
       </Box>
 

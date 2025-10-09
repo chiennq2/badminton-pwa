@@ -1,4 +1,5 @@
 import { useTheme, useMediaQuery, Breakpoint } from '@mui/material';
+import { getLocalStorageItem } from '../utils';
 
 export const useResponsive = () => {
   const theme = useTheme();
@@ -10,3 +11,9 @@ export const useResponsive = () => {
     isSmallScreen: useMediaQuery(theme.breakpoints.down('md')),
   };
 };
+
+export const checkDarkModeTheme = () => {
+  return {
+    isDarkMode: getLocalStorageItem('isDarkMode', true),
+  }
+}

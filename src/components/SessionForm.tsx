@@ -118,6 +118,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const [customWaitingMemberName, setCustomWaitingMemberName] = useState("");
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [isNameManuallyEdited, setIsNameManuallyEdited] = useState(false);
+  const [passWaitingList, setPassWaitingList] = useState<string[]>([]);
 
   const validationSchemas = [
     // Step 1: Basic Info
@@ -307,6 +308,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
         currentParticipants: selectedMembers.length,
         status: values.status,
         createdBy: editingSession?.createdBy || currentUser?.memberId || "",
+        passWaitingList: passWaitingList, // ✅ Thêm vào
 
         // CẢI THIỆN: Lưu cả memberName cho custom members
         members: selectedMembers.map((member) => ({
@@ -383,6 +385,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
     setCustomWaitingMemberName("");
     formik.resetForm();
     setIsNameManuallyEdited(false); // ✅ Reset flag
+    setPassWaitingList([]);
     onClose();
   };
   const addMemberFromList = (member: Member) => {

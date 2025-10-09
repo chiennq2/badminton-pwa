@@ -67,6 +67,7 @@ import {
   Person,
   AttachMoney,
   Upload,
+  HourglassEmpty,
 } from "@mui/icons-material";
 import {
   DragDropContext,
@@ -212,6 +213,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
   const [editingMemberName, setEditingMemberName] = useState("");
   const { isMobile, isDesktop } = useResponsive();
   const currentUser = getCurrentUserLogin();
+  const [passWaitingList, setPassWaitingList] = useState<string[]>([]);
 
   // BỎ GIỚI HẠN maxParticipants - cho phép không giới hạn
   const validationSchemas = [
@@ -274,7 +276,8 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
   // Load session data
   useEffect(() => {
     if (session && open) {
-      console.log("Loading session data:", session);
+      setPassWaitingList(session.passWaitingList || []);
+
       let dateValue: Date;
       if (session.date instanceof Date) {
         dateValue = session.date;
@@ -454,6 +457,8 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
         ...values,
         date: dateToString(values.date),
         qrImage,
+        passWaitingList: passWaitingList, // ✅ Thêm vào
+
         // Lưu đầy đủ thành viên
         members: selectedMembers.map((member) => {
           const existingMember = session.members.find(
@@ -464,12 +469,14 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
             memberName: member.name,
             isPresent: existingMember?.isPresent || false,
             isCustom: member.isCustom,
+            isWaitingPass: passWaitingList.includes(member.id), // ✅ Thêm vào
           };
 
           // CHỈ THÊM nếu có giá trị
           if (member.replacementNote) {
             memberData.replacementNote = member.replacementNote;
           }
+          
 
           return memberData;
         }),
@@ -619,6 +626,10 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
 
       // Xóa khỏi sảnh chờ
       setWaitingList(waitingList.slice(1));
+
+      // Xóa khỏi pass waiting list
+      const newPassWaitingList = passWaitingList.filter(id => id !== member.id);
+      setPassWaitingList(newPassWaitingList);
 
       // Thêm vào danh sách với ghi chú
       setSelectedMembers([...newSelectedMembers, memberWithNote]);
@@ -1444,6 +1455,70 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                 )}
               </CardContent>
             </Card>
+
+            {/* Danh sách chờ pass */}
+{selectedMembers.length > 0 && (
+  <Card sx={{ mt: 2 }}>
+    <CardContent>
+      <Typography variant="subtitle1" gutterBottom>
+        <HourglassEmpty sx={{ mr: 1 }} />
+        Danh sách chờ pass ({passWaitingList.length})
+      </Typography>
+      
+      {/* Table với checkbox cho mỗi thành viên */}
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>
+                <Checkbox
+                  checked={passWaitingList.length === selectedMembers.length}
+                  onChange={(e) => {
+                    setPassWaitingList(
+                      e.target.checked 
+                        ? selectedMembers.map(m => m.id) 
+                        : []
+                    );
+                  }}
+                />
+              </TableCell>
+              <TableCell>Tên</TableCell>
+              <TableCell>Trạng thái</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {selectedMembers.map((member) => (
+              <TableRow key={member.id}>
+                <TableCell>
+                  <Checkbox
+                    checked={passWaitingList.includes(member.id)}
+                    onChange={() => {
+                      if (passWaitingList.includes(member.id)) {
+                        setPassWaitingList(
+                          passWaitingList.filter(id => id !== member.id)
+                        );
+                      } else {
+                        setPassWaitingList([...passWaitingList, member.id]);
+                      }
+                    }}
+                  />
+                </TableCell>
+                <TableCell>{member.name}</TableCell>
+                <TableCell>
+                  {passWaitingList.includes(member.id) ? (
+                    <Chip label="Chờ pass" color="warning" size="small" />
+                  ) : (
+                    <Chip label="Bình thường" size="small" />
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </CardContent>
+  </Card>
+)}
           </Box>
         );
 
@@ -1926,12 +2001,13 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                         </Typography>
                         <Autocomplete
                           multiple
-                          // CHỈ LẤY THÀNH VIÊN ĐÃ ĐƯỢC CHỌN THAM GIA VÀ CÓ MẶT
+                          // CHỈ LẤY THÀNH VIÊN ĐÃ ĐƯỢC CHỌN THAM GIA
                           options={selectedMembers.filter((m) => {
                             const sessionMember = session.members.find(
                               (sm) => sm.memberId === m.id
                             );
-                            return sessionMember?.isPresent !== false; // Chỉ lấy những người có mặt hoặc chưa điểm danh
+                            // return sessionMember?.isPresent !== false; // Chỉ lấy những người có mặt hoặc chưa điểm danh
+                            return sessionMember; // Chỉ lấy những người có mặt hoặc chưa điểm danh
                           })}
                           getOptionLabel={(option) => option.name}
                           value={selectedMembers.filter((m) =>
