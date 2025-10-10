@@ -432,13 +432,14 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             sx={{ fontSize: "0.95rem" }}
           >
             💰 Tiền slot
-            <Typography sx={{color: 'error.main'}}>(Vui lòng tự thanh toán với chủ Slot)</Typography>
+            <Typography sx={{color: 'error.main'}} component="span">(Vui lòng tự thanh toán với chủ Slot)</Typography>
 
               <Typography
               variant="body2"
               fontWeight="bold"
               color="#ff0000ff"
               sx={{ fontSize: "0.95rem" }}
+              component="span"
             >
               {formatCurrency(session.priceSlot)}
             </Typography>
