@@ -215,3 +215,11 @@ async function clearOfflineData() {
   // Implementation would clear synced offline data
   console.log('Clearing offline data');
 }
+
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    console.log('Skipping waiting and activating new service worker.');
+    self.skipWaiting();
+  }
+});

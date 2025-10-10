@@ -351,16 +351,18 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
                               : "Thêm vào danh sách chờ pass"
                           }
                         >
-                          <Checkbox
-                            checked={isInPassWaiting}
-                            disabled={session.status === "completed"}
-                            onChange={() =>
-                              handleTogglePassWaiting(member.memberId)
-                            }
-                            color="warning"
-                            icon={<HourglassEmpty />}
-                            checkedIcon={<HourglassEmpty />}
-                          />
+                          <span>
+                            <Checkbox
+                              checked={isInPassWaiting}
+                              disabled={session.status === "completed"}
+                              onChange={() =>
+                                handleTogglePassWaiting(member.memberId)
+                              }
+                              color="warning"
+                              icon={<HourglassEmpty />}
+                              checkedIcon={<HourglassEmpty />}
+                            />
+                          </span>
                         </Tooltip>
                       </TableCell>
 
@@ -461,6 +463,7 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
 
                       <Box sx={{ display: "flex", gap: 1 }}>
                         <Tooltip title="Bỏ khỏi danh sách chờ pass">
+                          <span>
                           <IconButton
                             size="small"
                             onClick={() =>
@@ -470,6 +473,7 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
                           >
                             <Close />
                           </IconButton>
+                          </span>
                         </Tooltip>
                         <Button
                           variant="contained"

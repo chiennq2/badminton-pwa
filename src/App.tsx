@@ -10,6 +10,8 @@ import {
   CssBaseline,
   Box,
   CircularProgress,
+  Snackbar, // Thêm import
+  Button,   // Thêm import
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -200,19 +202,58 @@ const AppContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // Register service worker for PWA
+  // ===== PWA UPDATE LOGIC =====
+  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const [showReload, setShowReload] = useState(false);
+
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("/sw.js")
         .then((registration) => {
           console.log("SW registered:", registration);
+
+          // Lắng nghe sự kiện có phiên bản mới của Service Worker
+          registration.addEventListener('updatefound', () => {
+            const newWorker = registration.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  // Có một phiên bản mới đang chờ
+                  console.log("New version found. Waiting for user to reload.");
+                  setWaitingWorker(newWorker);
+                  setShowReload(true);
+                }
+              });
+            }
+          });
         })
         .catch((registrationError) => {
           console.log("SW registration failed:", registrationError);
         });
+
+      // Lắng nghe sự kiện khi Service Worker mới đã được kích hoạt
+      const handleControllerChange = () => {
+        console.log("Controller changed, reloading page.");
+        window.location.reload();
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+
+      // Dọn dẹp event listener khi component unmount
+      return () => {
+        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+      };
     }
   }, []);
+
+  const reloadPage = () => {
+    if (waitingWorker) {
+      // Gửi message cho Service Worker mới để nó skipWaiting()
+      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+    }
+    setShowReload(false);
+  };
+  // ===== END PWA UPDATE LOGIC =====
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -221,6 +262,18 @@ const App: React.FC = () => {
           <AppContent />
         </AuthProvider>
       </LocalizationProvider>
+
+      {/* Snackbar thông báo cập nhật */}
+      <Snackbar
+        open={showReload}
+        message="Đã có phiên bản mới! Vui lòng tải lại để trải nghiệm tốt nhất."
+        action={
+          <Button color="inherit" size="small" onClick={reloadPage}>
+            TẢI LẠI
+          </Button>
+        }
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </QueryClientProvider>
   );
 };
