@@ -502,7 +502,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
         totalCost,
         costPerPerson: baseSharedCost,
         settlements,
-        createdBy: session?.createdBy || currentUser?.memberId || "",
+        createdBy: session?.createdBy || (await currentUser)?.memberId || "",
       };
 
       // console.log("Saving session with data:", {

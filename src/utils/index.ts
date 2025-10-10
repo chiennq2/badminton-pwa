@@ -306,13 +306,13 @@ export const getCurrentUserLogin = async () => {
   if (userSnap.exists()) {
     return {
       ...userSnap.data(), // ✅ chứa qrCode nếu có
-      uid: currentUser.uid,
+      memberId: currentUser.uid,
     };
   }
 
   // fallback nếu chưa có trong Firestore
   return {
-    uid: currentUser.uid,
+    memberId: currentUser.uid,
     email: currentUser.email,
     displayName: currentUser.displayName || "",
     qrCode: "",
