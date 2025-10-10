@@ -1,26 +1,20 @@
-// SessionDetail.tsx - Thêm tính năng Pass List
 import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
   CardContent,
   Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Checkbox,
   Button,
   Chip,
   Alert,
-  IconButton,
-  Tooltip,
   Paper,
   Avatar,
   Grid,
   Stack,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Divider,
 } from '@mui/material';
 import {
   SwapHoriz,
@@ -29,11 +23,12 @@ import {
   CheckCircle,
   HourglassEmpty,
   Schedule,
+  ExpandMore,
 } from '@mui/icons-material';
 import { useUpdateSession } from '../hooks';
-import { Session, SessionMember } from '../types';
-import { formatCurrency } from '../utils';
+import { Session } from '../types';
 import { useResponsive } from '../hooks/useResponsive';
+import { formatCurrency } from '../utils';
 
 interface SessionDetailPassListProps {
   session: Session;
@@ -55,13 +50,10 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
   );
   const { isMobile } = useResponsive();
 
-
-  // Sync with session data when it changes
   useEffect(() => {
     setPassWaitingList(session.passWaitingList || []);
   }, [session.passWaitingList]);
 
-  // ✅ Toggle thành viên vào/ra danh sách chờ pass
   const handleTogglePassWaiting = async (memberId: string) => {
     const newPassWaitingList = passWaitingList.includes(memberId)
       ? passWaitingList.filter(id => id !== memberId)
@@ -83,40 +75,30 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
       onUpdate();
     } catch (error) {
       console.error('Error updating pass waiting list:', error);
-      // Revert on error
       setPassWaitingList(session.passWaitingList || []);
     }
   };
 
-  // ✅ Xử lý Pass thành viên (giống removeMember trong SessionEditForm)
   const handlePassMember = async (memberId: string) => {
     const memberToPass = session.members.find(m => m.memberId === memberId);
     if (!memberToPass) return;
 
     const memberName = memberToPass.memberName || 'Thành viên';
-    
-    // Xóa khỏi danh sách chính
     const newMembers = session.members.filter(m => m.memberId !== memberId);
-    
-    // Xóa khỏi danh sách chờ pass
     const newPassWaitingList = passWaitingList.filter(id => id !== memberId);
 
-    // Kiểm tra có thành viên trong sảnh chờ không
     let newWaitingList = session.waitingList;
     let replacementMember = null;
 
     if (session.waitingList.length > 0) {
       const firstWaiting = session.waitingList[0];
       replacementMember = firstWaiting;
-      
-      // Xóa khỏi sảnh chờ
       newWaitingList = session.waitingList.slice(1);
       
-      // Thêm vào danh sách chính với ghi chú
       newMembers.push({
         memberId: firstWaiting.memberId,
         memberName: firstWaiting.memberName,
-        isPresent: false, // Chưa điểm danh
+        isPresent: false,
         isCustom: firstWaiting.isCustom,
         replacementNote: `Slot của ${memberName}`,
         isWaitingPass: false,
@@ -136,7 +118,6 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
 
       onUpdate();
 
-      // Hiển thị thông báo thành công
       if (replacementMember) {
         alert(`🔄 Đã pass ${memberName} → ${replacementMember.memberName} vào slot`);
       } else {
@@ -148,333 +129,199 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
     }
   };
 
-  // Lọc các thành viên trong danh sách chờ pass
   const passWaitingMembers = session.members.filter(m =>
     passWaitingList.includes(m.memberId)
   );
 
-  const handleRollCallChange = async (memberId: string, isPresent: boolean) => {
-
-  }
-
   return (
     <Box>
-      {/* Điểm danh thành viên với cột Pass */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
+      {/* Điểm danh thành viên */}
+      <Card sx={{ mb: 2, borderRadius: 2 }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
           <Typography
             variant="h6"
             gutterBottom
-            sx={{ display: "flex", alignItems: "center" }}
+            sx={{ 
+              display: "flex", 
+              alignItems: "center",
+              fontSize: { xs: '1rem', sm: '1.25rem' }
+            }}
           >
-            <CheckCircle sx={{ mr: 1 }} />
+            <CheckCircle sx={{ mr: 1, fontSize: { xs: 20, sm: 24 } }} />
             Điểm danh thành viên
           </Typography>
-          <Alert severity="info" sx={{ mb: 2 }} component="div">
-              <Typography variant="body2">
-               Chức năng "Điểm danh", "Chờ Pass", "Pass"  không hoạt động khi lịch đánh đã "Hoàn Thành" 
-              </Typography>
+
+          <Alert severity="info" sx={{ mb: 2, fontSize: { xs: '0.813rem', sm: '0.875rem' } }}>
+            Chức năng "Điểm danh", "Chờ Pass", "Pass" không hoạt động khi lịch đánh đã "Hoàn Thành"
           </Alert>
-          {/* Mobile-friendly member list */}
-{isMobile ? (
-  <Stack spacing={1.5}>
-    {session.members.map((member, index) => {
-      const isInPassWaiting = passWaitingList.includes(member.memberId);
-      return (
-        <Card key={member.memberId} variant="outlined" sx={{ borderRadius: 2 }}>
-          <CardContent sx={{ p: 1.5 }}>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <Avatar>{member.memberName?.charAt(0).toUpperCase()}</Avatar>
-              <Box flex={1}>
-                <Typography variant="subtitle2" fontWeight="bold">
-                  {member.memberName}
-                </Typography>
-                {member.replacementNote && (
-                  <Typography variant="caption" color="text.secondary">
-                    🔄 {member.replacementNote}
-                  </Typography>
-                )}
-              </Box>
-            </Box>
 
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                mt: 1,
-                gap: 1,
-              }}
-            >
-              <Button
-                size="small"
-                variant={member.isPresent ? "contained" : "outlined"}
-                color="success"
-                onClick={() =>
-                  onRollCallChange({
-                    memberId: member.memberId,
-                    isPresent: !member.isPresent,
-                  })
-                }
-                fullWidth
-              >
-                {member.isPresent ? "Có mặt" : "Vắng"}
-              </Button>
-
-              <Button
-                size="small"
-                variant={isInPassWaiting ? "contained" : "outlined"}
-                color="warning"
-                onClick={() => handleTogglePassWaiting(member.memberId)}
-                disabled={session.status == 'completed'}
-                fullWidth
-              >
-                {isInPassWaiting ? "Bỏ chờ Pass" : "Chờ Pass"}
-              </Button>
-
-              <Button
-                size="small"
-                variant="outlined"
-                color="error"
-                onClick={() => handlePassMember(member.memberId)}
-                disabled={session.status == 'completed'}
-                fullWidth
-              >
-                Pass
-              </Button>
-            </Box>
-          </CardContent>
-        </Card>
-      );
-    })}
-  </Stack>
-) : (
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ backgroundColor: "action.hover" }}>
-                  <TableCell>
-                    <strong>STT</strong>
-                  </TableCell>
-                  <TableCell>
-                    <strong>Tên</strong>
-                  </TableCell>
-                  <TableCell align="center">
-                    <strong>Có mặt</strong>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="Đánh dấu thành viên chờ pass">
-                      <strong>Chờ Pass</strong>
-                    </Tooltip>
-                  </TableCell>
-                  <TableCell align="center">
-                    <strong>Pass</strong>
-                  </TableCell>
-                  {/* <TableCell align="right"><strong>Số tiền</strong></TableCell> */}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {session.members.map((member, index) => {
-                  const settlement = session.settlements?.find(
-                    (s) => s.memberId === member.memberId
-                  );
-                  const isInPassWaiting = passWaitingList.includes(
-                    member.memberId
-                  );
-
-                  return (
-                    <TableRow
-                      key={member.memberId}
-                      // sx={{
-                      //   backgroundColor: isInPassWaiting
-                      //     ? "warning.main"
-                      //     : "inherit",
-                      //   "&:hover": { backgroundColor: "action.hover" },
-                      // }}
-                    >
-                      <TableCell>{index + 1}</TableCell>
-
-                      <TableCell>
-                        <Box
-                          sx={{ display: "flex", alignItems: "center", gap: 1 }}
+          {/* Mobile-optimized member list */}
+          <Stack spacing={1.5}>
+            {session.members.map((member, index) => {
+              const isInPassWaiting = passWaitingList.includes(member.memberId);
+              return (
+                <Card 
+                  key={member.memberId} 
+                  variant="outlined" 
+                  sx={{ 
+                    borderRadius: 2,
+                    border: isInPassWaiting ? '2px solid' : '1px solid',
+                    borderColor: isInPassWaiting ? 'warning.main' : 'divider',
+                  }}
+                >
+                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+                    {/* Header: Avatar + Name */}
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
+                      <Avatar sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}>
+                        {member.memberName?.charAt(0).toUpperCase()}
+                      </Avatar>
+                      <Box flex={1}>
+                        <Typography 
+                          variant="subtitle2" 
+                          fontWeight="bold"
+                          sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
                         >
-                          <Avatar sx={{ width: 32, height: 32 }}>
-                            {member.memberName?.charAt(0).toUpperCase() || "?"}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body2">
-                              {member.memberName || member.memberId}
-                            </Typography>
-                            {member.isCustom && (
-                              <Chip
-                                label="Tùy chỉnh"
-                                size="small"
-                                sx={{ mt: 0.5 }}
-                              />
-                            )}
-                            {member.replacementNote && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                                display="block"
-                              >
-                                <SwapHoriz fontSize="inherit" />{" "}
-                                {member.replacementNote}
-                              </Typography>
-                            )}
-                          </Box>
-                        </Box>
-                      </TableCell>
-
-                      <TableCell align="center">
-                        {/* <Checkbox
-                          checked={member.isPresent}
-                          disabled
-                          color="success"
-                        /> */}
-                        <Checkbox
-                          checked={member.isPresent}
-                          onChange={(e) =>
-                            onRollCallChange({
-                              memberId: member.memberId,
-                              isPresent: e.target.checked,
-                            })
-                          }
-                          disabled={session.status === "completed"}
-                        />
-                      </TableCell>
-
-                      <TableCell align="center">
-                        <Tooltip
-                          title={
-                            isInPassWaiting
-                              ? "Bỏ khỏi danh sách chờ pass"
-                              : "Thêm vào danh sách chờ pass"
-                          }
-                        >
-                          <span>
-                            <Checkbox
-                              checked={isInPassWaiting}
-                              disabled={session.status === "completed"}
-                              onChange={() =>
-                                handleTogglePassWaiting(member.memberId)
-                              }
-                              color="warning"
-                              icon={<HourglassEmpty />}
-                              checkedIcon={<HourglassEmpty />}
-                            />
-                          </span>
-                        </Tooltip>
-                      </TableCell>
-
-                      <TableCell align="center">
-                        <Tooltip title="Pass slot cho người khác">
-                          <span>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="error"
-                              startIcon={<ExitToApp />}
-                              onClick={() => handlePassMember(member.memberId)}
-                              disabled={updateSessionMutation.isPending || session.status === "completed"}
-                            >
-                              Pass
-                            </Button>
-                          </span>
-                        </Tooltip>
-                      </TableCell>
-
-                      {/* <TableCell align="right">
-                        <Typography
-                          variant="body2"
-                          color={settlement?.amount ? 'primary' : 'text.secondary'}
-                        >
-                          {settlement?.amount
-                            ? formatCurrency(settlement.amount)
-                            : formatCurrency(0)}
+                          {index + 1}. {member.memberName}
                         </Typography>
-                      </TableCell> */}
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-)}
+                        {member.replacementNote && (
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary"
+                            sx={{ fontSize: { xs: '0.75rem', sm: '0.813rem' } }}
+                          >
+                            🔄 {member.replacementNote}
+                          </Typography>
+                        )}
+                      </Box>
+                      {isInPassWaiting && (
+                        <Chip 
+                          label="Chờ Pass" 
+                          color="warning" 
+                          size="small"
+                          sx={{ fontSize: { xs: '0.688rem', sm: '0.75rem' } }}
+                        />
+                      )}
+                    </Box>
+
+                    {/* Action buttons */}
+                    <Stack spacing={1}>
+                      <Button
+                        size="small"
+                        variant={member.isPresent ? "contained" : "outlined"}
+                        color="success"
+                        onClick={() =>
+                          onRollCallChange({
+                            memberId: member.memberId,
+                            isPresent: !member.isPresent,
+                          })
+                        }
+                        disabled={session.status === 'completed'}
+                        fullWidth
+                        sx={{ fontSize: { xs: '0.813rem', sm: '0.875rem' } }}
+                      >
+                        {member.isPresent ? "✓ Có mặt" : "Vắng"}
+                      </Button>
+
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Button
+                          size="small"
+                          variant={isInPassWaiting ? "contained" : "outlined"}
+                          color="warning"
+                          onClick={() => handleTogglePassWaiting(member.memberId)}
+                          disabled={session.status === 'completed'}
+                          fullWidth
+                          sx={{ fontSize: { xs: '0.813rem', sm: '0.875rem' } }}
+                        >
+                          {isInPassWaiting ? "Bỏ chờ Pass" : "Chờ Pass"}
+                        </Button>
+
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => handlePassMember(member.memberId)}
+                          disabled={session.status === 'completed'}
+                          fullWidth
+                          sx={{ fontSize: { xs: '0.813rem', sm: '0.875rem' } }}
+                        >
+                          Pass
+                        </Button>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </Stack>
         </CardContent>
       </Card>
 
-      <Grid container spacing={{ xs: 2, sm: 3 }}>
-        <Grid item xs={12} md={6}>
-          {/* Danh sách chờ pass */}
-          {passWaitingMembers.length > 0 && (
-            <Card sx={{ mb: 2, borderRadius: 3, p: { xs: 1.5, sm: 2 } }}>
-
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ display: "flex", alignItems: "center" }}
-                >
-                  <HourglassEmpty sx={{ mr: 1, color: "warning.dark" }} />
-                  Danh sách chờ pass ({passWaitingMembers.length})
-                </Typography>
-
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    Những thành viên này đang chờ pass slot. Nhấn nút{" "}
-                    <strong>"Pass"</strong> để chuyển slot cho người trong sảnh
-                    chờ.
+      {/* Danh sách chờ pass & Sảnh chờ */}
+      <Grid container spacing={2}>
+        {/* Danh sách chờ pass */}
+        {passWaitingMembers.length > 0 && (
+          <Grid item xs={12}>
+            <Accordion 
+              defaultExpanded={isMobile}
+              sx={{ borderRadius: 2, '&:before': { display: 'none' } }}
+            >
+              <AccordionSummary 
+                expandIcon={<ExpandMore />}
+                sx={{ 
+                  backgroundColor: 'warning.light',
+                  borderRadius: 2,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <HourglassEmpty sx={{ color: "warning.dark" }} />
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    Danh sách chờ pass ({passWaitingMembers.length})
                   </Typography>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: { xs: 1.5, sm: 2 } }}>
+                <Alert severity="info" sx={{ mb: 2, fontSize: { xs: '0.813rem', sm: '0.875rem' } }}>
+                  Những thành viên này đang chờ pass slot. Nhấn nút "Pass" để chuyển slot cho người trong sảnh chờ.
                 </Alert>
 
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Stack spacing={1.5}>
                   {passWaitingMembers.map((member, index) => (
                     <Paper
                       key={member.memberId}
                       sx={{
-                        p: 2,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        // backgroundColor: 'warning.light',
+                        p: { xs: 1.5, sm: 2 },
+                        borderRadius: 2,
+                        backgroundColor: 'warning.lighter',
                       }}
                     >
-                      <Box
-                        sx={{ display: "flex", alignItems: "center", gap: 2 }}
-                      >
-                        <Avatar sx={{ bgcolor: "warning.dark" }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
+                        <Avatar sx={{ bgcolor: "warning.dark", width: 32, height: 32 }}>
                           {index + 1}
                         </Avatar>
-                        <Box>
-                          <Typography variant="body1" fontWeight="medium">
+                        <Box flex={1}>
+                          <Typography variant="body2" fontWeight="medium">
                             {member.memberName || member.memberId}
                           </Typography>
                           {member.replacementNote && (
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              <SwapHoriz fontSize="inherit" />{" "}
-                              {member.replacementNote}
+                            <Typography variant="caption" color="text.secondary">
+                              <SwapHoriz fontSize="inherit" /> {member.replacementNote}
                             </Typography>
                           )}
                         </Box>
                       </Box>
 
-                      <Box sx={{ display: "flex", gap: 1 }}>
-                        <Tooltip title="Bỏ khỏi danh sách chờ pass">
-                          <span>
-                          <IconButton
-                            size="small"
-                            onClick={() =>
-                              handleTogglePassWaiting(member.memberId)
-                            }
-                            disabled={session.status === "completed"}
-                          >
-                            <Close />
-                          </IconButton>
-                          </span>
-                        </Tooltip>
+                      <Stack direction="row" spacing={1}>
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<Close />}
+                          onClick={() => handleTogglePassWaiting(member.memberId)}
+                          disabled={session.status === "completed"}
+                          fullWidth
+                          sx={{ fontSize: { xs: '0.75rem', sm: '0.813rem' } }}
+                        >
+                          Bỏ khỏi chờ
+                        </Button>
                         <Button
                           variant="contained"
                           color="error"
@@ -482,75 +329,86 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
                           startIcon={<ExitToApp />}
                           onClick={() => handlePassMember(member.memberId)}
                           disabled={updateSessionMutation.isPending || session.status === "completed"}
+                          fullWidth
+                          sx={{ fontSize: { xs: '0.75rem', sm: '0.813rem' } }}
                         >
                           Pass ngay
                         </Button>
-                      </Box>
+                      </Stack>
                     </Paper>
                   ))}
-                </Box>
-              </CardContent>
-            </Card>
-          )}
-        </Grid>
-        <Grid item xs={12} md={6}>
-          {/* Sảnh chờ (hiển thị dưới danh sách chờ pass) */}
-          {session.waitingList && session.waitingList.length > 0 && (
-            <Card sx={{ mb: 2, borderRadius: 3, p: { xs: 1.5, sm: 2 } }}>
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+          </Grid>
+        )}
 
-              <CardContent>
-                <Typography
-                  variant="h6"
-                  gutterBottom
-                  sx={{ display: "flex", alignItems: "center" }}
-                >
-                  <Schedule sx={{ mr: 1, color: "warning.main" }} />
-                  Sảnh chờ ({session.waitingList.length})
-                </Typography>
-
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    {passWaitingMembers.length > 0
-                      ? "Khi pass thành viên, người đầu tiên trong sảnh chờ sẽ được tự động vào slot."
-                      : "Những người này đang chờ slot trống để tham gia."}
+        {/* Sảnh chờ */}
+        {session.waitingList && session.waitingList.length > 0 && (
+          <Grid item xs={12}>
+            <Accordion 
+              defaultExpanded={isMobile}
+              sx={{ borderRadius: 2, '&:before': { display: 'none' } }}
+            >
+              <AccordionSummary 
+                expandIcon={<ExpandMore />}
+                sx={{ 
+                  backgroundColor: 'info.light',
+                  borderRadius: 2,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Schedule sx={{ color: "info.main" }} />
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    Sảnh chờ ({session.waitingList.length})
                   </Typography>
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: { xs: 1.5, sm: 2 } }}>
+                <Alert severity="info" sx={{ mb: 2, fontSize: { xs: '0.813rem', sm: '0.875rem' } }}>
+                  {passWaitingMembers.length > 0
+                    ? "Khi pass thành viên, người đầu tiên trong sảnh chờ sẽ được tự động vào slot."
+                    : "Những người này đang chờ slot trống để tham gia."}
                 </Alert>
 
-                <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Stack spacing={1.5}>
                   {session.waitingList.map((member, index) => (
                     <Paper
                       key={member.memberId}
                       sx={{
-                        p: 2,
+                        p: { xs: 1.5, sm: 2 },
                         display: "flex",
                         alignItems: "center",
-                        gap: 2,
+                        gap: 1.5,
+                        borderRadius: 2,
+                        backgroundColor: index === 0 && passWaitingMembers.length > 0 
+                          ? 'success.lighter' 
+                          : 'background.paper',
                       }}
                     >
-                      <Avatar sx={{ bgcolor: "info.main" }}>{index + 1}</Avatar>
+                      <Avatar sx={{ bgcolor: "info.main", width: 32, height: 32 }}>
+                        {index + 1}
+                      </Avatar>
                       <Box sx={{ flex: 1 }}>
-                        <Typography variant="body1" fontWeight="medium">
+                        <Typography variant="body2" fontWeight="medium">
                           {member.memberName || member.memberId}
                         </Typography>
-                        {/* <Typography variant="caption" color="text.secondary">
-                      Thêm lúc: {new Date(member.addedAt).toLocaleString('vi-VN')}
-                    </Typography> */}
                       </Box>
                       {index === 0 && passWaitingMembers.length > 0 && (
                         <Chip
-                          label="Sẽ vào tiếp theo"
+                          label="Sẽ vào tiếp"
                           color="success"
                           size="small"
-                          variant="outlined"
+                          sx={{ fontSize: { xs: '0.688rem', sm: '0.75rem' } }}
                         />
                       )}
                     </Paper>
                   ))}
-                </Box>
-              </CardContent>
-            </Card>
-          )}
-        </Grid>
+                </Stack>
+              </AccordionDetails>
+            </Accordion>
+          </Grid>
+        )}
       </Grid>
     </Box>
   );

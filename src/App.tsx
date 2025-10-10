@@ -42,6 +42,7 @@ import Settings from "./pages/Settings";
 import { useResponsive } from "./hooks/useResponsive";
 import SessionsMobile from "./components/SessionsMobile";
 import ReportsMobile from "./components/ReportsMobile";
+import SessionDetailMobile from "./pages/SessionDetailMobile";
 
 // ===== CONFIG DAYJS =====
 dayjs.extend(updateLocale);
@@ -174,7 +175,7 @@ const AppContent: React.FC = () => {
                 <Route path="/members" element={<Members />} />
                 <Route path="/groups" element={<Groups />} />
                 <Route path="/sessions" element={isMobile ? <SessionsMobile /> : <Sessions />} />
-                <Route path="/sessions/:id" element={<SessionDetail />} />
+                <Route path="/sessions/:id" element={isMobile ? <SessionDetailMobile /> : <SessionDetail />} />
                 <Route path="/reports" element={isMobile ? <ReportsMobile/> :<Reports />} />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/settings" element={<Settings />} />
@@ -185,7 +186,7 @@ const AppContent: React.FC = () => {
             {currentUser.role === "user" && (
               <>
                 <Route path="/sessions" element={isMobile ? <SessionsMobile /> : <Sessions />} />
-                <Route path="/sessions/:id" element={<SessionDetail />} />
+                <Route path="/sessions/:id" element={isMobile ? <SessionDetailMobile /> : <SessionDetail />} />
                 <Route path="/reports" element={isMobile ? <ReportsMobile/> : <Reports />} />
                 {/* Redirect về sessions nếu cố truy cập route khác */}
                 <Route path="*" element={<Navigate to="/sessions" replace />} />
