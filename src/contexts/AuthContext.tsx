@@ -17,7 +17,7 @@ interface AuthContextType {
   firebaseUser: FirebaseUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName: string) => Promise<void>;
+  signUp: (email: string, password: string, displayName: string, qrCode?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateUserProfile: (data: Partial<User>) => Promise<void>;
 }
@@ -59,6 +59,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isActive: false, // ✅ Mặc định không kích hoạt khi đăng ký mới
         createdAt: new Date(),
         updatedAt: new Date(),
+        qrCode: additionalData?.qrCode ?? '',
         ...additionalData,
       };
 
@@ -133,7 +134,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signUp = async (email: string, password: string, displayName: string) => {
+  const signUp = async (email: string, password: string, displayName: string, qrCode?: string) => {
     try {
       if (!email || !password || !displayName) {
         throw new Error('Vui lòng điền đầy đủ thông tin.');
@@ -150,7 +151,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // ✅ Tạo user document với isActive = true (hoặc false nếu cần admin duyệt)
       const userData = await createUserDocument(result.user, { 
         displayName,
-        isActive: true // Đổi thành false nếu muốn admin phải kích hoạt thủ công
+        isActive: false, // Đổi thành false nếu muốn admin phải kích hoạt thủ công
+        qrCode: qrCode || '',
       });
       
       setCurrentUser(userData);
