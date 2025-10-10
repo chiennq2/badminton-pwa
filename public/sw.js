@@ -1,4 +1,4 @@
-const CACHE_NAME = 'badminton-pwa-v1';
+const CACHE_NAME = `badminton-pwa-${__APP_VERSION__}`;
 
 // Only cache files that definitely exist
 const STATIC_CACHE_URLS = [
@@ -35,26 +35,44 @@ self.addEventListener('install', (event) => {
 });
 
 // Activate event
+// Activate event - xóa cache cũ và kích hoạt ngay cho mọi tab
 self.addEventListener('activate', (event) => {
   console.log('Service Worker activating...');
+
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== CACHE_NAME) {
-              console.log('Deleting old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      })
-      .then(() => {
-        console.log('Service Worker activated');
-        return self.clients.claim();
-      })
+    (async () => {
+      const cacheWhitelist = [CACHE_NAME];
+
+      // 🧹 Xóa cache cũ
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames.map((cacheName) => {
+          if (!cacheWhitelist.includes(cacheName)) {
+            console.log('Deleting old cache:', cacheName);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+
+      // ⚡ Kích hoạt ngay SW mới cho tất cả client
+      await self.clients.claim();
+
+      // 🔄 Gửi thông báo tới tất cả tab đang mở để reload
+      const clientsList = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+
+      for (const client of clientsList) {
+        console.log('Sending reload message to client:', client.url);
+        client.postMessage({ type: 'RELOAD_PAGE' });
+      }
+
+      console.log('Service Worker activated and all clients updated.');
+    })()
   );
 });
+
 
 // Fetch event
 self.addEventListener('fetch', (event) => {
