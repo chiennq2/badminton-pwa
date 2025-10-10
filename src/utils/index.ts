@@ -1,7 +1,8 @@
 import { Session, SessionExpense, Settlement } from '../types';
 import { toPng } from 'html-to-image';
 import { formatDateOnly } from './dateUtils';
-import { auth } from '../config/firebase';
+import { auth, db } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 // Format currency
 export const formatCurrency = (amount: number): string => {
@@ -293,19 +294,31 @@ export const generateDetailedSettlements = (
 
   return settlements;
 };
-export const getCurrentUserLogin = () => {
-  const user = auth.currentUser;
 
-  if (user) {
+
+export const getCurrentUserLogin = async () => {
+  const currentUser = auth.currentUser;
+  if (!currentUser) return null;
+
+  const userRef = doc(db, "users", currentUser.uid);
+  const userSnap = await getDoc(userRef);
+
+  if (userSnap.exists()) {
     return {
-      name: user.displayName || "Unknown",
-      isCustom: user.emailVerified,
-      memberId: user.uid,
+      ...userSnap.data(), // ✅ chứa qrCode nếu có
+      uid: currentUser.uid,
     };
   }
 
-  return null;
+  // fallback nếu chưa có trong Firestore
+  return {
+    uid: currentUser.uid,
+    email: currentUser.email,
+    displayName: currentUser.displayName || "",
+    qrCode: "",
+  };
 };
+
 /**
  * Tạo tên lịch đánh tự động theo format: "Thứ X, DD/MM/YYYY, HH:mm-HH:mm"
  * @param date - Ngày đánh

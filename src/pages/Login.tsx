@@ -13,7 +13,7 @@ import {
   Tab,
   Tabs,
 } from '@mui/material';
-import { Visibility, VisibilityOff, Email, Lock, Person } from '@mui/icons-material';
+import { Visibility, VisibilityOff, Email, Lock, Person, Upload, Delete } from '@mui/icons-material';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../contexts/AuthContext';
@@ -38,6 +38,20 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [tabValue, setTabValue] = useState(0);
+  const [qrCode, setQrCode] = useState<string | null>(null);
+
+  const handleQrCodeUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageData = e.target?.result as string;
+        setQrCode(imageData);
+        signupFormik.setFieldValue('qrCode', imageData);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const loginValidationSchema = Yup.object({
     email: Yup.string()
@@ -89,13 +103,14 @@ const Login: React.FC = () => {
       password: '',
       confirmPassword: '',
       isActive: false,
+      qrCode: '',
     },
     validationSchema: signupValidationSchema,
     onSubmit: async (values) => {
       setLoading(true);
       setError('');
       try {
-        await signUp(values.email, values.password, values.displayName);
+        await signUp(values.email, values.password, values.displayName, values.qrCode);
       } catch (err: any) {
         setError(getErrorMessage(err.code));
       } finally {
@@ -362,6 +377,62 @@ const Login: React.FC = () => {
                   ),
                 }}
               />
+
+              {/* Upload QR Code */}
+              <Box sx={{ mt: 3, mb: 3 }}>
+                <Typography
+                  variant="subtitle1"
+                  gutterBottom
+                  sx={{ display: "flex", alignItems: "center" }}
+                >
+                  <Upload sx={{ mr: 1 }} />
+                  QR Code Thanh Toán (tùy chọn)
+                </Typography>
+
+                <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  <input
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    id="signup-qr-upload"
+                    type="file"
+                    onChange={handleQrCodeUpload}
+                  />
+                  <label htmlFor="signup-qr-upload">
+                    <Button variant="outlined" component="span" startIcon={<Upload />}>
+                      Tải ảnh QR
+                    </Button>
+                  </label>
+                  {qrCode && (
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      startIcon={<Delete />}
+                      onClick={() => {
+                        setQrCode(null);
+                        signupFormik.setFieldValue('qrCode', '');
+                      }}
+                    >
+                      Xóa
+                    </Button>
+                  )}
+                </Box>
+
+                {qrCode && (
+                <Box sx={{ mt: 2, textAlign: "center" }}>
+                  <img
+                    src={qrCode}
+                    alt="QR Code"
+                    style={{
+                      maxWidth: 200,
+                      maxHeight: 200,
+                      border: "1px solid #ddd",
+                      borderRadius: 8,
+                    }}
+                  />
+                </Box>
+              )}
+              </Box>
+
 
               <Button
                 type="submit"
