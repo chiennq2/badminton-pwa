@@ -10,8 +10,8 @@ import {
   CssBaseline,
   Box,
   CircularProgress,
-  Snackbar, // Thêm import
-  Button,   // Thêm import
+  Snackbar,
+  Button,
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -27,7 +27,6 @@ import getTheme from "./theme";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { getLocalStorageItem, setLocalStorageItem } from "./utils";
 
-// Components
 import Layout from "./components/Layout";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -51,7 +50,6 @@ dayjs.extend(isoWeek);
 dayjs.extend(localeData);
 
 dayjs.locale("vi");
-
 dayjs.updateLocale("vi", {
   weekStart: 1,
   weekdays: [
@@ -103,7 +101,7 @@ dayjs.updateLocale("vi", {
   },
 });
 
-// Create query client
+// ===== REACT QUERY CONFIG =====
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -114,12 +112,12 @@ const queryClient = new QueryClient({
   },
 });
 
+// ===== APP CONTENT (USER ROUTES) =====
 const AppContent: React.FC = () => {
   const { currentUser, loading } = useAuth();
-  const [darkMode, setDarkMode] = useState<boolean>(() => {
-    return getLocalStorageItem("darkMode", true);
-  });
-
+  const [darkMode, setDarkMode] = useState<boolean>(() =>
+    getLocalStorageItem("darkMode", true)
+  );
   const theme = getTheme(darkMode ? "dark" : "light");
   const { isMobile } = useResponsive();
 
@@ -167,34 +165,65 @@ const AppContent: React.FC = () => {
       <Router>
         <Layout darkMode={darkMode} onDarkModeToggle={handleDarkModeToggle}>
           <Routes>
-            {/* Routes cho role ADMIN - full quyền */}
+            {/* ADMIN */}
             {currentUser.role === "admin" && (
               <>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/courts" element={<Courts />} />
                 <Route path="/members" element={<Members />} />
                 <Route path="/groups" element={<Groups />} />
-                <Route path="/sessions" element={isMobile ? <SessionsMobile /> : <Sessions />} />
-                <Route path="/sessions/:id" element={isMobile ? <SessionDetailMobile /> : <SessionDetail />} />
-                <Route path="/reports" element={isMobile ? <ReportsMobile/> :<Reports />} />
+                <Route
+                  path="/sessions"
+                  element={isMobile ? <SessionsMobile /> : <Sessions />}
+                />
+                <Route
+                  path="/sessions/:id"
+                  element={
+                    isMobile ? <SessionDetailMobile /> : <SessionDetail />
+                  }
+                />
+                <Route
+                  path="/reports"
+                  element={isMobile ? <ReportsMobile /> : <Reports />}
+                />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/settings" element={<Settings />} />
               </>
             )}
 
-            {/* Routes cho role USER - chỉ có quyền với sessions của mình */}
+            {/* USER */}
             {currentUser.role === "user" && (
               <>
-                <Route path="/sessions" element={isMobile ? <SessionsMobile /> : <Sessions />} />
-                <Route path="/sessions/:id" element={isMobile ? <SessionDetailMobile /> : <SessionDetail />} />
-                <Route path="/reports" element={isMobile ? <ReportsMobile/> : <Reports />} />
-                {/* Redirect về sessions nếu cố truy cập route khác */}
-                <Route path="*" element={<Navigate to="/sessions" replace />} />
+                <Route
+                  path="/sessions"
+                  element={isMobile ? <SessionsMobile /> : <Sessions />}
+                />
+                <Route
+                  path="/sessions/:id"
+                  element={
+                    isMobile ? <SessionDetailMobile /> : <SessionDetail />
+                  }
+                />
+                <Route
+                  path="/reports"
+                  element={isMobile ? <ReportsMobile /> : <Reports />}
+                />
+                <Route
+                  path="*"
+                  element={<Navigate to="/sessions" replace />}
+                />
               </>
             )}
 
-            {/* Fallback route */}
-            <Route path="*" element={<Navigate to={currentUser.role === 'admin' ? "/" : "/sessions"} replace />} />
+            <Route
+              path="*"
+              element={
+                <Navigate
+                  to={currentUser.role === "admin" ? "/" : "/sessions"}
+                  replace
+                />
+              }
+            />
           </Routes>
         </Layout>
       </Router>
@@ -202,9 +231,11 @@ const AppContent: React.FC = () => {
   );
 };
 
+// ===== MAIN APP COMPONENT =====
 const App: React.FC = () => {
-  // ===== PWA UPDATE LOGIC =====
-  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(
+    null
+  );
   const [showReload, setShowReload] = useState(false);
 
   useEffect(() => {
@@ -212,16 +243,18 @@ const App: React.FC = () => {
       navigator.serviceWorker
         .register("/sw.js")
         .then((registration) => {
-          console.log("SW registered:", registration);
+          console.log("[PWA] Service Worker registered:", registration);
 
-          // Lắng nghe sự kiện có phiên bản mới của Service Worker
-          registration.addEventListener('updatefound', () => {
+          // Khi có SW mới được cài
+          registration.addEventListener("updatefound", () => {
             const newWorker = registration.installing;
             if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // Có một phiên bản mới đang chờ
-                  console.log("New version found. Waiting for user to reload.");
+              newWorker.addEventListener("statechange", () => {
+                if (
+                  newWorker.state === "installed" &&
+                  navigator.serviceWorker.controller
+                ) {
+                  console.log("[PWA] New version found");
                   setWaitingWorker(newWorker);
                   setShowReload(true);
                 }
@@ -229,32 +262,49 @@ const App: React.FC = () => {
             }
           });
         })
-        .catch((registrationError) => {
-          console.log("SW registration failed:", registrationError);
-        });
+        .catch((err) =>
+          console.log("[PWA] Service Worker registration failed:", err)
+        );
 
-      // Lắng nghe sự kiện khi Service Worker mới đã được kích hoạt
+      // 🔔 Lắng nghe message từ SW (ví dụ: { type: "RELOAD_PAGE" })
+      const handleSWMessage = (event: MessageEvent) => {
+        if (event.data && event.data.type === "RELOAD_PAGE") {
+          console.log("[PWA] Received RELOAD_PAGE from Service Worker");
+          window.location.reload();
+        }
+      };
+      navigator.serviceWorker.addEventListener("message", handleSWMessage);
+
+      // 🔄 Khi SW mới kích hoạt → reload app
       const handleControllerChange = () => {
-        console.log("Controller changed, reloading page.");
+        console.log("[PWA] Controller changed — reloading app");
         window.location.reload();
       };
-      navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
+      navigator.serviceWorker.addEventListener(
+        "controllerchange",
+        handleControllerChange
+      );
 
-      // Dọn dẹp event listener khi component unmount
+      // 🧹 Cleanup
       return () => {
-        navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
+        navigator.serviceWorker.removeEventListener(
+          "message",
+          handleSWMessage
+        );
+        navigator.serviceWorker.removeEventListener(
+          "controllerchange",
+          handleControllerChange
+        );
       };
     }
   }, []);
 
   const reloadPage = () => {
     if (waitingWorker) {
-      // Gửi message cho Service Worker mới để nó skipWaiting()
-      waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+      waitingWorker.postMessage({ type: "SKIP_WAITING" });
     }
     setShowReload(false);
   };
-  // ===== END PWA UPDATE LOGIC =====
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -264,16 +314,15 @@ const App: React.FC = () => {
         </AuthProvider>
       </LocalizationProvider>
 
-      {/* Snackbar thông báo cập nhật */}
       <Snackbar
         open={showReload}
-        message="Đã có phiên bản mới! Vui lòng tải lại để trải nghiệm tốt nhất."
+        message="Đã có phiên bản mới! Ứng dụng sẽ tự động cập nhật."
         action={
           <Button color="inherit" size="small" onClick={reloadPage}>
             TẢI LẠI
           </Button>
         }
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
       />
     </QueryClientProvider>
   );
