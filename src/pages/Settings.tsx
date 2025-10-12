@@ -15,6 +15,8 @@ import {
   Select,
   MenuItem,
   Skeleton,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import { Save, Settings as SettingsIcon, RestartAlt } from '@mui/icons-material';
 import { useFormik } from 'formik';
@@ -44,6 +46,13 @@ const Settings: React.FC = () => {
     defaultShuttlecockCost: Yup.number()
       .min(0, 'Giá phải >= 0')
       .required('Giá cầu mặc định là bắt buộc'),
+    isFixedBadmintonCost: Yup.boolean(),
+    fixedBadmintonCost: Yup.number()
+      .min(0, 'Giá phải >= 0')
+      .when('isFixedBadmintonCost', {
+        is: true,
+        then: (schema) => schema.required('Giá cầu cố định là bắt buộc khi bật'),
+      }),
     currency: Yup.string().required('Đơn vị tiền tệ là bắt buộc'),
     timezone: Yup.string().required('Múi giờ là bắt buộc'),
   });
@@ -53,6 +62,8 @@ const Settings: React.FC = () => {
       defaultSessionDuration: 120,
       defaultMaxParticipants: 16,
       defaultShuttlecockCost: 25000,
+      isFixedBadmintonCost: false,
+      fixedBadmintonCost: 15000,
       currency: 'VND',
       timezone: 'Asia/Ho_Chi_Minh',
     },
@@ -60,7 +71,11 @@ const Settings: React.FC = () => {
     onSubmit: async (values) => {
       setLoading(true);
       try {
-        await updateSettings(values);
+        await updateSettings({
+          ...values,
+          isFixedBadmintonCost: Boolean(values.isFixedBadmintonCost),
+          fixedBadmintonCost: values.isFixedBadmintonCost ? values.fixedBadmintonCost : null,
+        });
         showSnackbar('Lưu cài đặt thành công!', 'success');
       } catch (error) {
         console.error('Save settings error:', error);
@@ -84,6 +99,8 @@ const Settings: React.FC = () => {
         defaultSessionDuration: settings.defaultSessionDuration,
         defaultMaxParticipants: settings.defaultMaxParticipants,
         defaultShuttlecockCost: settings.defaultShuttlecockCost,
+        isFixedBadmintonCost: Boolean(settings.isFixedBadmintonCost),
+        fixedBadmintonCost: settings.fixedBadmintonCost || 15000,
         currency: settings.currency,
         timezone: settings.timezone,
       });
@@ -155,8 +172,8 @@ const Settings: React.FC = () => {
           <Grid item xs={12}>
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                  <SettingsIcon sx={{ mr: 1, color: 'primary.main' }} />
+                <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
+                  <SettingsIcon sx={{ mr: 1, color: "primary.main" }} />
                   <Typography variant="h6" fontWeight="bold">
                     Cài đặt hệ thống
                   </Typography>
@@ -172,8 +189,14 @@ const Settings: React.FC = () => {
                       value={formik.values.defaultSessionDuration}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
-                      error={formik.touched.defaultSessionDuration && Boolean(formik.errors.defaultSessionDuration)}
-                      helperText={formik.touched.defaultSessionDuration && formik.errors.defaultSessionDuration}
+                      error={
+                        formik.touched.defaultSessionDuration &&
+                        Boolean(formik.errors.defaultSessionDuration)
+                      }
+                      helperText={
+                        formik.touched.defaultSessionDuration &&
+                        formik.errors.defaultSessionDuration
+                      }
                     />
                   </Grid>
 
@@ -186,8 +209,14 @@ const Settings: React.FC = () => {
                       value={formik.values.defaultMaxParticipants}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
-                      error={formik.touched.defaultMaxParticipants && Boolean(formik.errors.defaultMaxParticipants)}
-                      helperText={formik.touched.defaultMaxParticipants && formik.errors.defaultMaxParticipants}
+                      error={
+                        formik.touched.defaultMaxParticipants &&
+                        Boolean(formik.errors.defaultMaxParticipants)
+                      }
+                      helperText={
+                        formik.touched.defaultMaxParticipants &&
+                        formik.errors.defaultMaxParticipants
+                      }
                     />
                   </Grid>
 
@@ -200,8 +229,14 @@ const Settings: React.FC = () => {
                       value={formik.values.defaultShuttlecockCost}
                       onChange={formik.handleChange}
                       onBlur={formik.handleBlur}
-                      error={formik.touched.defaultShuttlecockCost && Boolean(formik.errors.defaultShuttlecockCost)}
-                      helperText={formik.touched.defaultShuttlecockCost && formik.errors.defaultShuttlecockCost}
+                      error={
+                        formik.touched.defaultShuttlecockCost &&
+                        Boolean(formik.errors.defaultShuttlecockCost)
+                      }
+                      helperText={
+                        formik.touched.defaultShuttlecockCost &&
+                        formik.errors.defaultShuttlecockCost
+                      }
                     />
                   </Grid>
 
@@ -220,7 +255,7 @@ const Settings: React.FC = () => {
                     </FormControl>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sm={6}>
                     <FormControl fullWidth>
                       <InputLabel>Múi giờ</InputLabel>
                       <Select
@@ -229,12 +264,64 @@ const Settings: React.FC = () => {
                         onChange={formik.handleChange}
                         label="Múi giờ"
                       >
-                        <MenuItem value="Asia/Ho_Chi_Minh">Việt Nam (GMT+7)</MenuItem>
-                        <MenuItem value="Asia/Bangkok">Thailand (GMT+7)</MenuItem>
-                        <MenuItem value="Asia/Singapore">Singapore (GMT+8)</MenuItem>
+                        <MenuItem value="Asia/Ho_Chi_Minh">
+                          Việt Nam (GMT+7)
+                        </MenuItem>
+                        <MenuItem value="Asia/Bangkok">
+                          Thailand (GMT+7)
+                        </MenuItem>
+                        <MenuItem value="Asia/Singapore">
+                          Singapore (GMT+8)
+                        </MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
+
+                  <Grid item xs={12} sm={6}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={formik.values.isFixedBadmintonCost}
+                          onChange={(e) => {
+                            formik.setFieldValue(
+                              "isFixedBadmintonCost",
+                              e.target.checked
+                            );
+                            if (e.target.checked) {
+                              formik.setFieldTouched(
+                                "fixedBadmintonCost",
+                                true
+                              );
+                            }
+                          }}
+                          name="isFixedBadmintonCost"
+                        />
+                      }
+                      label="Cố định giá cầu cho nữ"
+                    />
+                  </Grid>
+
+                  {formik.values.isFixedBadmintonCost && (
+                    <Grid item xs={12} sm={6}>
+                      <TextField
+                        fullWidth
+                        name="fixedBadmintonCost"
+                        label="Giá cầu cố định cho nữ (VNĐ)"
+                        type="number"
+                        value={formik.values.fixedBadmintonCost}
+                        onChange={formik.handleChange}
+                        onBlur={formik.handleBlur}
+                        error={
+                          formik.touched.fixedBadmintonCost &&
+                          Boolean(formik.errors.fixedBadmintonCost)
+                        }
+                        helperText={
+                          formik.touched.fixedBadmintonCost &&
+                          formik.errors.fixedBadmintonCost
+                        }
+                      />
+                    </Grid>
+                  )}
                 </Grid>
               </CardContent>
             </Card>
@@ -247,7 +334,7 @@ const Settings: React.FC = () => {
                 <Typography variant="h6" fontWeight="bold" gutterBottom>
                   Thông tin hệ thống
                 </Typography>
-                
+
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={6}>
                     <Typography variant="body2" color="text.secondary">
@@ -263,7 +350,7 @@ const Settings: React.FC = () => {
                       Cập nhật cuối
                     </Typography>
                     <Typography variant="body1" fontWeight="500">
-                      {new Date().toLocaleDateString('vi-VN')}
+                      {new Date().toLocaleDateString("vi-VN")}
                     </Typography>
                   </Grid>
 
@@ -271,7 +358,11 @@ const Settings: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">
                       Chế độ offline
                     </Typography>
-                    <Typography variant="body1" fontWeight="500" color="success.main">
+                    <Typography
+                      variant="body1"
+                      fontWeight="500"
+                      color="success.main"
+                    >
                       Đã bật
                     </Typography>
                   </Grid>
@@ -280,7 +371,11 @@ const Settings: React.FC = () => {
                     <Typography variant="body2" color="text.secondary">
                       PWA Support
                     </Typography>
-                    <Typography variant="body1" fontWeight="500" color="success.main">
+                    <Typography
+                      variant="body1"
+                      fontWeight="500"
+                      color="success.main"
+                    >
                       Có hỗ trợ
                     </Typography>
                   </Grid>
@@ -291,7 +386,9 @@ const Settings: React.FC = () => {
 
           {/* Action Buttons */}
           <Grid item xs={12}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+            <Box
+              sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}
+            >
               <Button
                 variant="outlined"
                 color="error"
@@ -313,7 +410,7 @@ const Settings: React.FC = () => {
                 {loading ? (
                   <CircularProgress size={20} color="inherit" />
                 ) : (
-                  'Lưu cài đặt'
+                  "Lưu cài đặt"
                 )}
               </Button>
             </Box>
@@ -330,7 +427,7 @@ const Settings: React.FC = () => {
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ width: "100%" }}
         >
           {snackbar.message}
         </Alert>

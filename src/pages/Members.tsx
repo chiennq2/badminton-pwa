@@ -17,6 +17,9 @@ import {
   Snackbar,
   CircularProgress,
   Fab,
+  FormControlLabel,
+  Checkbox,
+  Avatar,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem } from '@mui/x-data-grid';
 import { DatePicker } from '@mui/x-date-pickers';
@@ -67,6 +70,9 @@ const Members: React.FC = () => {
       }),
     skillLevel: Yup.mixed().oneOf(['Mới bắt đầu', 'Trung bình', 'Khá', 'Giỏi', 'Chuyên nghiệp']).required('Trình độ là bắt buộc'),
     joinDate: Yup.date().required('Ngày tham gia là bắt buộc'),
+    birthDay: Yup.date().nullable().optional(),
+    isWoman: Yup.boolean().oneOf([true, false]),
+    avatar: Yup.string().optional(),
     notes: Yup.string(),
   });
 
@@ -77,6 +83,9 @@ const Members: React.FC = () => {
       phone: '',
       skillLevel: 'Mới bắt đầu',
       joinDate: new Date(),
+      birthDay: null,
+      isWoman: false,
+      avatar: '',
       isActive: true,
       notes: '',
     },
@@ -85,6 +94,9 @@ const Members: React.FC = () => {
       try {
         const updatedValues = {
           ...values,
+          birthDay: values.birthDay ? new Date(values.birthDay) : null,
+          isWoman: values.isWoman ? true : false,
+          avatar: values.avatar,
           skillLevel: values.skillLevel as 'Mới bắt đầu' | 'Trung bình' | 'Khá' | 'Giỏi' | 'Chuyên nghiệp',
         };
         if (editingMember) {
@@ -114,6 +126,9 @@ const Members: React.FC = () => {
         phone: member.phone || '',
         skillLevel: member.skillLevel,
         joinDate: member.joinDate,
+        birthDay: member.birthDay,
+        isWoman: member.isWoman,
+        avatar: member.avatar,
         isActive: member.isActive,
         notes: member.notes || '',
       });
@@ -169,19 +184,22 @@ const Members: React.FC = () => {
       field: 'name',
       headerName: 'Tên',
       flex: 1,
-      minWidth: 150,
+      minWidth: 100,
     },
     {
       field: 'email',
       headerName: 'Email',
       flex: 1,
-      minWidth: 200,
+      minWidth: 100,
     },
     {
       field: 'phone',
       headerName: 'Số điện thoại',
-      width: 130,
+      width: 100,
     },
+    { field: 'birthDay', headerName: 'Ngày sinh', width: 100, renderCell: (params) => formatDate(params.value) },
+    { field: 'isWoman', headerName: 'Nữ', width: 50, renderCell: (params) => <Checkbox disabled checked={params.value} /> },
+    { field: 'avatar', headerName: 'Avatar', width: 100, renderCell: (params) => <Avatar src={params.value} sx={{ width: 32, height: 32 }} /> },
     {
       field: 'skillLevel',
       headerName: 'Trình độ',
@@ -373,6 +391,48 @@ const Members: React.FC = () => {
               onBlur={formik.handleBlur}
               error={formik.touched.phone && Boolean(formik.errors.phone)}
               helperText={formik.touched.phone && formik.errors.phone}
+            />
+            {/* Birthday */}
+            <DatePicker
+              label="Ngày sinh"
+              value={dayjs(formik.values.birthDay)}
+              onChange={(newValue) => {
+                formik.setFieldValue('birthDay', newValue?.toDate());
+              }}
+              dayOfWeekFormatter={(day) => {  // ✅ THÊM
+                  const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+                  return dayNames[day];
+                }}
+              slotProps={{
+                textField: {
+                  fullWidth: true,
+                  margin: 'normal',
+                  error: formik.touched.birthDay && Boolean(formik.errors.birthDay),
+                  helperText: formik.touched.birthDay && typeof formik.errors.birthDay === 'string' ? formik.errors.birthDay : '',
+                },
+              }}
+            />
+            {/* isWoman */}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={formik.values.isWoman}
+                  onChange={(e) => formik.setFieldValue('isWoman', e.target.checked)}
+                  name="isWoman"
+                />
+              }
+              label="Nữ"  
+            />
+            <TextField
+              fullWidth
+              margin="normal"
+              name="avatar"
+              label="Avatar"
+              value={formik.values.avatar}
+              onChange={formik.handleChange}
+              onBlur={formik.handleBlur}
+              error={formik.touched.avatar && Boolean(formik.errors.avatar)}
+              helperText={formik.touched.avatar && formik.errors.avatar}
             />
 
             <FormControl fullWidth margin="normal">

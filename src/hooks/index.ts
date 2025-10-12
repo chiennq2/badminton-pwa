@@ -648,6 +648,8 @@ export const getOrCreateSettings = async (): Promise<AppSettings> => {
       defaultSessionDuration: 120,
       defaultMaxParticipants: 16,
       defaultShuttlecockCost: 25000,
+      isFixedBadmintonCost: false,
+      fixedBadmintonCost: 15000,
       currency: 'VND',
       timezone: 'Asia/Ho_Chi_Minh',
       updatedAt: new Date()
@@ -670,6 +672,8 @@ export const resetSettings = async (): Promise<void> => {
       defaultSessionDuration: 120,
       defaultMaxParticipants: 16,
       defaultShuttlecockCost: 25000,
+      isFixedBadmintonCost: false,
+      fixedBadmintonCost: 15000,
       currency: 'VND',
       timezone: 'Asia/Ho_Chi_Minh',
       updatedAt: new Date()

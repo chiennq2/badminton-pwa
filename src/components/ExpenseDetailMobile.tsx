@@ -70,6 +70,7 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
         return {
           id: sessionMember.memberId,
           name: sessionMember.memberName || member?.name || "Unknown",
+          avatar: sessionMember.avatar || '',
           isCustom: sessionMember.isCustom || !member,
           isPresent: sessionMember.isPresent,
           baseCost: settlement.baseCost,
@@ -228,9 +229,17 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
                   <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
                     {/* Header */}
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
-                      <Avatar sx={{ width: 36, height: 36 }}>
-                        {payment.name.charAt(0).toUpperCase()}
-                      </Avatar>
+                        {payment.avatar ? (
+                            <Avatar
+                              src={payment.avatar}
+                              sx={{ mr:1, width: 32, height: 32 }}
+                            />
+                          ) : (
+                            <Avatar sx={{mr:1, width: 36, height: 36 }}>
+                            {payment.name.charAt(0).toUpperCase()}
+                          </Avatar>
+                        )}
+
                       <Box flex={1}>
                         <Typography variant="subtitle2" fontWeight="bold">
                           {payment.name}

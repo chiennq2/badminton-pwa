@@ -28,6 +28,9 @@ export interface Member {
   phone?: string;
   skillLevel: 'Mới bắt đầu' | 'Trung bình' | 'Khá' | 'Giỏi' | 'Chuyên nghiệp';
   joinDate: Date;
+  birthDay?: Date;
+  isWoman: boolean | false;
+  avatar?: string;
   isActive: boolean;
   notes?: string;
   createdAt: Date;
@@ -54,11 +57,13 @@ export interface SessionExpense {
 
 export interface SessionMember {
   memberId: string;
+  avatar?: string;
   isPresent: boolean;
   joinedAt?: Date;
   leftAt?: Date;
   memberName?: string;
   isCustom?: boolean;
+  isWoman?: boolean;
   replacementNote?: string;
   notePayment?:  string; // ✅ thêm dòng này
   isWaitingPass?: boolean; // ✅ THÊM MỚI
@@ -71,6 +76,8 @@ export interface WaitingListMember {
   priority: number;
   memberName?: string;
   isCustom?: boolean;
+  isWoman?: boolean;
+  avatar?: string;
   replacementNote?: string; // ✅ Đảm bảo có field này
 
 }
@@ -97,6 +104,8 @@ export interface Session {
   endTime: string;
   maxParticipants: number;
   priceSlot: number | 0;
+  isFixedBadmintonCost: boolean | false;
+  fixedBadmintonCost: number | 0;
   currentParticipants: number;
   status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
   members: SessionMember[];
@@ -157,6 +166,8 @@ export interface AppSettings {
   defaultSessionDuration: number; // minutes
   defaultMaxParticipants: number;
   defaultShuttlecockCost: number;
+  isFixedBadmintonCost: boolean;
+  fixedBadmintonCost: number;
   currency: string;
   timezone: string;
   updatedAt: Date;
