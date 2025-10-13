@@ -68,6 +68,8 @@ import {
   AttachMoney,
   Upload,
   HourglassEmpty,
+  Female,
+  Male,
 } from "@mui/icons-material";
 import {
   DragDropContext,
@@ -84,6 +86,7 @@ import {
   useGroups,
   useUpdateSession,
   useDeleteSession,
+  getOrCreateSettings,
 } from "../hooks";
 import {
   Session,
@@ -92,6 +95,7 @@ import {
   Court,
   Group,
   Settlement,
+  AppSettings,
 } from "../types";
 import {
   formatCurrency,
@@ -119,6 +123,8 @@ interface CustomMember {
   id: string;
   name: string;
   isCustom: boolean;
+  isWoman: boolean;
+  avatar?: string;
   replacementNote?: string | ""; // ✅ THÊM: Ghi chú thay thế (ví dụ: "Thay thế cho Đỗ Minh")
 }
 
@@ -202,7 +208,9 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
   const [memberTabValue, setMemberTabValue] = useState(0);
   const [waitingTabValue, setWaitingTabValue] = useState(0);
   const [customMemberName, setCustomMemberName] = useState("");
+  const [customMemberIsWoman, setCustomMemberIsWoman] = useState(false);
   const [customWaitingName, setCustomWaitingName] = useState("");
+  const [customWaitingIsWoman, setCustomWaitingIsWoman] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const [useAutoCourt, setUseAutoCourt] = useState(false);
@@ -214,6 +222,10 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
   const { isMobile, isDesktop } = useResponsive();
   const currentUser = getCurrentUserLogin();
   const [passWaitingList, setPassWaitingList] = useState<string[]>([]);
+  const [isFixedBadmintonCost, setIsFixedBadmintonCost] = useState(false);
+  const [fixedBadmintonCost, setFixedBadmintonCost] = useState(15000);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
 
   // BỎ GIỚI HẠN maxParticipants - cho phép không giới hạn
   const validationSchemas = [
@@ -244,6 +256,8 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       startTime: session.startTime || "19:30",
       endTime: session.endTime || "21:30",
       maxParticipants: session.maxParticipants || 24,
+      isFixedBadmintonCost: session.isFixedBadmintonCost || false,
+      fixedBadmintonCost: session.fixedBadmintonCost || null,
       priceSlot: session.priceSlot || 0,
       status: session.status || "scheduled",
       host: session.host || currentUser,
@@ -273,6 +287,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       severity,
     });
   };
+
   // Load session data
   useEffect(() => {
     if (session && open) {
@@ -294,6 +309,8 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
         endTime: session.endTime,
         maxParticipants: session.maxParticipants,
         priceSlot: session.priceSlot || 0,
+        isFixedBadmintonCost: session.isFixedBadmintonCost,
+        fixedBadmintonCost: session.fixedBadmintonCost,
         notes: session.notes || "",
         status: session.status,
         host: session.host || currentUser,
@@ -311,6 +328,8 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
           id: sm.memberId,
           name: memberName,
           isCustom: sm.isCustom || !member,
+          isWoman: sm?.isWoman || false,
+          avatar: sm.avatar || "",
           replacementNote: sm.replacementNote, // ✅ Đọc ghi chú
         };
       });
@@ -327,6 +346,8 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
           id: wm.memberId,
           name: memberName,
           isCustom: wm.isCustom || !member,
+          isWoman: wm?.isWoman || false,
+          avatar: wm.avatar || "",
         };
       });
       setWaitingList(waitingMembers);
@@ -469,6 +490,8 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
             memberName: member.name,
             isPresent: existingMember?.isPresent || false,
             isCustom: member.isCustom,
+            isWoman: member.isWoman,
+            avatar: member.avatar || "",
             isWaitingPass: passWaitingList.includes(member.id), // ✅ Thêm vào
           };
 
@@ -476,7 +499,6 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
           if (member.replacementNote) {
             memberData.replacementNote = member.replacementNote;
           }
-          
 
           return memberData;
         }),
@@ -488,6 +510,8 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
             addedAt: new Date(),
             priority: index + 1,
             isCustom: member.isCustom,
+            isWoman: member.isWoman,
+            avatar: member.avatar || "",
           };
 
           if (member.replacementNote) {
@@ -552,7 +576,9 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
     setExpenses([]);
     setSettlements([]);
     setCustomMemberName("");
+    setCustomMemberIsWoman(false);
     setCustomWaitingName("");
+    setCustomWaitingIsWoman(false);
     setUseAutoCourt(false);
     setManualCourtCost(0);
     setShuttlecockCount(1);
@@ -566,6 +592,8 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       id: member.id,
       name: member.name,
       isCustom: false,
+      isWoman: member.isWoman,
+      avatar: member.avatar || "",
     };
 
     // BỎ GIỚI HẠN - thêm trực tiếp vào danh sách
@@ -587,10 +615,12 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       id: `custom-${Date.now()}`,
       name: customMemberName.trim(),
       isCustom: true,
+      isWoman: customMemberIsWoman,
     };
 
     setSelectedMembers([...selectedMembers, customMember]);
     setCustomMemberName("");
+    setCustomMemberIsWoman(false);
   };
 
   const addCustomWaitingMember = () => {
@@ -600,10 +630,12 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       id: `custom-waiting-${Date.now()}`,
       name: customWaitingName.trim(),
       isCustom: true,
+      isWoman: customWaitingIsWoman,
     };
 
     setWaitingList([...waitingList, customMember]);
     setCustomWaitingName("");
+    setCustomWaitingIsWoman(false);
   };
 
   const removeMember = (member: CustomMember) => {
@@ -622,13 +654,17 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       const memberWithNote: CustomMember = {
         ...firstWaiting,
         replacementNote: `Slot của ${removedMemberName}`, // ✅ Lưu ghi chú
+        isWoman: firstWaiting.isWoman,
+        avatar: firstWaiting.avatar || "",
       };
 
       // Xóa khỏi sảnh chờ
       setWaitingList(waitingList.slice(1));
 
       // Xóa khỏi pass waiting list
-      const newPassWaitingList = passWaitingList.filter(id => id !== member.id);
+      const newPassWaitingList = passWaitingList.filter(
+        (id) => id !== member.id
+      );
       setPassWaitingList(newPassWaitingList);
 
       // Thêm vào danh sách với ghi chú
@@ -970,7 +1006,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
                   name="maxParticipants"
@@ -989,7 +1025,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                   }
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
                   name="priceSlot"
@@ -1006,6 +1042,19 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                   }
                 />
               </Grid>
+
+              {session.isFixedBadmintonCost && (
+                <Grid item xs={12} sm={4}>
+                  <TextField
+                    disabled
+                    fullWidth
+                    name="fixedBadmintonCost"
+                    label="Giá cầu cố định cho nữ"
+                    type="number"
+                    value={session.fixedBadmintonCost}
+                  />
+                </Grid>
+              )}
 
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
@@ -1152,9 +1201,16 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                   )}
                   renderOption={(props, option) => (
                     <Box component="li" {...props}>
-                      <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                        {option.name.charAt(0).toUpperCase()}
-                      </Avatar>
+                      {option.avatar ? (
+                        <Avatar
+                          src={option.avatar}
+                          sx={{ mr: 2, width: 32, height: 32 }}
+                        />
+                      ) : (
+                        <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                          {option.name.charAt(0).toUpperCase()}
+                        </Avatar>
+                      )}
                       <Box>
                         <Typography variant="body2">{option.name}</Typography>
                         <Typography variant="caption" color="text.secondary">
@@ -1209,6 +1265,17 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                         addCustomMember();
                       }
                     }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        onChange={(e) =>
+                          setCustomMemberIsWoman(e.target.checked)
+                        }
+                        name="isWoman"
+                      />
+                    }
+                    label="Nữ"
                   />
                   <Button
                     variant="contained"
@@ -1273,6 +1340,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                   width: 36,
                                   height: 36,
                                 }}
+                                src={member.avatar}
                               >
                                 {member.isCustom ? (
                                   <Person />
@@ -1374,6 +1442,25 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                     ? "Tên tùy chỉnh"
                                     : "Từ danh sách"}
                                 </Typography>
+
+                                {/* Icon Male/Female */}
+                                {member.isWoman ? (
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    <Female sx={{ fontSize: 20, ml: 1 }} />
+                                    Nữ
+                                  </Typography>
+                                ) : (
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                  >
+                                    <Male sx={{ fontSize: 20, ml: 1 }} />
+                                    Nam
+                                  </Typography>
+                                )}
                               </Box>
                             )}
 
@@ -1457,68 +1544,80 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
             </Card>
 
             {/* Danh sách chờ pass */}
-{selectedMembers.length > 0 && (
-  <Card sx={{ mt: 2 }}>
-    <CardContent>
-      <Typography variant="subtitle1" gutterBottom>
-        <HourglassEmpty sx={{ mr: 1 }} />
-        Danh sách chờ pass ({passWaitingList.length})
-      </Typography>
-      
-      {/* Table với checkbox cho mỗi thành viên */}
-      <TableContainer>
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <Checkbox
-                  checked={passWaitingList.length === selectedMembers.length}
-                  onChange={(e) => {
-                    setPassWaitingList(
-                      e.target.checked 
-                        ? selectedMembers.map(m => m.id) 
-                        : []
-                    );
-                  }}
-                />
-              </TableCell>
-              <TableCell>Tên</TableCell>
-              <TableCell>Trạng thái</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {selectedMembers.map((member) => (
-              <TableRow key={member.id}>
-                <TableCell>
-                  <Checkbox
-                    checked={passWaitingList.includes(member.id)}
-                    onChange={() => {
-                      if (passWaitingList.includes(member.id)) {
-                        setPassWaitingList(
-                          passWaitingList.filter(id => id !== member.id)
-                        );
-                      } else {
-                        setPassWaitingList([...passWaitingList, member.id]);
-                      }
-                    }}
-                  />
-                </TableCell>
-                <TableCell>{member.name}</TableCell>
-                <TableCell>
-                  {passWaitingList.includes(member.id) ? (
-                    <Chip label="Chờ pass" color="warning" size="small" />
-                  ) : (
-                    <Chip label="Bình thường" size="small" />
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-    </CardContent>
-  </Card>
-)}
+            {selectedMembers.length > 0 && (
+              <Card sx={{ mt: 2 }}>
+                <CardContent>
+                  <Typography variant="subtitle1" gutterBottom>
+                    <HourglassEmpty sx={{ mr: 1 }} />
+                    Danh sách chờ pass ({passWaitingList.length})
+                  </Typography>
+
+                  {/* Table với checkbox cho mỗi thành viên */}
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>
+                            <Checkbox
+                              checked={
+                                passWaitingList.length ===
+                                selectedMembers.length
+                              }
+                              onChange={(e) => {
+                                setPassWaitingList(
+                                  e.target.checked
+                                    ? selectedMembers.map((m) => m.id)
+                                    : []
+                                );
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell>Tên</TableCell>
+                          <TableCell>Trạng thái</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {selectedMembers.map((member) => (
+                          <TableRow key={member.id}>
+                            <TableCell>
+                              <Checkbox
+                                checked={passWaitingList.includes(member.id)}
+                                onChange={() => {
+                                  if (passWaitingList.includes(member.id)) {
+                                    setPassWaitingList(
+                                      passWaitingList.filter(
+                                        (id) => id !== member.id
+                                      )
+                                    );
+                                  } else {
+                                    setPassWaitingList([
+                                      ...passWaitingList,
+                                      member.id,
+                                    ]);
+                                  }
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>{member.name}</TableCell>
+                            <TableCell>
+                              {passWaitingList.includes(member.id) ? (
+                                <Chip
+                                  label="Chờ pass"
+                                  color="warning"
+                                  size="small"
+                                />
+                              ) : (
+                                <Chip label="Bình thường" size="small" />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
+            )}
           </Box>
         );
 
@@ -1561,6 +1660,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                         id: value.id,
                         name: value.name,
                         isCustom: false,
+                        isWoman: value.isWoman,
                       };
                       setWaitingList([...waitingList, customMember]);
                     }
@@ -1573,9 +1673,17 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                   )}
                   renderOption={(props, option) => (
                     <Box component="li" {...props}>
-                      <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                        {option.name.charAt(0)}
-                      </Avatar>
+                      {option.avatar ? (
+                        <Avatar
+                          src={option.avatar}
+                          sx={{ mr:2, width: 32, height: 32 }}
+                        />
+                      ) : (
+                        <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                          {option.name.charAt(0).toUpperCase()}
+                        </Avatar>
+                      )}
+
                       <Box>
                         <Typography variant="body2">{option.name}</Typography>
                         <Typography variant="caption" color="text.secondary">
@@ -1602,6 +1710,18 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                         addCustomWaitingMember();
                       }
                     }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={customWaitingIsWoman}
+                        onChange={(e) =>
+                          setCustomWaitingIsWoman(e.target.checked)
+                        }
+                        name="isWoman"
+                      />
+                    }
+                    label="Nữ"
                   />
                   <Button
                     variant="contained"
@@ -1711,19 +1831,26 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                   </Box>
 
                                   {/* Avatar với số thứ tự */}
-                                  <Avatar
-                                    sx={{
-                                      mr: 2,
-                                      width: 36,
-                                      height: 36,
-                                      bgcolor: member.isCustom
-                                        ? "secondary.main"
-                                        : "warning.main",
-                                      fontWeight: "bold",
-                                    }}
-                                  >
-                                    {index + 1}
-                                  </Avatar>
+                                  {member.avatar ? (
+                                    <Avatar
+                                      src={member.avatar}
+                                      sx={{mr:2, width: 32, height: 32 }}
+                                    />
+                                  ) : (
+                                    <Avatar
+                                      sx={{
+                                        mr: 2,
+                                        width: 36,
+                                        height: 36,
+                                        bgcolor: member.isCustom
+                                          ? "secondary.main"
+                                          : "warning.main",
+                                        fontWeight: "bold",
+                                      }}
+                                    >
+                                      {index + 1}
+                                    </Avatar>
+                                  )}
 
                                   {/* Thông tin thành viên */}
                                   <ListItemText
@@ -1759,6 +1886,13 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                         {member.isCustom
                                           ? "Tên tùy chỉnh"
                                           : "Từ danh sách thành viên"}
+                                        {member.isWoman ? (
+                                          <Female
+                                            sx={{ fontSize: 18, ml: 1 }}
+                                          />
+                                        ) : (
+                                          <Male sx={{ fontSize: 18, ml: 1 }} />
+                                        )}
                                       </Typography>
                                     }
                                   />
@@ -2037,24 +2171,39 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                 size="small"
                                 {...getTagProps({ index })}
                                 avatar={
-                                  <Avatar
-                                    sx={{
-                                      bgcolor: option.isCustom
-                                        ? "secondary.main"
-                                        : "primary.main",
-                                    }}
-                                  >
-                                    {option.name.charAt(0).toUpperCase()}
-                                  </Avatar>
+                                  option.avatar ? (
+                                    <Avatar
+                                      src={option.avatar}
+                                      sx={{mr:2, width: 32, height: 32 }}
+                                    />
+                                  ) : (
+                                    <Avatar
+                                      sx={{
+                                        bgcolor: option.isCustom
+                                          ? "secondary.main"
+                                          : "primary.main",
+                                      }}
+                                    >
+                                      {option.name.charAt(0).toUpperCase()}
+                                    </Avatar>
+                                  )
                                 }
                               />
                             ))
                           }
                           renderOption={(props, option) => (
                             <Box component="li" {...props}>
-                              <Avatar sx={{ mr: 1, width: 24, height: 24 }}>
-                                {option.name.charAt(0).toUpperCase()}
-                              </Avatar>
+                              {option.avatar ? (
+                                <Avatar
+                                  src={option.avatar}
+                                  sx={{mr:2, width: 32, height: 32 }}
+                                />
+                              ) : (
+                                <Avatar sx={{ mr: 1, width: 24, height: 24 }}>
+                                  {option.name.charAt(0).toUpperCase()}
+                                </Avatar>
+                              )}
+
                               <Typography variant="body2">
                                 {option.name}
                               </Typography>
@@ -2330,9 +2479,19 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                 <Box
                                   sx={{ display: "flex", alignItems: "center" }}
                                 >
-                                  <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                                    {member.name.charAt(0).toUpperCase()}
-                                  </Avatar>
+                                  {member.avatar ? (
+                                    <Avatar
+                                      src={member.avatar}
+                                      sx={{mr:2, width: 32, height: 32 }}
+                                    />
+                                  ) : (
+                                    <Avatar
+                                      sx={{ mr: 2, width: 32, height: 32 }}
+                                    >
+                                      {member.name.charAt(0).toUpperCase()}
+                                    </Avatar>
+                                  )}
+
                                   <Box>
                                     <Typography variant="body2">
                                       {member.name}

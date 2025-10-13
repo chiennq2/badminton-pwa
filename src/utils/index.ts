@@ -222,6 +222,16 @@ export const calculateBaseCostPerPerson = (
 //   return settlements;
 // };
 
+
+/**
+ * Tính toán chi phí chi tiết cho từng thành viên
+ * 
+ * Logic mới:
+ * - Nếu isFixedBadmintonCost = true:
+ *   + Những thành viên nữ (isWoman = true): chi phí cầu = fixedBadmintonCost (cố định)
+ *   + Những thành viên nam: chia phần cầu còn lại đều nhau
+ * - Nếu isFixedBadmintonCost = false: chia đều cho tất cả
+ */
 export const generateDetailedSettlements = (
   session: Session,
   members: { id: string; name: string }[]
@@ -237,10 +247,38 @@ export const generateDetailedSettlements = (
   const courtCost = courtExpense?.amount || 0;
   const shuttlecockCost = shuttlecockExpense?.amount || 0;
 
-  // Chi phí cơ bản/người (tiền sân + tiền cầu chia đều cho thành viên có mặt)
-  const baseCostPerPerson = presentMembers.length > 0
-    ? (courtCost + shuttlecockCost) / presentMembers.length
-    : 0;
+  // ===== LOGIC MỚI: TÍNH TOÁN TIỀN CẦU CHO NỮ =====
+  let baseCostPerPerson = 0;
+  let baseCostPerMale = 0;
+  let baseCostPerFemale = 0;
+  
+  if (session.isFixedBadmintonCost && session.fixedBadmintonCost) {
+    // Nếu có cài đặt cố định tiền cầu cho nữ
+    const femaleMembers = presentMembers.filter(m => m.isWoman);
+    const maleMembers = presentMembers.filter(m => !m.isWoman);
+    
+    const fixedFemaleShuttlecockCost = session.fixedBadmintonCost * femaleMembers.length;
+    const remainingShuttlecockCost = shuttlecockCost - fixedFemaleShuttlecockCost;
+    
+    // Chi phí cầu cố định cho nữ
+    baseCostPerFemale = session.fixedBadmintonCost;
+    
+    // Chi phí cầu còn lại chia cho nam
+    baseCostPerMale = maleMembers.length > 0
+      ? remainingShuttlecockCost / maleMembers.length
+      : 0;
+    
+    // Chi phí sân chia đều cho tất cả
+    const courtCostPerPerson = presentMembers.length > 0 ? courtCost / presentMembers.length : 0;
+    
+    baseCostPerFemale += courtCostPerPerson;
+    baseCostPerMale += courtCostPerPerson;
+  } else {
+    // Logic cũ: chia đều cho tất cả
+    baseCostPerPerson = presentMembers.length > 0
+      ? (courtCost + shuttlecockCost) / presentMembers.length
+      : 0;
+  }
 
   // ===== LOGIC MỚI: Lấy tất cả memberIds từ chi phí bổ sung =====
   const membersWithAdditionalExpenses = new Set<string>();
@@ -263,9 +301,20 @@ export const generateDetailedSettlements = (
     const sessionMember = session.members.find(m => m.memberId === memberId);
     const member = members.find(m => m.id === memberId);
     const isPresent = sessionMember?.isPresent || false;
+    const isWoman = sessionMember?.isWoman || false;
 
-    // Chi phí cơ bản (chỉ tính cho người có mặt)
-    let totalAmount = isPresent ? baseCostPerPerson : 0;
+    // ===== LOGIC MỚI: Tính chi phí cơ bản theo giới tính =====
+    let totalAmount = 0;
+    
+    if (isPresent) {
+      if (session.isFixedBadmintonCost && session.fixedBadmintonCost) {
+        // Sử dụng chi phí khác nhau tùy theo giới tính
+        totalAmount = isWoman ? baseCostPerFemale : baseCostPerMale;
+      } else {
+        // Chia đều cho tất cả
+        totalAmount = baseCostPerPerson;
+      }
+    }
 
     // Cộng chi phí bổ sung cho thành viên này
     additionalExpenses.forEach(expense => {
@@ -399,6 +448,7 @@ export const calculateMemberSettlement = (
 } => {
   const member = session.members.find(m => m.memberId === memberId);
   const isPresent = member?.isPresent || false;
+  const isWoman = member?.isWoman || false;
 
   const presentMembers = session.members.filter(m => m.isPresent);
   const courtExpense = session.expenses.find(exp => exp.type === 'court');
@@ -406,12 +456,39 @@ export const calculateMemberSettlement = (
   const additionalExpenses = session.expenses.filter(exp => exp.type === 'other');
 
   const courtCost = courtExpense?.amount || 0;
-  const shuttlecockCost = shuttlecockExpense?.amount || 0;
+  let shuttlecockCost = shuttlecockExpense?.amount || 0;
 
-  // Chi phí cơ bản (chỉ cho người có mặt)
-  const baseCost = isPresent && presentMembers.length > 0
-    ? (courtCost + shuttlecockCost) / presentMembers.length
-    : 0;
+  // ===== LOGIC MỚI: TÍNH TOÁN CHI PHÍ CƠ BẢN =====
+  let baseCost = 0;
+
+  if (isPresent) {
+    if (session.isFixedBadmintonCost && session.fixedBadmintonCost) {
+      // Nếu có cài đặt cố định tiền cầu cho nữ
+      const femaleMembers = presentMembers.filter(m => m.isWoman);
+      const maleMembers = presentMembers.filter(m => !m.isWoman);
+      
+      const courtCostPerPerson = presentMembers.length > 0 ? courtCost / presentMembers.length : 0;
+      
+      if (isWoman) {
+        // Chi phí cầu cố định + chi phí sân chia đều
+        baseCost = session.fixedBadmintonCost + courtCostPerPerson;
+      } else {
+        // Chi phí cầu còn lại chia cho nam + chi phí sân chia đều
+        const fixedFemaleShuttlecockCost = session.fixedBadmintonCost * femaleMembers.length;
+        const remainingShuttlecockCost = shuttlecockCost - fixedFemaleShuttlecockCost;
+        const maleCostPerPerson = maleMembers.length > 0
+          ? remainingShuttlecockCost / maleMembers.length
+          : 0;
+        
+        baseCost = maleCostPerPerson + courtCostPerPerson;
+      }
+    } else {
+      // Logic cũ: chia đều cho tất cả
+      baseCost = presentMembers.length > 0
+        ? (courtCost + shuttlecockCost) / presentMembers.length
+        : 0;
+    }
+  }
 
   const additionalCosts: { name: string; amount: number; sharedWith: number }[] = [];
   let additionalTotal = 0;

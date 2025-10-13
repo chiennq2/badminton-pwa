@@ -23,6 +23,8 @@ import {
   Cancel,
   Groups,
   Paid,
+  Male,
+  Female,
 } from "@mui/icons-material";
 import {
   formatCurrency,
@@ -45,9 +47,8 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
   session,
   members,
   courtName,
-  isDarkMode
+  isDarkMode,
 }) => {
-
   // ✅ CHUYỂN ĐỔI DATE AN TOÀN TRƯỚC KHI RENDER
   const safeDate = convertTimestampToDate(session.date);
   const formattedDate = safeDate ? formatDate(safeDate) : "Ngày không xác định";
@@ -102,6 +103,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
       return {
         id: sessionMember.memberId,
         name: sessionMember.memberName || member?.name || "Unknown",
+        avatar: sessionMember.avatar || '',
         isPresent: sessionMember.isPresent,
         baseCost: settlement.baseCost,
         additionalCostsMap,
@@ -111,6 +113,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             (s) => s.memberId === sessionMember.memberId
           )?.isPaid || false,
         replacementNote: sessionMember.replacementNote,
+        isWoman: sessionMember.isWoman,
       };
     });
   }, [relevantMembers, session, members]);
@@ -392,21 +395,54 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             </Box>
 
             {/* Ghi chú */}
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              sx={{
-                mt: 1.5,
-                display: "block",
-                fontStyle: "italic",
-                fontSize: "0.75rem",
-                textAlign: "center",
-                color: "#666",
-              }}
-            >
-              ℹ️ Chi phí sân + cầu được chia đều cho{" "}
-              <strong>{presentMembers.length} người có mặt</strong>
-            </Typography>
+            {!session.isFixedBadmintonCost ? (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  mt: 1.5,
+                  display: "block",
+                  fontStyle: "italic",
+                  fontSize: "0.75rem",
+                  textAlign: "center",
+                  color: "#666",
+                }}
+              >
+                ℹ️ Chi phí sân + cầu được chia đều cho{" "}
+                <strong>{presentMembers.length} người có mặt</strong>
+              </Typography>
+            ) : (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{
+                  mt: 1.5,
+                  display: "block",
+                  fontStyle: "italic",
+                  fontSize: "0.75rem",
+                  textAlign: "center",
+                  color: "#666",
+                }}
+              >
+                ℹ️ Chi phí sân đều cho{" "}
+                <strong>{presentMembers.length} người có mặt</strong>
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{
+                    mt: 1.5,
+                    display: "block",
+                    fontStyle: "italic",
+                    fontSize: "0.75rem",
+                    textAlign: "center",
+                    color: "#666",
+                  }}
+                >
+                  (Cố định tiền cầu cho nữ là{" "}
+                  <strong>{session.fixedBadmintonCost}</strong>)
+                </Typography>
+              </Typography>
+            )}
           </Box>
         );
       })()}
@@ -432,9 +468,11 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             sx={{ fontSize: "0.95rem" }}
           >
             💰 Tiền slot
-            <Typography sx={{color: 'error.main'}} component="span">(Vui lòng tự thanh toán với chủ Slot)</Typography>
-
-              <Typography
+            <Typography sx={{ color: "error.main" }} component="span">
+              {" "}
+              (Vui lòng tự thanh toán với chủ Slot)
+            </Typography>
+            <Typography
               variant="body2"
               fontWeight="bold"
               color="#ff0000ff"
@@ -445,10 +483,8 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             </Typography>
           </Typography>
         </Box>
-        
       )}
 
-      
       <Divider sx={{ my: 2 }} />
       {/* Payment Table */}
       <Box sx={{ mb: 3 }}>
@@ -527,22 +563,30 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                 <TableRow key={payment.id}>
                   <TableCell sx={{ border: "1px solid #ddd" }}>
                     <Box sx={{ display: "flex", alignItems: "center" }}>
-                      <Avatar
-                        sx={{
-                          mr: 1,
-                          width: 28,
-                          height: 28,
-                          fontSize: "0.9rem",
-                          color: "#ff4500",
-                        }}
-                      >
-                        {payment.name.charAt(0).toUpperCase()}
-                      </Avatar>
+                      {payment.avatar ? (
+                          <Avatar
+                            src={payment.avatar}
+                            sx={{ mr:1, width: 32, height: 32 }}
+                          />
+                        ) : (
+                          <Avatar
+                          sx={{
+                            mr: 1,
+                            width: 28,
+                            height: 28,
+                            fontSize: "0.9rem",
+                            color: "#ff4500",
+                          }}
+                        >
+                          {payment.name.charAt(0).toUpperCase()}
+                        </Avatar>
+                      )}
+
                       <Box>
                         <Typography
                           variant="body2"
                           fontWeight="medium"
-                          sx={ {color : "#ff4500"} }
+                          sx={{ color: payment.isWoman ? "#ef7be0" : "#4b9aff" }}
                         >
                           {payment.name}
                         </Typography>
@@ -564,13 +608,13 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       </Box>
                     </Box>
                   </TableCell>
-
                   <TableCell
                     align="right"
-                    sx={{ 
-                      border: "1px solid #ddd", 
+                    sx={{
+                      border: "1px solid #ddd",
                       fontWeight: "bold",
-                      color: "#ff4500" }}
+                      color: "#ff4500",
+                    }}
                   >
                     {formatCurrency(payment.baseCost)}
                   </TableCell>
@@ -582,10 +626,11 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       <TableCell
                         key={expense.id}
                         align="right"
-                        sx={{ 
-                          border: "1px solid #ddd", 
+                        sx={{
+                          border: "1px solid #ddd",
                           fontWeight: "bold",
-                          color: "#ff4500"  }}
+                          color: "#ff4500",
+                        }}
                       >
                         {amount ? formatCurrency(amount) : "-"}
                       </TableCell>
@@ -669,7 +714,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   <Typography
                     variant="caption"
                     fontWeight="bold"
-                    fontSize= "1.1rem"
+                    fontSize="1.1rem"
                     color="info.main"
                   >
                     {memberPayments.filter((m) => m.isPaid).length}/

@@ -62,7 +62,7 @@ import { checkDarkModeTheme } from "../hooks/useResponsive";
 import html2canvas from "html2canvas";
 import SessionDetailPassList from "../components/SessionDetailPassList";
 
-const SessionDetailMobile: React.FC = () => {
+const SessionDetailMobileV1: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
 
@@ -284,6 +284,7 @@ const SessionDetailMobile: React.FC = () => {
         session={session}
         onUpdate={() => queryClient.invalidateQueries({ queryKey: ["session", session.id] })}
         onRollCallChange={() => {}}
+        onSexChange={() => {}}
       />
 
       {/* Expense detail */}
@@ -382,4 +383,4 @@ const SessionDetailMobile: React.FC = () => {
   );
 };
 
-export default SessionDetailMobile;
+export default SessionDetailMobileV1;

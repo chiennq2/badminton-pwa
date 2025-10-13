@@ -184,7 +184,7 @@ const Login: React.FC = () => {
                 mb: 1,
               }}
             >
-              🏸 Quản Lý Lịch Đánh Cầu
+              🏸🍻 Quản Lý Lịch Đánh Cầu
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Badminton Session Management

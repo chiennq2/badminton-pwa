@@ -34,6 +34,7 @@ import {
   Alert,
   Tooltip,
   ListItemAvatar,
+  Checkbox,
 } from "@mui/material";
 import { DatePicker, TimePicker } from "@mui/x-date-pickers";
 import {
@@ -59,6 +60,7 @@ import {
   useCreateSession,
   useUpdateSession,
   getSettings,
+  getOrCreateSettings,
 } from "../hooks";
 import {
   Session,
@@ -87,6 +89,8 @@ interface CustomMember {
   id: string;
   name: string;
   isCustom: boolean;
+  isWoman: boolean;
+  avatar?: string;
 }
 
 interface ExpenseWithMembers extends SessionExpense {
@@ -115,12 +119,18 @@ const SessionForm: React.FC<SessionFormProps> = ({
   const [shuttlecockCount, setShuttlecockCount] = useState(1);
   const [shuttlecockPrice, setShuttlecockPrice] = useState(25000);
   const [customMemberName, setCustomMemberName] = useState("");
+  const [customMemberIsWoman, setCustomMemberIsWoman] = useState(false);
   const [customWaitingMemberName, setCustomWaitingMemberName] = useState("");
+  const [customWaitingMemberIsWoman, setCustomWaitingMemberIsWoman] = useState(false);
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [isNameManuallyEdited, setIsNameManuallyEdited] = useState(false);
   const [passWaitingList, setPassWaitingList] = useState<string[]>([]);
   const [currentUser, setCurrentUser] = useState<any>(null);
-
+  const [isFixedBadmintonCost, setIsFixedBadmintonCost] = useState(false);
+  const [fixedBadmintonCost, setFixedBadmintonCost] = useState(15000);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  
   const validationSchemas = [
     // Step 1: Basic Info
     Yup.object({
@@ -152,6 +162,8 @@ const initialFormikValues = useMemo(() => {
     endTime: editingSession?.endTime ?? "21:30",
     maxParticipants: editingSession?.maxParticipants ?? 24,
     priceSlot: editingSession?.priceSlot ?? 0,
+    isFixedBadmintonCost: editingSession?.isFixedBadmintonCost ?? false,
+    fixedBadmintonCost: editingSession?.fixedBadmintonCost ?? 0,
     notes: editingSession?.notes ?? "",
     status: editingSession?.status ?? "scheduled",
     // keep host simple (string/id) or displayName to avoid object identity churn
@@ -231,6 +243,8 @@ const formik = useFormik({
         endTime: values.endTime,
         maxParticipants: values.maxParticipants,
         priceSlot: values.priceSlot,
+        isFixedBadmintonCost: isFixedBadmintonCost,
+        fixedBadmintonCost: fixedBadmintonCost,
         currentParticipants: selectedMembers.length,
         status: values.status,
         createdBy: editingSession?.createdBy || currentUser?.memberId || "",
@@ -244,6 +258,8 @@ const formik = useFormik({
             editingSession?.members.find((m) => m.memberId === member.id)
               ?.isPresent || false,
           isCustom: member.isCustom, // QUAN TRỌNG: Lưu flag isCustom
+          isWoman: member.isWoman || false,
+          avatar: member.avatar || '',
         })),
 
         // CẢI THIỆN: Lưu cả memberName cho custom members trong waiting list
@@ -253,6 +269,8 @@ const formik = useFormik({
           addedAt: new Date(),
           priority: index + 1,
           isCustom: member.isCustom, // QUAN TRỌNG: Lưu flag isCustom
+          isWoman: member.isWoman || false,
+          avatar: member.avatar || '',
         })),
 
         expenses: sessionExpenses,
@@ -275,11 +293,15 @@ const formik = useFormik({
           id: m.id,
           name: m.name,
           isCustom: m.isCustom,
+          isWoman: m.isWoman,
+          avatar: m.avatar,
         })),
         waitingList: waitingList.map((m) => ({
           id: m.id,
           name: m.name,
           isCustom: m.isCustom,
+          isWoman: m.isWoman || false,
+          avatar: m.avatar || '',
         })),
       });
 
@@ -309,7 +331,9 @@ const formik = useFormik({
     setShuttlecockPrice(25000);
     setQrImage(null);
     setCustomMemberName("");
+    setCustomMemberIsWoman(false);
     setCustomWaitingMemberName("");
+    setCustomWaitingMemberIsWoman(false);
     formik.resetForm();
     setIsNameManuallyEdited(false); // ✅ Reset flag
     setPassWaitingList([]);
@@ -320,6 +344,8 @@ const formik = useFormik({
       id: member.id,
       name: member.name,
       isCustom: false,
+      isWoman: member.isWoman || false,
+      avatar: member.avatar || '',
     };
     if (selectedMembers.length < formik.values.maxParticipants) {
       if (!selectedMembers.some((m) => m.id === member.id)) {
@@ -343,6 +369,8 @@ const formik = useFormik({
         id: member.id,
         name: member.name,
         isCustom: false,
+        isWoman: member.isWoman || false,
+        avatar: member.avatar || '',
       };
 
       if (
@@ -370,6 +398,7 @@ const formik = useFormik({
         .substr(2, 9)}`, // ID unique hơn
       name: customMemberName.trim(),
       isCustom: true,
+      isWoman: customMemberIsWoman,
     };
 
     if (selectedMembers.length < formik.values.maxParticipants) {
@@ -379,7 +408,8 @@ const formik = useFormik({
     }
 
     setCustomMemberName("");
-    console.log("Added custom member:", customMember);
+    setCustomMemberIsWoman(false);
+    // console.log("Added custom member:", customMember);
   };
 
   const addCustomWaitingMember = () => {
@@ -391,11 +421,13 @@ const formik = useFormik({
         .substr(2, 9)}`, // ID unique hơn
       name: customWaitingMemberName.trim(),
       isCustom: true,
+      isWoman: customWaitingMemberIsWoman,
     };
 
     setWaitingList([...waitingList, customMember]);
     setCustomWaitingMemberName("");
-    console.log("Added custom waiting member:", customMember);
+    setCustomWaitingMemberIsWoman(false);
+    // console.log("Added custom waiting member:", customMember);
   };
 
   const removeMember = (member: CustomMember) => {
@@ -468,6 +500,38 @@ const formik = useFormik({
       reader.readAsDataURL(file);
     }
   };
+   
+  // Load settings từ Firebase khi component mount
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSettings = async () => {
+      try {
+        const appSettings = await getOrCreateSettings();
+        if (isMounted) {
+          setSettings(appSettings);
+          // Đặt giá cầu mặc định từ settings
+          setShuttlecockPrice(appSettings.defaultShuttlecockCost || 25000);
+          setIsFixedBadmintonCost(appSettings.isFixedBadmintonCost || false);
+          setFixedBadmintonCost(appSettings.fixedBadmintonCost || null);
+
+        }
+      } catch (error) {
+        console.error("Error loading settings:", error);
+      } finally {
+        if (isMounted) {
+          setSettingsLoading(false);
+        }
+      }
+    };
+
+    loadSettings();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
 
   useEffect(() => {
     let isMounted = true;
@@ -490,6 +554,39 @@ const formik = useFormik({
     };
     // run once on mount
   }, []);
+
+    useEffect(() => {
+      // Chỉ auto-generate nếu:
+      // 1. User chưa tự edit name, HOẶC
+      // 2. Name hiện tại là auto-generated (cho phép update khi đổi date/time)
+      const shouldAutoGenerate =
+        !isNameManuallyEdited || isAutoGeneratedSessionName(formik.values.name);
+
+      if (shouldAutoGenerate && formik.values.date) {
+        const autoName = generateSessionName(
+          formik.values.date,
+          formik.values.startTime,
+          formik.values.endTime
+        );
+
+        // Chỉ update nếu name khác với giá trị hiện tại
+        if (autoName !== formik.values.name) {
+          formik.setFieldValue("name", autoName);
+        }
+      }
+      if (editingSession && members) {
+        // ✅ Check xem name có phải auto-generated không
+        // Nếu không phải, đánh dấu là manually edited
+        if (!isAutoGeneratedSessionName(editingSession.name)) {
+          setIsNameManuallyEdited(true);
+        }
+      }
+    }, [
+      editingSession,
+      formik.values.date,
+      formik.values.startTime,
+      formik.values.endTime,
+    ]);
 
   
   const getStepContent = (step: number) => {
@@ -624,7 +721,7 @@ const formik = useFormik({
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
                   name="maxParticipants"
@@ -643,7 +740,7 @@ const formik = useFormik({
                   }
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12} sm={4}>
                 <TextField
                   fullWidth
                   name="priceSlot"
@@ -662,6 +759,20 @@ const formik = useFormik({
                   }
                 />
               </Grid>
+
+              {isFixedBadmintonCost && (
+                  <Grid item xs={12} sm={4}>
+                    <TextField
+                      disabled
+                      fullWidth
+                      name="fixedBadmintonCost"
+                      label="Giá cầu cố định cho nữ"
+                      type="number"
+                      value={fixedBadmintonCost}
+                      inputProps={{ min: 0 }}
+                    />
+                  </Grid>
+                )}
 
               {editingSession && (
                 <Grid item xs={12} sm={6}>
@@ -841,9 +952,17 @@ const formik = useFormik({
                   )}
                   renderOption={(props, option) => (
                     <Box component="li" {...props}>
-                      <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                        {option.name.charAt(0)}
-                      </Avatar>
+                      {option.avatar ? (
+                          <Avatar
+                            src={option.avatar}
+                            sx={{mr: 2, width: 32, height: 32 }}
+                          />
+                        ) : (
+                          <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                          {option.name.charAt(0)}
+                        </Avatar>
+                        )}
+
                       <Box>
                         <Typography variant="body2">{option.name}</Typography>
                         <Typography variant="caption" color="text.secondary">
@@ -915,6 +1034,16 @@ const formik = useFormik({
                     onKeyPress={(e) => e.key === "Enter" && addCustomMember()}
                     sx={{ flexGrow: 1 }}
                   />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={customMemberIsWoman}
+                        onChange={(e) => setCustomMemberIsWoman(e.target.checked)}
+                        name="isWoman"
+                      />
+                    }
+                    label="Nữ"
+                  />
                   <Button
                     variant="contained"
                     onClick={addCustomMember}
@@ -945,6 +1074,12 @@ const formik = useFormik({
                         divider={index < selectedMembers.length - 1}
                       >
                         <ListItemAvatar>
+                        {member.avatar ? (
+                          <Avatar
+                            src={member.avatar}
+                            sx={{mr: 2, width: 32, height: 32 }}
+                          />
+                        ) : (
                           <Avatar
                             sx={{
                               bgcolor: member.isCustom
@@ -958,6 +1093,8 @@ const formik = useFormik({
                               member.name.charAt(0)
                             )}
                           </Avatar>
+                        )}
+
                         </ListItemAvatar>
                         <ListItemText
                           primary={member.name}
@@ -1021,6 +1158,8 @@ const formik = useFormik({
                         id: value.id,
                         name: value.name,
                         isCustom: false,
+                        isWoman: value.isWoman,
+                        avatar: value.avatar || '',
                       };
                       setWaitingList([...waitingList, customMember]);
                     }
@@ -1034,9 +1173,17 @@ const formik = useFormik({
                   )}
                   renderOption={(props, option) => (
                     <Box component="li" {...props}>
-                      <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
-                        {option.name.charAt(0)}
-                      </Avatar>
+                      {option.avatar ? (
+                          <Avatar
+                            src={option.avatar}
+                            sx={{mr: 2, width: 32, height: 32 }}
+                          />
+                        ) : (
+                          <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
+                          {option.name.charAt(0)}
+                        </Avatar>
+                        )}
+
                       <Box>
                         <Typography variant="body2">{option.name}</Typography>
                         <Typography variant="caption" color="text.secondary">
@@ -1071,6 +1218,17 @@ const formik = useFormik({
                       e.key === "Enter" && addCustomWaitingMember()
                     }
                     sx={{ flexGrow: 1 }}
+                  />
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        onChange={(e) =>
+                          setCustomWaitingMemberIsWoman(e.target.checked)
+                        }
+                        name="isWoman"
+                      />
+                    }
+                    label="Nữ"
                   />
                   <Button
                     variant="contained"
@@ -1108,6 +1266,12 @@ const formik = useFormik({
                         divider={index < waitingList.length - 1}
                       >
                         <ListItemAvatar>
+                        {member.avatar ? (
+                          <Avatar
+                            src={member.avatar}
+                            sx={{mr: 2, width: 32, height: 32 }}
+                          />
+                        ) : (
                           <Avatar
                             sx={{
                               bgcolor: member.isCustom
@@ -1117,6 +1281,8 @@ const formik = useFormik({
                           >
                             {member.isCustom ? <Person /> : index + 1}
                           </Avatar>
+                        )}
+
                         </ListItemAvatar>
                         <ListItemText
                           primary={`${index + 1}. ${member.name}`}
@@ -1381,19 +1547,26 @@ const formik = useFormik({
                                   {...getTagProps({ index })}
                                   key={option.id}
                                   avatar={
-                                    <Avatar
-                                      sx={{
-                                        bgcolor: option.isCustom
-                                          ? "secondary.main"
-                                          : "primary.main",
-                                      }}
-                                    >
-                                      {option.isCustom ? (
-                                        <Person />
-                                      ) : (
-                                        option.name.charAt(0)
-                                      )}
-                                    </Avatar>
+                                    option.avatar ? (
+                                      <Avatar
+                                        src={option.avatar}
+                                        sx={{ mr:2 ,width: 32, height: 32 }}
+                                      />
+                                    ) : (
+                                      <Avatar
+                                        sx={{
+                                          bgcolor: option.isCustom
+                                            ? "secondary.main"
+                                            : "primary.main",
+                                        }}
+                                      >
+                                        {option.isCustom ? (
+                                          <Person />
+                                        ) : (
+                                          option.name.charAt(0)
+                                        )}
+                                      </Avatar>
+                                    )
                                   }
                                 />
                               ))
@@ -1412,22 +1585,30 @@ const formik = useFormik({
                             )}
                             renderOption={(props, option) => (
                               <Box component="li" {...props}>
-                                <Avatar
-                                  sx={{
-                                    mr: 2,
-                                    width: 32,
-                                    height: 32,
-                                    bgcolor: option.isCustom
-                                      ? "secondary.main"
-                                      : "primary.main",
-                                  }}
-                                >
-                                  {option.isCustom ? (
-                                    <Person />
-                                  ) : (
-                                    option.name.charAt(0)
-                                  )}
-                                </Avatar>
+                                                        {option.avatar ? (
+                          <Avatar
+                            src={option.avatar}
+                            sx={{mr: 2, width: 32, height: 32 }}
+                          />
+                        ) : (
+                          <Avatar
+                          sx={{
+                            mr: 2,
+                            width: 32,
+                            height: 32,
+                            bgcolor: option.isCustom
+                              ? "secondary.main"
+                              : "primary.main",
+                          }}
+                        >
+                          {option.isCustom ? (
+                            <Person />
+                          ) : (
+                            option.name.charAt(0)
+                          )}
+                        </Avatar>
+                        )}
+
                                 <Box>
                                   <Typography variant="body2">
                                     {option.name}

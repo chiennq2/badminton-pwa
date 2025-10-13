@@ -24,6 +24,8 @@ import {
   HourglassEmpty,
   Schedule,
   ExpandMore,
+  Female,
+  Male,
 } from '@mui/icons-material';
 import { useUpdateSession } from '../hooks';
 import { Session } from '../types';
@@ -37,12 +39,17 @@ interface SessionDetailPassListProps {
     memberId: string;
     isPresent: boolean;
   }) => void;
+  onSexChange: (data: {
+    memberId: string;
+    isWoman: boolean;
+  }) => void;
 }
 
 const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
   session,
   onUpdate,
-  onRollCallChange
+  onRollCallChange,
+  onSexChange
 }) => {
   const updateSessionMutation = useUpdateSession();
   const [passWaitingList, setPassWaitingList] = useState<string[]>(
@@ -102,6 +109,7 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
         isCustom: firstWaiting.isCustom,
         replacementNote: `Slot của ${memberName}`,
         isWaitingPass: false,
+        isWoman: firstWaiting.isWoman,
       });
     }
 
@@ -137,100 +145,160 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
     <Box>
       {/* Điểm danh thành viên */}
       <Card sx={{ mb: 2, borderRadius: 2 }}>
-        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-          <Typography
-            variant="h6"
-            gutterBottom
-            sx={{ 
-              display: "flex", 
-              alignItems: "center",
-              fontSize: { xs: '1rem', sm: '1.25rem' }
-            }}
-          >
-            <CheckCircle sx={{ mr: 1, fontSize: { xs: 20, sm: 24 } }} />
-            Điểm danh thành viên
-          </Typography>
+        <Accordion 
+              defaultExpanded={isMobile}
+              sx={{ borderRadius: 2, '&:before': { display: 'none' } }}
+            >
+              <AccordionSummary 
+                expandIcon={<ExpandMore />}
+                sx={{ 
+                  backgroundColor: 'success.light',
+                  borderRadius: 2,
+                }}
+              >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+               <CheckCircle sx={{ mr: 1, fontSize: { xs: 20, sm: 24 } }} />
+                <Typography variant="subtitle1" fontWeight="bold">
+                Điểm danh thành viên
+                </Typography>
+              </Box>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: { xs: 1.5, sm: 2 } }}>
+                <Alert severity="info" sx={{ mb: 2, fontSize: { xs: '0.813rem', sm: '0.875rem' } }}>
+                Chức năng "Điểm danh", "Chờ Pass", "Pass" không hoạt động khi lịch đánh đã "Hoàn Thành"
+                </Alert>
 
-          <Alert severity="info" sx={{ mb: 2, fontSize: { xs: '0.813rem', sm: '0.875rem' } }}>
-            Chức năng "Điểm danh", "Chờ Pass", "Pass" không hoạt động khi lịch đánh đã "Hoàn Thành"
-          </Alert>
 
           {/* Mobile-optimized member list */}
           <Stack spacing={1.5}>
             {session.members.map((member, index) => {
               const isInPassWaiting = passWaitingList.includes(member.memberId);
               return (
-                <Card 
-                  key={member.memberId} 
-                  variant="outlined" 
-                  sx={{ 
+                <Card
+                  key={member.memberId}
+                  variant="outlined"
+                  sx={{
                     borderRadius: 2,
-                    border: isInPassWaiting ? '2px solid' : '1px solid',
-                    borderColor: isInPassWaiting ? 'warning.main' : 'divider',
+                    border: isInPassWaiting ? "2px solid" : "1px solid",
+                    borderColor: isInPassWaiting ? "warning.main" : "divider",
                   }}
                 >
-                  <CardContent sx={{ p: { xs: 1.5, sm: 2 }, '&:last-child': { pb: { xs: 1.5, sm: 2 } } }}>
+                  <CardContent
+                    sx={{
+                      p: { xs: 1.5, sm: 2 },
+                      "&:last-child": { pb: { xs: 1.5, sm: 2 } },
+                    }}
+                  >
                     {/* Header: Avatar + Name */}
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
-                      <Avatar sx={{ width: { xs: 36, sm: 40 }, height: { xs: 36, sm: 40 } }}>
-                        {member.memberName?.charAt(0).toUpperCase()}
-                      </Avatar>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 1,
+                        mb: 1.5,
+                      }}
+                    >
+                    {member.avatar ? (
+                        <Avatar
+                          src={member.avatar}
+                          sx={{ mr:2, width: 32, height: 32 }}
+                        />
+                      ) : (
+                        <Avatar
+                          sx={{
+                            width: { xs: 36, sm: 40 },
+                            height: { xs: 36, sm: 40 },
+                          }}
+                        >
+                          {member.memberName?.charAt(0).toUpperCase()}
+                        </Avatar>
+                      )}
+
                       <Box flex={1}>
-                        <Typography 
-                          variant="subtitle2" 
+                        <Typography
+                          variant="subtitle2"
                           fontWeight="bold"
-                          sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+                          sx={{
+                            fontSize: { xs: "0.875rem", sm: "1rem" },
+                            color: member.isWoman ? "#ef7be0" : "#4b9aff",
+                          }}
                         >
                           {index + 1}. {member.memberName}
                         </Typography>
                         {member.replacementNote && (
-                          <Typography 
-                            variant="caption" 
+                          <Typography
+                            variant="caption"
                             color="text.secondary"
-                            sx={{ fontSize: { xs: '0.75rem', sm: '0.813rem' } }}
+                            sx={{ fontSize: { xs: "0.75rem", sm: "0.813rem" } }}
                           >
                             🔄 {member.replacementNote}
                           </Typography>
                         )}
                       </Box>
                       {isInPassWaiting && (
-                        <Chip 
-                          label="Chờ Pass" 
-                          color="warning" 
+                        <Chip
+                          label="Chờ Pass"
+                          color="warning"
                           size="small"
-                          sx={{ fontSize: { xs: '0.688rem', sm: '0.75rem' } }}
+                          sx={{ fontSize: { xs: "0.688rem", sm: "0.75rem" } }}
                         />
                       )}
                     </Box>
 
                     {/* Action buttons */}
                     <Stack spacing={1}>
-                      <Button
-                        size="small"
-                        variant={member.isPresent ? "contained" : "outlined"}
-                        color="success"
-                        onClick={() =>
-                          onRollCallChange({
-                            memberId: member.memberId,
-                            isPresent: !member.isPresent,
-                          })
-                        }
-                        disabled={session.status === 'completed'}
-                        fullWidth
-                        sx={{ fontSize: { xs: '0.813rem', sm: '0.875rem' } }}
-                      >
-                        {member.isPresent ? "✓ Có mặt" : "Vắng"}
-                      </Button>
-
-                      <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <Button
+                          size="small"
+                          variant={member.isPresent ? "contained" : "outlined"}
+                          color="success"
+                          onClick={() =>
+                            onRollCallChange({
+                              memberId: member.memberId,
+                              isPresent: !member.isPresent,
+                            })
+                          }
+                          disabled={session.status === "completed"}
+                          fullWidth
+                          sx={{ fontSize: { xs: "0.813rem", sm: "0.875rem" } }}
+                        >
+                          {member.isPresent ? "✓ Có mặt" : "Vắng"}
+                        </Button>
+                        <Button
+                          size="small"
+                          variant={member.isWoman ? "contained" : "outlined"}
+                          color="inherit"
+                          onClick={() =>
+                            onSexChange({
+                              memberId: member.memberId,
+                              isWoman: !member.isWoman,
+                            })
+                          }
+                          disabled={session.status === "completed"}
+                          fullWidth
+                          sx={{
+                            fontSize: { xs: "0.813rem", sm: "0.875rem" },
+                            color: member.isWoman ? "#ef7be0" : "#4b9aff",
+                          }}
+                        >
+                          {member.isWoman ? (
+                            <Female sx={{ fontSize: 18, ml: 1 }} />
+                          ) : (
+                            <Male sx={{ fontSize: 18, ml: 1 }} />
+                          )}
+                        </Button>
+                      </Box>
+                      <Box sx={{ display: "flex", gap: 1 }}>
                         <Button
                           size="small"
                           variant={isInPassWaiting ? "contained" : "outlined"}
                           color="warning"
-                          onClick={() => handleTogglePassWaiting(member.memberId)}
-                          disabled={session.status === 'completed'}
+                          onClick={() =>
+                            handleTogglePassWaiting(member.memberId)
+                          }
+                          disabled={session.status === "completed"}
                           fullWidth
-                          sx={{ fontSize: { xs: '0.813rem', sm: '0.875rem' } }}
+                          sx={{ fontSize: { xs: "0.813rem", sm: "0.875rem" } }}
                         >
                           {isInPassWaiting ? "Bỏ chờ Pass" : "Chờ Pass"}
                         </Button>
@@ -240,9 +308,9 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
                           variant="outlined"
                           color="error"
                           onClick={() => handlePassMember(member.memberId)}
-                          disabled={session.status === 'completed'}
+                          disabled={session.status === "completed"}
                           fullWidth
-                          sx={{ fontSize: { xs: '0.813rem', sm: '0.875rem' } }}
+                          sx={{ fontSize: { xs: "0.813rem", sm: "0.875rem" } }}
                         >
                           Pass
                         </Button>
@@ -253,7 +321,8 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
               );
             })}
           </Stack>
-        </CardContent>
+            </AccordionDetails>
+          </Accordion>
       </Card>
 
       {/* Danh sách chờ pass & Sảnh chờ */}
@@ -295,7 +364,7 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
                       }}
                     >
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
-                        <Avatar sx={{ bgcolor: "warning.dark", width: 32, height: 32 }}>
+                        <Avatar sx={{ bgcolor: "warning.dark", mr:2, width: 32, height: 32 }} src={member.avatar}>
                           {index + 1}
                         </Avatar>
                         <Box flex={1}>
@@ -386,7 +455,7 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
                           : 'background.paper',
                       }}
                     >
-                      <Avatar sx={{ bgcolor: "info.main", width: 32, height: 32 }}>
+                      <Avatar sx={{ bgcolor: "info.main", mr:2, width: 32, height: 32 }} src={member.avatar}>
                         {index + 1}
                       </Avatar>
                       <Box sx={{ flex: 1 }}>

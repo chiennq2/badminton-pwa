@@ -124,6 +124,7 @@ const SessionDetail: React.FC = () => {
         skillLevel: member?.skillLevel || "Không rõ",
         email: member?.email || "",
         isCustom: sm.isCustom || !member,
+        isWoman: sm?.isWoman || false,
         isPresent: sm.isPresent,
         sessionMember: sm,
         replacementNote: sm.replacementNote,
@@ -144,6 +145,7 @@ const SessionDetail: React.FC = () => {
         skillLevel: member?.skillLevel || "Không rõ",
         email: member?.email || "",
         isCustom: wm.isCustom || !member,
+        isWoman: wm?.isWoman || false,
         priority: wm.priority,
         waitingMember: wm,
       };
@@ -320,6 +322,26 @@ const SessionDetail: React.FC = () => {
     } catch (err) {
       console.error(err);
       showSnackbar("❌ Lỗi khi cập nhật ghi chú!", "error");
+    }
+  };
+
+  const handleSexChange = async (memberId: string, isWoman: boolean) => {
+    if (!session) return;
+    try {
+      const updatedSessionMember = (session.members || []).map(s =>
+        s.memberId === memberId ? { ...s, isWoman: isWoman } : s,
+      );
+  
+      await updateSessionMutation.mutateAsync({
+        id: session.id,
+        data: { members: updatedSessionMember },
+      });
+  
+      await queryClient.invalidateQueries({ queryKey: ["session", session.id] });
+      showSnackbar("✅ Đã cập nhật giới tính!", "success");
+    } catch (err) {
+      console.error(err);
+      showSnackbar("❌ Lỗi khi cập nhật giới tính!", "error");
     }
   };
   
@@ -596,6 +618,9 @@ const SessionDetail: React.FC = () => {
   const handleOnRollCallChange = (data: any) => {
     handleAttendanceChange(data.memberId, data.isPresent);
   }
+  const handleOnRollSexChange = (data: any) => {
+    handleSexChange(data.memberId, data.isWoman);
+  }
 
   // ===== RENDER =====
   return (
@@ -804,6 +829,7 @@ const SessionDetail: React.FC = () => {
                 session={session} 
                 onUpdate={() => queryClient.invalidateQueries({ queryKey: ["session", session.id] })}
                 onRollCallChange={handleOnRollCallChange}
+                onSexChange={handleOnRollSexChange}
               />
           </Grid>
           {/* <Card>

@@ -106,6 +106,7 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
       return {
         id: sessionMember.memberId,
         name: sessionMember.memberName || member?.name || "Unknown",
+        avatar: sessionMember.avatar || '',
         isCustom: sessionMember.isCustom || !member,
         isPresent: sessionMember.isPresent,
         baseCost: settlement.baseCost,
@@ -346,9 +347,17 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
                   >
                     <TableCell>
                       <Box sx={{ display: "flex", alignItems: "center" }}>
-                        <Avatar sx={{ mr: 1, width: 28, height: 28 }}>
-                          {payment.name.charAt(0).toUpperCase()}
-                        </Avatar>
+                          {payment.avatar ? (
+                              <Avatar
+                                src={payment.avatar}
+                                sx={{ mr:1, width: 32, height: 32 }}
+                              />
+                            ) : (
+                              <Avatar sx={{ mr: 1, width: 28, height: 28 }}>
+                              {payment.name.charAt(0).toUpperCase()}
+                            </Avatar>
+                          )}
+
                         <Box>
                           <Typography variant="body2">
                             {payment.name}
