@@ -42,6 +42,8 @@ import { useResponsive } from "./hooks/useResponsive";
 import SessionsMobile from "./components/SessionsMobile";
 import ReportsMobile from "./components/ReportsMobile";
 import SessionDetailMobile from "./pages/SessionDetailMobile";
+import usePullToRefresh from "./hooks/usePullToRefresh";
+import PullToRefreshIndicator from "./components/PullToRefreshIndicator";
 
 // ===== CONFIG DAYJS =====
 dayjs.extend(updateLocale);
@@ -127,6 +129,16 @@ const AppContent: React.FC = () => {
     setLocalStorageItem("darkMode", newDarkMode);
   };
 
+  const handleRefresh = async () => {
+    // Invalidate all queries để tải lại dữ liệu
+    await queryClient.refetchQueries();
+  };
+  const { isPulling, pullProgress, isRefreshing } = usePullToRefresh({
+    threshold: 100,
+    onRefresh: handleRefresh,
+  });
+
+
   if (loading) {
     return (
       <ThemeProvider theme={theme}>
@@ -162,6 +174,11 @@ const AppContent: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <PullToRefreshIndicator
+        isPulling={isPulling}
+        pullProgress={pullProgress}
+        isRefreshing={isRefreshing}
+      />
       <Router>
         <Layout darkMode={darkMode} onDarkModeToggle={handleDarkModeToggle}>
           <Routes>
