@@ -134,7 +134,7 @@ const AppContent: React.FC = () => {
     await queryClient.refetchQueries();
   };
   const { isPulling, pullProgress, isRefreshing } = usePullToRefresh({
-    threshold: 100,
+    threshold: 150,
     onRefresh: handleRefresh,
   });
 

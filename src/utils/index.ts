@@ -168,61 +168,6 @@ export const calculateBaseCostPerPerson = (
   return presentMemberCount > 0 ? (courtCost + shuttlecockCost) / presentMemberCount : 0;
 };
 
-// Generate detailed settlements with new logic
-// utils/index.ts - Logic chia tiền chi tiết
-// export const generateDetailedSettlements = (
-//   session: Session,
-//   members: { id: string; name: string }[]
-// ): Settlement[] => {
-//   // Lấy danh sách thành viên có mặt (đã điểm danh)
-//   const presentMembers = session.members.filter(m => m.isPresent);
-
-//   if (presentMembers.length === 0) {
-//     return [];
-//   }
-
-//   // Phân loại chi phí
-//   const courtExpense = session.expenses.find(exp => exp.type === 'court');
-//   const shuttlecockExpense = session.expenses.find(exp => exp.type === 'shuttlecock');
-//   const additionalExpenses = session.expenses.filter(exp => exp.type === 'other');
-
-//   const courtCost = courtExpense?.amount || 0;
-//   const shuttlecockCost = shuttlecockExpense?.amount || 0;
-
-//   // Chi phí cơ bản/người (tiền sân + tiền cầu chia đều cho thành viên có mặt)
-//   const baseCostPerPerson = (courtCost + shuttlecockCost) / presentMembers.length;
-
-//   // Tính toán settlement cho từng thành viên
-//   const settlements: Settlement[] = [];
-
-//   presentMembers.forEach(sessionMember => {
-//     const member = members.find(m => m.id === sessionMember.memberId);
-//     let totalAmount = baseCostPerPerson;
-
-//     // Cộng chi phí bổ sung cho thành viên này
-//     additionalExpenses.forEach(expense => {
-//       // Kiểm tra xem thành viên này có trong danh sách chia tiền của expense không
-//       if (expense.memberIds && expense.memberIds.includes(sessionMember.memberId)) {
-//         // Chia cho số người được chỉ định trong expense
-//         totalAmount += expense.amount / expense.memberIds.length;
-//       } else if (!expense.memberIds || expense.memberIds.length === 0) {
-//         // Nếu không chỉ định ai thì chia cho tất cả thành viên có mặt
-//         totalAmount += expense.amount / presentMembers.length;
-//       }
-//     });
-
-//     settlements.push({
-//       memberId: sessionMember.memberId,
-//       memberName: member?.name || sessionMember.memberName || 'Unknown',
-//       amount: Math.round(totalAmount),
-//       isPaid: false,
-//     });
-//   });
-
-//   return settlements;
-// };
-
-
 /**
  * Tính toán chi phí chi tiết cho từng thành viên
  * 
@@ -231,6 +176,7 @@ export const calculateBaseCostPerPerson = (
  *   + Những thành viên nữ (isWoman = true): chi phí cầu = fixedBadmintonCost (cố định)
  *   + Những thành viên nam: chia phần cầu còn lại đều nhau
  * - Nếu isFixedBadmintonCost = false: chia đều cho tất cả
+ * - Nếu chi phí cầu < fixedBadmintonCost (cố định): chia đều cho tất cả
  */
 export const generateDetailedSettlements = (
   session: Session,
@@ -251,8 +197,13 @@ export const generateDetailedSettlements = (
   let baseCostPerPerson = 0;
   let baseCostPerMale = 0;
   let baseCostPerFemale = 0;
+
+  // Kiểm tra nếu chia đều thì có > cố định
+  baseCostPerPerson = presentMembers.length > 0
+  ? (courtCost + shuttlecockCost) / presentMembers.length
+  : 0;
   
-  if (session.isFixedBadmintonCost && session.fixedBadmintonCost) {
+  if (session.isFixedBadmintonCost && session.fixedBadmintonCost && baseCostPerPerson > session.fixedBadmintonCost) {
     // Nếu có cài đặt cố định tiền cầu cho nữ
     const femaleMembers = presentMembers.filter(m => m.isWoman);
     const maleMembers = presentMembers.filter(m => !m.isWoman);
@@ -273,12 +224,7 @@ export const generateDetailedSettlements = (
     
     baseCostPerFemale += courtCostPerPerson;
     baseCostPerMale += courtCostPerPerson;
-  } else {
-    // Logic cũ: chia đều cho tất cả
-    baseCostPerPerson = presentMembers.length > 0
-      ? (courtCost + shuttlecockCost) / presentMembers.length
-      : 0;
-  }
+  } 
 
   // ===== LOGIC MỚI: Lấy tất cả memberIds từ chi phí bổ sung =====
   const membersWithAdditionalExpenses = new Set<string>();
@@ -307,7 +253,7 @@ export const generateDetailedSettlements = (
     let totalAmount = 0;
     
     if (isPresent) {
-      if (session.isFixedBadmintonCost && session.fixedBadmintonCost) {
+      if (session.isFixedBadmintonCost && session.fixedBadmintonCost && baseCostPerPerson > session.fixedBadmintonCost) {
         // Sử dụng chi phí khác nhau tùy theo giới tính
         totalAmount = isWoman ? baseCostPerFemale : baseCostPerMale;
       } else {
@@ -461,8 +407,13 @@ export const calculateMemberSettlement = (
   // ===== LOGIC MỚI: TÍNH TOÁN CHI PHÍ CƠ BẢN =====
   let baseCost = 0;
 
+  // Logic cũ: chia đều cho tất cả
+  baseCost = isPresent && presentMembers.length > 0
+      ? (courtCost + shuttlecockCost) / presentMembers.length
+      : 0;
+
   if (isPresent) {
-    if (session.isFixedBadmintonCost && session.fixedBadmintonCost) {
+    if (session.isFixedBadmintonCost && session.fixedBadmintonCost && baseCost > session.fixedBadmintonCost) {
       // Nếu có cài đặt cố định tiền cầu cho nữ
       const femaleMembers = presentMembers.filter(m => m.isWoman);
       const maleMembers = presentMembers.filter(m => !m.isWoman);
@@ -482,11 +433,6 @@ export const calculateMemberSettlement = (
         
         baseCost = maleCostPerPerson + courtCostPerPerson;
       }
-    } else {
-      // Logic cũ: chia đều cho tất cả
-      baseCost = presentMembers.length > 0
-        ? (courtCost + shuttlecockCost) / presentMembers.length
-        : 0;
     }
   }
 

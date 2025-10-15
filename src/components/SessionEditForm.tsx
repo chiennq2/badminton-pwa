@@ -1196,7 +1196,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Chọn từ danh sách thành viên"
+                      label="Chọn thành viên"
                     />
                   )}
                   renderOption={(props, option) => (
@@ -1884,15 +1884,15 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                         color="text.secondary"
                                       >
                                         {member.isCustom
-                                          ? "Tên tùy chỉnh"
-                                          : "Từ danh sách thành viên"}
-                                        {member.isWoman ? (
+                                          ? "Tùy chỉnh"
+                                          : "Thành viên"}
+                                        {/* {member.isWoman ? (
                                           <Female
                                             sx={{ fontSize: 18, ml: 1 }}
                                           />
                                         ) : (
                                           <Male sx={{ fontSize: 18, ml: 1 }} />
-                                        )}
+                                        )} */}
                                       </Typography>
                                     }
                                   />

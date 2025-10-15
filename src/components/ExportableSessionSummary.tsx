@@ -395,7 +395,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             </Box>
 
             {/* Ghi chú */}
-            {!session.isFixedBadmintonCost ? (
+            {!session.isFixedBadmintonCost && session.fixedBadmintonCost && memberPayments[0].baseCost > session.fixedBadmintonCost ? (
               <Typography
                 variant="caption"
                 color="text.secondary"
@@ -438,7 +438,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     color: "#666",
                   }}
                 >
-                  (Cố định tiền cầu cho nữ là{" "}
+                  (Cố định tối đa tiền cầu cho nữ là{" "}
                   <strong>{session.fixedBadmintonCost}</strong>)
                 </Typography>
               </Typography>
