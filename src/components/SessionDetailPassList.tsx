@@ -107,9 +107,10 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
         memberName: firstWaiting.memberName,
         isPresent: false,
         isCustom: firstWaiting.isCustom,
-        replacementNote: `Slot của ${memberName}`,
+        replacementNote: memberToPass.replacementNote ? memberToPass.replacementNote : `Slot của ${memberName}`,
         isWaitingPass: false,
         isWoman: firstWaiting.isWoman,
+        avatar: firstWaiting.avatar,
       });
     }
 
@@ -258,7 +259,7 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
                               isPresent: !member.isPresent,
                             })
                           }
-                          disabled={session.status === "completed"}
+                          disabled={session.status != "ongoing"}
                           fullWidth
                           sx={{ fontSize: { xs: "0.813rem", sm: "0.875rem" } }}
                         >
@@ -456,7 +457,7 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
                       }}
                     >
                       <Avatar sx={{ bgcolor: "info.main", mr:2, width: 32, height: 32 }} src={member.avatar}>
-                        {index + 1}
+                          {member.memberName?.charAt(0).toUpperCase() || index + 1}
                       </Avatar>
                       <Box sx={{ flex: 1 }}>
                         <Typography variant="body2" fontWeight="medium">

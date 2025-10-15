@@ -24,6 +24,8 @@ import * as Yup from 'yup';
 import SessionsMigrationPanel from '../components/SessionsMigrationPanel';
 import { getOrCreateSettings, resetSettings, updateSettings } from '../hooks';
 
+const appVersion = __APP_VERSION__;
+const buildDate = new Date(__BUILD_DATE__).toLocaleString('vi-VN');
 
 const Settings: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -341,7 +343,8 @@ const Settings: React.FC = () => {
                       Phiên bản ứng dụng
                     </Typography>
                     <Typography variant="body1" fontWeight="500">
-                      v1.0.0
+                        v{appVersion}
+
                     </Typography>
                   </Grid>
 
@@ -350,7 +353,7 @@ const Settings: React.FC = () => {
                       Cập nhật cuối
                     </Typography>
                     <Typography variant="body1" fontWeight="500">
-                      {new Date().toLocaleDateString("vi-VN")}
+                        {buildDate}
                     </Typography>
                   </Grid>
 

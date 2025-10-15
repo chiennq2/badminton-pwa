@@ -43,6 +43,8 @@ import { useUsers, useUpdateUser, useDeleteUser } from '../hooks';
 import { User } from '../types';
 import { formatDate, exportToCsv } from '../utils';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
+import TextField from '@mui/material/TextField';
 
 const AdminUsers: React.FC = () => {
   const { data: users, isLoading } = useUsers();
@@ -64,6 +66,56 @@ const AdminUsers: React.FC = () => {
     message: '', 
     severity: 'success' as 'success' | 'error' 
   });
+
+  // stage notification
+  const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
+  const [notifyTitle, setNotifyTitle] = useState('');
+  const [notifyMessage, setNotifyMessage] = useState('');
+  const [sendingNotify, setSendingNotify] = useState(false);
+
+  const handleSendNotification = async () => {
+    if (!notifyMessage.trim()) {
+      showSnackbar("Vui lòng nhập nội dung thông báo!", "error");
+      return;
+    }
+
+    setSendingNotify(true);
+    try {
+      if ("serviceWorker" in navigator) {
+        // Đảm bảo Service Worker đã sẵn sàng
+        const registration = await navigator.serviceWorker.ready;
+
+        if (registration?.active) {
+          registration.active.postMessage({
+            type: "LOCAL_NOTIFICATION",
+            title: notifyTitle || "Thông báo từ quản trị viên",
+            body: notifyMessage,
+          });
+          showSnackbar(
+            "Thông báo đã được gửi tới tất cả thiết bị đang mở!",
+            "success"
+          );
+        } else {
+          showSnackbar(
+            "Không tìm thấy Service Worker đang hoạt động.",
+            "error"
+          );
+        }
+      } else {
+        showSnackbar("Trình duyệt không hỗ trợ Service Worker.", "error");
+      }
+    } catch (error) {
+      console.error("Error sending notification:", error);
+      showSnackbar("Gửi thông báo thất bại!", "error");
+    } finally {
+      setSendingNotify(false);
+      setNotifyDialogOpen(false);
+      setNotifyMessage("");
+      setNotifyTitle("");
+    }
+  };
+
+
 
   const handleEditRole = (user: User) => {
     setEditingUser(user);
@@ -397,7 +449,17 @@ const AdminUsers: React.FC = () => {
         >
           Xuất CSV
         </Button>
+
+        <Button
+          variant="contained"
+          color="primary"
+          startIcon={<NotificationsActiveIcon />}
+          onClick={() => setNotifyDialogOpen(true)}
+        >
+          Gửi thông báo
+        </Button>
       </Box>
+      
 
       {/* Users Table */}
       <Card>
@@ -772,6 +834,53 @@ const AdminUsers: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+              <Dialog
+          open={notifyDialogOpen}
+          onClose={() => setNotifyDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <NotificationsActiveIcon sx={{ mr: 1, color: 'primary.main' }} />
+              Gửi thông báo đến tất cả thiết bị
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                label="Tiêu đề (tùy chọn)"
+                fullWidth
+                value={notifyTitle}
+                onChange={(e) => setNotifyTitle(e.target.value)}
+              />
+              <TextField
+                label="Nội dung thông báo"
+                fullWidth
+                required
+                multiline
+                minRows={3}
+                value={notifyMessage}
+                onChange={(e) => setNotifyMessage(e.target.value)}
+              />
+              <Alert severity="info">
+                Tất cả thiết bị đang mở ứng dụng PWA sẽ hiển thị thông báo này ngay lập tức.
+              </Alert>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setNotifyDialogOpen(false)}>Hủy</Button>
+            <Button
+              onClick={handleSendNotification}
+              variant="contained"
+              disabled={sendingNotify}
+              startIcon={sendingNotify ? <CircularProgress size={20} /> : <NotificationsActiveIcon />}
+            >
+              {sendingNotify ? 'Đang gửi...' : 'Gửi thông báo'}
+            </Button>
+          </DialogActions>
+        </Dialog>
     </Box>
   );
 };

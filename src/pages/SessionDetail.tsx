@@ -62,7 +62,7 @@ import {
   DropResult,
 } from "@hello-pangea/dnd";
 
-import { useSession, useUpdateSession, useMembers, useCourt } from "../hooks";
+import { useSession, useUpdateSession, useMembers, useCourt, useUsers } from "../hooks";
 import { Settlement, WaitingListMember } from "../types";
 import {
   formatCurrency,
@@ -82,11 +82,14 @@ import ExportableSessionSummary from "../components/ExportableSessionSummary";
 import { getSafeDateForPicker, convertTimestampToDate } from "../utils";
 import { checkDarkModeTheme, useResponsive } from "../hooks/useResponsive";
 import SessionDetailPassList from "../components/SessionDetailPassList";
+import ChangeHostDialog from "../components/ChangeHostDialog";
 
 const SessionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: users, isLoading } = useUsers();
+  
 
   // ===== TẤT CẢ HOOKS PHẢI GỌI Ở ĐÂY - KHÔNG ĐIỀU KIỆN =====
 
@@ -108,6 +111,34 @@ const SessionDetail: React.FC = () => {
   });
   const { isMobile, isDesktop } = useResponsive();
   const {isDarkMode} = checkDarkModeTheme();
+
+  const [hostDialogOpen, setHostDialogOpen] = useState(false);
+
+  const handleChangeHost = async (newHost: any) => {
+    if (!session) return;
+    try {
+      await updateSessionMutation.mutateAsync({
+        id: session.id,
+        data: {
+          createdBy: newHost.id,
+          qrImage: newHost.qrCode,
+          host: {
+            memberId: newHost.id,
+            name: newHost.displayName,
+            isCustom: false,
+          },
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: ["session", session.id] });
+      showSnackbar(`✅ Đã chuyển host sang ${newHost.displayName}!`, "success");
+    } catch (error) {
+      console.error(error);
+      showSnackbar("❌ Lỗi khi chuyển host!", "error");
+    } finally {
+      setHostDialogOpen(false);
+    }
+  };
+
   
 
   // ===== COMPUTED VALUES - PHẢI GỌI TRƯỚC KHI CHECK LOADING =====
@@ -128,6 +159,7 @@ const SessionDetail: React.FC = () => {
         isPresent: sm.isPresent,
         sessionMember: sm,
         replacementNote: sm.replacementNote,
+        isWaitingPass: sm.isWaitingPass,
       };
     });
   }, [session, members]);
@@ -509,6 +541,12 @@ const SessionDetail: React.FC = () => {
         )
         .join("\n");
 
+      // Danh sách Pass
+      const passList = sessionMembers.filter(m => m.isWaitingPass)
+        .map((m, i) =>
+          `${i + 1}. ${m.name}`
+        ).join("\n");
+
       // ==== Sảnh chờ ====
       const waitingList = waitingMembers
         .map((m, i) => {
@@ -532,7 +570,7 @@ const SessionDetail: React.FC = () => {
         .join("\n");
 
       // ==== Nội dung đầy đủ ====
-      const content = `${session.name}\n\nDanh sách:\n${joinedList}\n\nSảnh chờ:\n${waitingList}`;
+      const content = `${session.name}\n\nDanh sách:\n${joinedList}\n\nList Pass:\n${passList}\n\nSảnh chờ:\n${waitingList}`;
 
       // Copy vào clipboard
       await navigator.clipboard.writeText(content);
@@ -713,6 +751,17 @@ const SessionDetail: React.FC = () => {
           >
             Xuất danh sách
           </Button>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={() => setHostDialogOpen(true)}
+            startIcon={<Person />}
+            fullWidth={isMobile}
+            size={isMobile ? "medium" : "large"}
+          >
+            Chuyển Host
+          </Button>
+
         </Box>
       </Box>
 
@@ -1142,6 +1191,16 @@ const SessionDetail: React.FC = () => {
           isDarkMode={isDarkMode}
         />
       </Box>
+
+      {/* Chuyển host dialog */}
+      <ChangeHostDialog
+        open={hostDialogOpen}
+        onClose={() => setHostDialogOpen(false)}
+        members={users || []}
+        currentHostId={session.createdBy}
+        onSelect={handleChangeHost}
+      />
+
 
       {/* Session Edit Form */}
       {session && (

@@ -129,10 +129,26 @@ const AppContent: React.FC = () => {
     setLocalStorageItem("darkMode", newDarkMode);
   };
 
+  // const handleRefresh = async () => {
+  //   // Invalidate all queries để tải lại dữ liệu
+  //   await queryClient.refetchQueries();
+  // };
   const handleRefresh = async () => {
-    // Invalidate all queries để tải lại dữ liệu
-    await queryClient.refetchQueries();
+    // 🔄 Làm mới hoàn toàn (bỏ cache nếu có)
+    if ("caches" in window) {
+      try {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map((name) => caches.delete(name)));
+        console.log("[PWA] Cleared all caches before reload");
+      } catch (e) {
+        console.warn("[PWA] Cache clear failed:", e);
+      }
+    }
+
+    // 🧹 Force reload bypassing cache (tương tự Ctrl+Shift+R)
+    window.location.reload();
   };
+
   const { isPulling, pullProgress, isRefreshing } = usePullToRefresh({
     threshold: 150,
     onRefresh: handleRefresh,
@@ -261,7 +277,11 @@ const App: React.FC = () => {
         .register("/sw.js")
         .then((registration) => {
           console.log("[PWA] Service Worker registered:", registration);
-
+          
+          // ✅ Kiểm tra khi Service Worker đã sẵn sàng
+          navigator.serviceWorker.ready.then((readyReg) => {
+            console.log("[PWA] Service Worker ready and active:", readyReg.active?.state);
+          });
           // Khi có SW mới được cài
           registration.addEventListener("updatefound", () => {
             const newWorker = registration.installing;

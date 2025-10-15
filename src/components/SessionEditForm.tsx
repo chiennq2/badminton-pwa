@@ -653,7 +653,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       // ✅ THÊM GHI CHÚ THAY THẾ cho thành viên mới
       const memberWithNote: CustomMember = {
         ...firstWaiting,
-        replacementNote: `Slot của ${removedMemberName}`, // ✅ Lưu ghi chú
+        replacementNote: member.replacementNote ? member.replacementNote : `Slot của ${removedMemberName}`, // ✅ Lưu ghi chú
         isWoman: firstWaiting.isWoman,
         avatar: firstWaiting.avatar || "",
       };
@@ -1661,6 +1661,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                         name: value.name,
                         isCustom: false,
                         isWoman: value.isWoman,
+                        avatar: value.avatar || '',
                       };
                       setWaitingList([...waitingList, customMember]);
                     }
@@ -1848,7 +1849,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                         fontWeight: "bold",
                                       }}
                                     >
-                                      {index + 1}
+                                      {member.name?.charAt(0).toUpperCase() || index + 1}
                                     </Avatar>
                                   )}
 
