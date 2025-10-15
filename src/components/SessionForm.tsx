@@ -167,7 +167,7 @@ const initialFormikValues = useMemo(() => {
     notes: editingSession?.notes ?? "",
     status: editingSession?.status ?? "scheduled",
     // keep host simple (string/id) or displayName to avoid object identity churn
-    host: editingSession?.host ?? currentUser?.displayName ?? "",
+    host: editingSession?.host ?? currentUser ?? "",
     // fallback order: session QR -> local qrImage state -> currentUser qrCode -> ""
     qrImage: editingSession?.qrImage ?? qrImage ?? currentUser?.qrCode ?? "",
   };
@@ -249,6 +249,11 @@ const formik = useFormik({
         status: values.status,
         createdBy: editingSession?.createdBy || currentUser?.memberId || "",
         passWaitingList: passWaitingList, // ✅ Thêm vào
+        host: {
+          name: currentUser.displayName,
+          isCustom: false,
+          memberId: currentUser.memberId,
+        },
 
         // CẢI THIỆN: Lưu cả memberName cho custom members
         members: selectedMembers.map((member) => ({

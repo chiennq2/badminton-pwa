@@ -41,10 +41,12 @@ import {
   Share,
   Image,
   List,
+  Person,
+  ContentPasteGo,
 } from "@mui/icons-material";
 import { useParams, useNavigate } from "react-router-dom";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
-import { useSession, useUpdateSession, useMembers, useCourt } from "../hooks";
+import { useSession, useUpdateSession, useMembers, useCourt, useUsers } from "../hooks";
 import { Settlement } from "../types";
 import {
   formatCurrency,
@@ -63,11 +65,13 @@ import { convertTimestampToDate } from "../utils";
 import { checkDarkModeTheme, useResponsive } from "../hooks/useResponsive";
 import SessionDetailPassList from "../components/SessionDetailPassList";
 import { ExpenseDetailMobile } from "../components/ExpenseDetailMobile";
+import ChangeHostDialog from "../components/ChangeHostDialog";
 
 const SessionDetailMobile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: users, isLoading } = useUsers();
 
   const { data: session, isLoading: sessionLoading } = useSession(id!);
   const { data: court } = useCourt(session?.courtId || "");
@@ -87,6 +91,34 @@ const SessionDetailMobile: React.FC = () => {
   const { isMobile } = useResponsive();
   const { isDarkMode } = checkDarkModeTheme();
 
+  const [hostDialogOpen, setHostDialogOpen] = useState(false);
+
+  const handleChangeHost = async (newHost: any) => {
+    if (!session) return;
+    try {
+      await updateSessionMutation.mutateAsync({
+        id: session.id,
+        data: {
+          createdBy: newHost.id,
+          qrImage: newHost.qrCode,
+          host: {
+            memberId: newHost.id,
+            name: newHost.displayName,
+            isCustom: false,
+          },
+        },
+      });
+      await queryClient.invalidateQueries({ queryKey: ["session", session.id] });
+      showSnackbar(`✅ Đã chuyển host sang ${newHost.displayName}!`, "success");
+    } catch (error) {
+      console.error(error);
+      showSnackbar("❌ Lỗi khi chuyển host!", "error");
+    } finally {
+      setHostDialogOpen(false);
+    }
+  };
+
+
   const sessionMembers = useMemo(() => {
     if (!session) return [];
     return session.members.map((sm) => {
@@ -100,6 +132,7 @@ const SessionDetailMobile: React.FC = () => {
         isPresent: sm.isPresent,
         sessionMember: sm,
         replacementNote: sm.replacementNote,
+        isWaitingPass: sm.isWaitingPass,
       };
     });
   }, [session, members]);
@@ -384,6 +417,116 @@ const SessionDetailMobile: React.FC = () => {
     }
   };
 
+
+  const handleExportImageV2 = async () => {
+    if (!session) return;
+
+    try {
+      const element = document.getElementById("exportable-session-summary");
+      if (!element) {
+        showSnackbar("Không tìm thấy nội dung để xuất!", "error");
+        return;
+      }
+
+      showSnackbar("Đang tạo ảnh...", "success");
+
+      const FIXED_WIDTH = 1200;
+      const PADDING = 40;
+
+      element.style.position = "fixed";
+      element.style.left = "0";
+      element.style.top = "0";
+      element.style.zIndex = "9999";
+      element.style.backgroundColor = "#ffffff";
+      element.style.padding = `${PADDING}px`;
+      element.style.width = `${FIXED_WIDTH}px`;
+      element.style.maxWidth = "none";
+      element.style.overflow = "visible";
+      element.style.boxSizing = "border-box";
+
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      const canvas = await html2canvas(element, {
+        backgroundColor: "#ffffff",
+        scale: 2,
+        useCORS: true,
+      });
+
+      element.style.position = "absolute";
+      element.style.left = "-9999px";
+      element.style.zIndex = "-1";
+
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/png", 0.95)
+      );
+
+      const safeDate = convertTimestampToDate(session.date);
+      const dateStr = safeDate
+        ? safeDate.toISOString().split("T")[0]
+        : new Date().toISOString().split("T")[0];
+
+      const fileName = `lich-${session.name.replace(
+        /[^a-z0-9]/gi,
+        "-"
+      )}-${dateStr}.png`;
+
+      const shareText = "Gửi mn tiền cầu hôm nay ạ @All";
+
+      let copiedImage = false;
+
+      if (blob && navigator.clipboard && (window.ClipboardItem as any)) {
+        try {
+          const clipboardItem = new ClipboardItem({ "image/png": blob });
+          await navigator.clipboard.write([clipboardItem]);
+          copiedImage = true;
+        } catch (err) {
+          console.warn("Không thể copy ảnh:", err);
+        }
+      }
+
+      try {
+        await navigator.clipboard.writeText(shareText);
+      } catch {
+        console.warn("Không thể copy text");
+      }
+
+      if (copiedImage) {
+        showSnackbar(
+          "✅ Ảnh & nội dung đã được sao chép vào clipboard!",
+          "success"
+        );
+      } else {
+        // Fallback: tải ảnh xuống nếu không copy được
+        const link = document.createElement("a");
+        link.download = fileName;
+        link.href = canvas.toDataURL("image/png", 0.95);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showSnackbar(
+          "✅ Đã tải ảnh & sao chép nội dung vào clipboard!",
+          "success"
+        );
+      }
+
+      // Nếu mobile có hỗ trợ share API
+      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      if (isMobile && blob && navigator.share) {
+        const file = new File([blob], fileName, { type: "image/png" });
+        await navigator.share({
+          files: [file],
+          text: shareText,
+          title: session.name,
+        });
+      }
+    } catch (error) {
+      console.error("Export error:", error);
+      showSnackbar("❌ Có lỗi xảy ra khi xuất ảnh!", "error");
+    }
+  };
+
+
+
   const handleCopyMemberList = async () => {
     if (!session) return;
 
@@ -395,6 +538,11 @@ const SessionDetailMobile: React.FC = () => {
             : `${i + 1}. ${m.name}`
         )
         .join("\n");
+
+      const passList = sessionMembers.filter(m => m.isWaitingPass)
+        .map((m, i) =>
+          `${i + 1}. ${m.name}`
+        ).join("\n"); 
 
       const waitingList = waitingMembers
         .map((m, i) => {
@@ -411,7 +559,7 @@ const SessionDetailMobile: React.FC = () => {
         })
         .join("\n");
 
-      const content = `${session.name}\n\nDanh sách:\n${joinedList}\n\nSảnh chờ:\n${waitingList}`;
+      const content = `${session.name}\n\nDanh sách:\n${joinedList}\n\nList Pass:\n${passList}\n\nSảnh chờ:\n${waitingList}\n\n@All`;
 
       await navigator.clipboard.writeText(content);
 
@@ -479,8 +627,14 @@ const SessionDetailMobile: React.FC = () => {
 
   // Mobile-specific SpeedDial actions
   const speedDialActions = [
+    {
+      icon: <Person />,
+      name: "Chuyển Host",
+      onClick: () => setHostDialogOpen(true),
+    },
     { icon: <Edit />, name: "Chỉnh sửa", onClick: () => setEditFormOpen(true) },
     { icon: <Image />, name: "Xuất ảnh", onClick: handleExportImage },
+    { icon: <ContentPasteGo />, name: "Xuất Clipboard", onClick: handleExportImageV2 },
     { icon: <Share />, name: "Chia sẻ DS", onClick: handleCopyMemberList },
   ];
 
@@ -946,7 +1100,17 @@ const SessionDetailMobile: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      <ChangeHostDialog
+        open={hostDialogOpen}
+        onClose={() => setHostDialogOpen(false)}
+        members={users || []}
+        currentHostId={session.createdBy}
+        onSelect={handleChangeHost}
+      />
+
     </Box>
+    
   );
 };
 

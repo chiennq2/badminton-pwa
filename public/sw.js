@@ -1,243 +1,201 @@
 const CACHE_NAME = `badminton-pwa-${__APP_VERSION__}`;
-
-// Only cache files that definitely exist
 const STATIC_CACHE_URLS = [
-  '/',
+  '/favicon.ico',
+  '/manifest.json',
+  '/pwa-192x192.png',
+  '/pwa-512x512.png',
 ];
 
-// Install event - with error handling
+// === INSTALL EVENT ===
 self.addEventListener('install', (event) => {
-  console.log('Service Worker installing...');
+  console.log('[SW] Installing...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('Caching static assets');
-        // Cache each URL individually to handle failures gracefully
+        console.log('[SW] Caching static assets...');
         return Promise.allSettled(
-          STATIC_CACHE_URLS.map((url) => {
-            return cache.add(url).catch((error) => {
-              console.warn(`Failed to cache ${url}:`, error);
-              return Promise.resolve(); // Continue even if one fails
-            });
-          })
+          STATIC_CACHE_URLS.map((url) =>
+            cache.add(url).catch((error) => {
+              console.warn(`[SW] Failed to cache ${url}:`, error);
+            })
+          )
         );
       })
-      .then(() => {
-        console.log('Static assets cached successfully');
-        return self.skipWaiting();
-      })
-      .catch((error) => {
-        console.error('Cache installation failed:', error);
-        // Still skip waiting to activate the service worker
-        return self.skipWaiting();
-      })
+      .finally(() => self.skipWaiting())
   );
 });
 
-// Activate event
-// Activate event - xóa cache cũ và kích hoạt ngay cho mọi tab
+// === ACTIVATE EVENT ===
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker activating...');
-
+  console.log('[SW] Activating...');
   event.waitUntil(
     (async () => {
-      const cacheWhitelist = [CACHE_NAME];
-
-      // 🧹 Xóa cache cũ
       const cacheNames = await caches.keys();
       await Promise.all(
-        cacheNames.map((cacheName) => {
-          if (!cacheWhitelist.includes(cacheName)) {
-            console.log('Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
+        cacheNames.map((name) => {
+          if (name !== CACHE_NAME) {
+            console.log('[SW] Deleting old cache:', name);
+            return caches.delete(name);
           }
         })
       );
 
-      // ⚡ Kích hoạt ngay SW mới cho tất cả client
       await self.clients.claim();
 
-      // 🔄 Gửi thông báo tới tất cả tab đang mở để reload
+      // Gửi message tới các tab đang mở để reload
       const clientsList = await self.clients.matchAll({
         type: 'window',
         includeUncontrolled: true,
       });
-
       for (const client of clientsList) {
-        console.log('Sending reload message to client:', client.url);
         client.postMessage({ type: 'RELOAD_PAGE' });
       }
 
-      console.log('Service Worker activated and all clients updated.');
+      console.log('[SW] Activated and all clients updated.');
     })()
   );
 });
 
-
-// Fetch event
+// === FETCH EVENT ===
 self.addEventListener('fetch', (event) => {
-  // Skip cross-origin requests
-  if (!event.request.url.startsWith(self.location.origin)) {
+  const { request } = event;
+
+  // Bỏ qua request không cùng origin hoặc chrome-extension
+  if (!request.url.startsWith(self.location.origin) ||
+      request.url.startsWith('chrome-extension://')) {
     return;
   }
 
-  // Skip Chrome extensions
-  if (event.request.url.startsWith('chrome-extension://')) {
-    return;
-  }
-
-  // Handle API requests with network-first strategy
-  if (event.request.url.includes('/api/') || 
-      event.request.url.includes('firestore') ||
-      event.request.url.includes('firebase')) {
+  // 🌐 Network-first cho navigation (index.html)
+  if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
+      fetch(request)
         .then((response) => {
-          // Clone the response before caching
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            })
-            .catch((error) => {
-              console.warn('Failed to cache API response:', error);
-            });
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('/', clone));
           return response;
         })
-        .catch((error) => {
-          console.log('Network request failed, trying cache:', error);
-          // Fallback to cache
-          return caches.match(event.request);
-        })
+        .catch(() => caches.match('/'))
     );
     return;
   }
 
-  // Handle static assets with cache-first strategy
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
+  // 🧩 Network-first cho API / Firestore / Firebase
+  if (request.url.includes('/api/') ||
+      request.url.includes('firestore') ||
+      request.url.includes('firebase')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           return response;
-        }
-        
-        return fetch(event.request)
-          .then((response) => {
-            // Don't cache non-successful responses
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-            
-            // Clone the response
-            const responseToCache = response.clone();
-            
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              })
-              .catch((error) => {
-                console.warn('Failed to cache resource:', error);
-              });
-            
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // 🧱 Cache-first cho static assets
+  event.respondWith(
+    caches.match(request).then((cachedResponse) => {
+      if (cachedResponse) return cachedResponse;
+      return fetch(request)
+        .then((response) => {
+          if (!response || response.status !== 200 || response.type !== 'basic') {
             return response;
-          })
-          .catch((error) => {
-            console.warn('Fetch failed:', error);
-            // Return a basic offline response
-            return new Response('Offline', {
-              status: 503,
-              statusText: 'Service Unavailable',
-              headers: new Headers({
-                'Content-Type': 'text/plain'
-              })
-            });
-          });
-      })
+          }
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        })
+        .catch(() => new Response('Offline', {
+          status: 503,
+          statusText: 'Service Unavailable',
+          headers: { 'Content-Type': 'text/plain' },
+        }));
+    })
   );
 });
 
-// Background sync for offline data
+// === BACKGROUND SYNC ===
 self.addEventListener('sync', (event) => {
   if (event.tag === 'background-sync') {
-    console.log('Background sync triggered');
-    event.waitUntil(
-      syncOfflineData().catch((error) => {
-        console.error('Background sync failed:', error);
-      })
-    );
+    console.log('[SW] Background sync triggered');
+    event.waitUntil(syncOfflineData().catch((err) => {
+      console.error('[SW] Background sync failed:', err);
+    }));
   }
 });
 
-// Push notifications
+// === PUSH NOTIFICATION ===
 self.addEventListener('push', (event) => {
-  console.log('Push message received');
-  
+  console.log('[SW] Push message received');
   const options = {
     body: event.data ? event.data.text() : 'Có thông báo mới từ ứng dụng cầu lông',
-    icon: '/favicon.ico', // Use favicon instead of missing icons
+    icon: '/favicon.ico',
     vibrate: [100, 50, 100],
-    data: {
-      dateOfArrival: Date.now(),
-      primaryKey: 1
-    }
+    data: { dateOfArrival: Date.now(), primaryKey: 1 },
   };
-  
   event.waitUntil(
     self.registration.showNotification('Quản Lý Cầu Lông', options)
   );
 });
 
-// Notification click event
+// === NOTIFICATION CLICK ===
 self.addEventListener('notificationclick', (event) => {
-  console.log('Notification click received.');
-  
+  console.log('[SW] Notification click received.');
   event.notification.close();
-  
-  if (event.action === 'explore') {
-    event.waitUntil(
-      clients.openWindow('/')
-    );
-  }
+  event.waitUntil(clients.openWindow('/'));
 });
 
-// Sync offline data function
-async function syncOfflineData() {
-  try {
-    console.log('Syncing offline data...');
-    
-    const offlineData = await getOfflineData();
-    if (offlineData && offlineData.length > 0) {
-      await syncWithFirestore(offlineData);
-      await clearOfflineData();
-    }
-    
-    console.log('Offline data synced successfully');
-  } catch (error) {
-    console.error('Error syncing offline data:', error);
-    throw error; // Re-throw to handle in sync event
-  }
-}
-
-// Helper functions for offline data management
-async function getOfflineData() {
-  // Implementation would use IndexedDB to get offline changes
-  return [];
-}
-
-async function syncWithFirestore(data) {
-  // Implementation would sync data with Firestore
-  console.log('Syncing data:', data);
-}
-
-async function clearOfflineData() {
-  // Implementation would clear synced offline data
-  console.log('Clearing offline data');
-}
-
-
+// === SKIP WAITING MESSAGE ===
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
-    console.log('Skipping waiting and activating new service worker.');
+    console.log('[SW] SKIP_WAITING received');
     self.skipWaiting();
   }
 });
+
+// === OFFLINE SYNC FUNCTIONS ===
+async function syncOfflineData() {
+  try {
+    console.log('[SW] Syncing offline data...');
+    const offlineData = await getOfflineData();
+    if (offlineData?.length > 0) {
+      await syncWithFirestore(offlineData);
+      await clearOfflineData();
+    }
+    console.log('[SW] Offline data synced successfully');
+  } catch (err) {
+    console.error('[SW] Error syncing offline data:', err);
+    throw err;
+  }
+}
+
+async function getOfflineData() {
+  return [];
+}
+async function syncWithFirestore(data) {
+  console.log('[SW] Syncing data:', data);
+}
+async function clearOfflineData() {
+  console.log('[SW] Clearing offline data');
+}
+
+// === LOCAL NOTIFICATION (GỬI NỘI BỘ TỪ ADMIN) ===
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'LOCAL_NOTIFICATION') {
+    const { title, body } = event.data;
+    console.log('[SW] Hiển thị thông báo nội bộ:', title, body);
+
+    self.registration.showNotification(title || 'Thông báo từ quản trị viên', {
+      body: body || '',
+      icon: '/favicon.ico',
+      vibrate: [100, 50, 100],
+      badge: '/pwa-192x192.png',
+      data: { dateOfArrival: Date.now() },
+    });
+  }
+});
+

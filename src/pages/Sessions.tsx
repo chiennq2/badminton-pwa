@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Box,
   Button,
@@ -75,7 +75,15 @@ const Sessions: React.FC = () => {
   });
   const [currentTab, setCurrentTab] = useState(0); // 0: Đang hoạt động, 1: Đã hoàn thành
   const { isMobile } = useResponsive();
+  
+  const [sortModel, setSortModel] = useState([
+    { field: "date", sort: currentTab === 0 ? "asc" : "desc" },
+  ]);
 
+  useEffect(() => {
+    setSortModel([{ field: "date", sort: currentTab === 0 ? "asc" : "desc" }]);
+  }, [currentTab]);
+  
   const handleEdit = (session: Session) => {
     console.log("Opening edit form for session:", session.id);
     setEditingSession(session);
@@ -796,7 +804,16 @@ const Sessions: React.FC = () => {
             }}
           >
             <DataGrid
-              rows={displayedSessions}
+              sortingMode="client"
+              rows={displayedSessions
+                ?.slice() // clone mảng tránh mutate gốc
+                .sort((a, b) => {
+                  const dateA = new Date(a.date).getTime();
+                  const dateB = new Date(b.date).getTime();
+                  return currentTab === 0
+                    ? dateA - dateB // ASC cho tab Đang hoạt động
+                    : dateB - dateA; // DESC cho tab Đã hoàn thành
+                }) || []}
               columns={columns}
               slots={{ toolbar: MobileSessionsToolbar }}
               slotProps={{
@@ -827,9 +844,9 @@ const Sessions: React.FC = () => {
                 pagination: {
                   paginationModel: { pageSize: 10 },
                 },
-                sorting: {
-                  sortModel: [{ field: "date", sort: "desc" }],
-                },
+                // sorting: {
+                //   sortModel: [{ field: "date", sort: "desc" }],
+                // },
                 columns: {
                   columnVisibilityModel: {
                     name: true,
