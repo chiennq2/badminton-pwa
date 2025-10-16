@@ -89,7 +89,8 @@ const Login: React.FC = () => {
       try {
         await signIn(values.email, values.password);
       } catch (err: any) {
-        setError(getErrorMessage(err.code));
+        // setError(getErrorMessage(err.code));
+        setError(err.message ?? 'Đăng nhập thất bại. Vui lòng thử lại.');
       } finally {
         setLoading(false);
       }
@@ -113,6 +114,7 @@ const Login: React.FC = () => {
         await signUp(values.email, values.password, values.displayName, values.qrCode);
       } catch (err: any) {
         setError(getErrorMessage(err.code));
+        setError(err);
       } finally {
         setLoading(false);
       }
@@ -133,6 +135,8 @@ const Login: React.FC = () => {
         return 'Email không hợp lệ';
       case 'auth/too-many-requests':
         return 'Quá nhiều lần thử. Vui lòng thử lại sau';
+      case 'auth/user-not-active':
+        return 'Tài khoản chưa được kích hoạt. Vui lòng liên hệ quản trị viên.';
       default:
         return 'Đã xảy ra lỗi. Vui lòng thử lại';
     }
