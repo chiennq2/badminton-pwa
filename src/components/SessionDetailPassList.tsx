@@ -147,7 +147,7 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
       {/* Điểm danh thành viên */}
       <Card sx={{ mb: 2, borderRadius: 2 }}>
         <Accordion 
-              defaultExpanded={isMobile}
+              defaultExpanded={!isMobile}
               sx={{ borderRadius: 2, '&:before': { display: 'none' } }}
             >
               <AccordionSummary 
@@ -332,7 +332,7 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
         {passWaitingMembers.length > 0 && (
           <Grid item xs={12}>
             <Accordion 
-              defaultExpanded={isMobile}
+              defaultExpanded={!isMobile}
               sx={{ borderRadius: 2, '&:before': { display: 'none' } }}
             >
               <AccordionSummary 
@@ -417,7 +417,7 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
         {session.waitingList && session.waitingList.length > 0 && (
           <Grid item xs={12}>
             <Accordion 
-              defaultExpanded={isMobile}
+              defaultExpanded={!isMobile}
               sx={{ borderRadius: 2, '&:before': { display: 'none' } }}
             >
               <AccordionSummary 

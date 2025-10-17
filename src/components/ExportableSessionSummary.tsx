@@ -158,6 +158,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
           fontWeight="bold"
           color="primary.main"
           gutterBottom
+          sx={{ fontSize: 20 }}
         >
           {session.name}
         </Typography>
@@ -171,21 +172,21 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
         <Box>
           <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
             <LocationOn sx={{ mr: 1, color: "primary.main", fontSize: 20 }} />
-            <Typography variant="body1" color="#000000">
+            <Typography variant="body1" color="#000000" sx={{ fontSize: 20 }}>
               <strong>Sân:</strong> {courtName || "Chưa xác định"}
             </Typography>
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
             <Event sx={{ mr: 1, color: "primary.main", fontSize: 20 }} />
-            <Typography variant="body1" color="#000000">
+            <Typography variant="body1" color="#000000" sx={{ fontSize: 20 }}>
               <strong>Ngày:</strong> {formattedDate}
             </Typography>
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
             <AccessTime sx={{ mr: 1, color: "primary.main", fontSize: 20 }} />
-            <Typography variant="body1" color="#000000">
+            <Typography variant="body1" color="#000000" sx={{ fontSize: 20 }}>
               <strong>Giờ:</strong> {formatTime(session.startTime)} -{" "}
               {formatTime(session.endTime)}
             </Typography>
@@ -196,7 +197,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
         <Box>
           <Box sx={{ display: "flex", alignItems: "center", mb: 1.5 }}>
             <Person sx={{ mr: 1, color: "success.main", fontSize: 20 }} />
-            <Typography variant="body1" color="#000000">
+            <Typography variant="body1" color="#000000" sx={{ fontSize: 20 }}>
               <strong>Host:</strong> {session.host?.name || "Chưa xác định"}
             </Typography>
           </Box>
@@ -210,7 +211,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             }}
           >
             <Paid sx={{ mr: 1, color: "success.main", fontSize: 20 }} />
-            <Typography variant="body1">
+            <Typography variant="body1" sx={{ fontSize: 20 }}>
               <strong>Tổng chi phí:</strong>{" "}
               <span style={{ color: "#2196f3", fontWeight: "bold" }}>
                 {formatCurrency(session.totalCost)}
@@ -227,7 +228,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             }}
           >
             <Groups sx={{ mr: 1, color: "success.main", fontSize: 20 }} />
-            <Typography variant="body1" color="#000000">
+            <Typography variant="body1" color="#000000" sx={{ fontSize: 20 }}>
               <strong>Có mặt:</strong> {presentMembers.length} /{" "}
               {memberPayments.length} người
             </Typography>
@@ -284,7 +285,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                 mb: 1.5,
                 display: "flex",
                 alignItems: "center",
-                fontSize: "0.95rem",
+                fontSize: 20,
               }}
             >
               💰 Chi tiết chi phí cơ bản
@@ -304,7 +305,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   <Typography
                     variant="body2"
                     color="#000000"
-                    sx={{ fontSize: "0.9rem" }}
+                    sx={{ fontSize: 20 }}
                   >
                     🏸 Tiền sân
                   </Typography>
@@ -312,7 +313,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     variant="body2"
                     fontWeight="medium"
                     color="#000000"
-                    sx={{ fontSize: "0.9rem" }}
+                    sx={{ fontSize: 20 }}
                   >
                     {formatCurrency(courtExpense.amount)}
                   </Typography>
@@ -333,7 +334,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     <Typography
                       variant="body2"
                       color="#000000"
-                      sx={{ fontSize: "0.9rem" }}
+                      sx={{ fontSize: 20 }}
                     >
                       🏐 Tiền cầu
                     </Typography>
@@ -341,7 +342,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       <Typography
                         variant="caption"
                         color="success.main"
-                        sx={{ fontSize: "0.8rem", fontStyle: "italic" }}
+                        sx={{ fontSize: 18, fontStyle: "italic" }}
                       >
                         ({shuttlecockCount} quả ×{" "}
                         {formatCurrency(shuttlecockPricePerUnit)})
@@ -352,7 +353,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     variant="body2"
                     fontWeight="medium"
                     color="#000000"
-                    sx={{ fontSize: "0.9rem" }}
+                    sx={{ fontSize: 20 }}
                   >
                     {formatCurrency(shuttlecockExpense.amount)}
                   </Typography>
@@ -377,7 +378,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       variant="body2"
                       fontWeight="bold"
                       color="#000000"
-                      sx={{ fontSize: "0.95rem" }}
+                      sx={{ fontSize: 20 }}
                     >
                       📊 Tổng sân + cầu
                     </Typography>
@@ -385,7 +386,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       variant="body2"
                       fontWeight="bold"
                       color="#1976d2"
-                      sx={{ fontSize: "0.95rem" }}
+                      sx={{ fontSize: 20 }}
                     >
                       {formatCurrency(totalBasicCost)}
                     </Typography>
@@ -403,7 +404,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   mt: 1.5,
                   display: "block",
                   fontStyle: "italic",
-                  fontSize: "0.75rem",
+                  fontSize: 17,
                   textAlign: "center",
                   color: "#666",
                 }}
@@ -419,7 +420,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   mt: 1.5,
                   display: "block",
                   fontStyle: "italic",
-                  fontSize: "0.75rem",
+                  fontSize: 17,
                   textAlign: "center",
                   color: "#666",
                 }}
@@ -433,7 +434,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     mt: 1.5,
                     display: "block",
                     fontStyle: "italic",
-                    fontSize: "0.75rem",
+                    fontSize: 17,
                     textAlign: "center",
                     color: "#666",
                   }}
@@ -465,10 +466,10 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             variant="body2"
             fontWeight="bold"
             color="#000000"
-            sx={{ fontSize: "0.95rem" }}
+            sx={{ fontSize: 20 }}
           >
             💰 Tiền slot 
-            <Typography sx={{ color: "error.main" }} component="span">
+            <Typography sx={{ color: "error.main", fontSize: 20, marginLeft: "0.5rem" }} component="span">
               {" "}
               (Vui lòng tự thanh toán với chủ Slot)
             </Typography>
@@ -476,7 +477,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
               variant="body2"
               fontWeight="bold"
               color="#ff0000ff"
-              sx={{ fontSize: "0.95rem", marginLeft: "0.5rem" }}
+              sx={{ fontSize: 20, marginLeft: "0.5rem" }}
               component="span"
             >
               {formatCurrency(session.priceSlot)}
@@ -492,7 +493,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
           variant="h6"
           fontWeight="bold"
           gutterBottom
-          sx={{ mb: 2, color: "#000000" }}
+          sx={{ mb: 2, color: "#000000", fontSize: 18 }}
         >
           Chi tiết thanh toán từng thành viên
         </Typography>
@@ -506,6 +507,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     fontWeight: "bold",
                     border: "1px solid #ddd",
                     color: "#000000",
+                    fontSize: 25,
                   }}
                 >
                   Thành viên
@@ -516,6 +518,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     fontWeight: "bold",
                     border: "1px solid #ddd",
                     color: "#000000",
+                    fontSize: 25,
                   }}
                 >
                   Sân + Cầu
@@ -530,6 +533,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       fontWeight: "bold",
                       border: "1px solid #ddd",
                       color: "#000000",
+                      fontSize: 25,
                     }}
                   >
                     {expense.name}
@@ -542,6 +546,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     fontWeight: "bold",
                     border: "1px solid #ddd",
                     color: "#000000",
+                    fontSize: 25,
                   }}
                 >
                   Tổng cộng
@@ -552,6 +557,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     fontWeight: "bold",
                     border: "1px solid #ddd",
                     color: "#000000",
+                    fontSize: 25,
                   }}
                 >
                   Thanh toán
@@ -566,16 +572,16 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       {payment.avatar ? (
                           <Avatar
                             src={payment.avatar}
-                            sx={{ mr:1, width: 32, height: 32 }}
+                            sx={{ mr:1, width: 45, height: 45 }}
                           />
                         ) : (
                           <Avatar
                           sx={{
                             mr: 1,
-                            width: 28,
-                            height: 28,
-                            fontSize: "0.9rem",
-                            color: "#ff4500",
+                            width: 45,
+                            height: 45,
+                            fontSize: 25,
+                            color: "#4b9aff",
                           }}
                         >
                           {payment.name.charAt(0).toUpperCase()}
@@ -586,7 +592,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                         <Typography
                           variant="body2"
                           fontWeight="medium"
-                          sx={{ color: payment.isWoman ? "#ef7be0" : "#4b9aff" }}
+                          sx={{ color: payment.isWoman ? "#ef7be0" : "#4b9aff", fontSize: 25 }}
                         >
                           {payment.name}
                         </Typography>
@@ -599,7 +605,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                               display: "block",
                               fontStyle: "italic",
                               mt: 0.3,
-                              fontSize: "0.9rem",
+                              fontSize: 25,
                             }}
                           >
                             🔄 {payment.replacementNote}
@@ -614,6 +620,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       border: "1px solid #ddd",
                       fontWeight: "bold",
                       color: "#ff4500",
+                      fontSize: 25,
                     }}
                   >
                     {formatCurrency(payment.baseCost)}
@@ -630,6 +637,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                           border: "1px solid #ddd",
                           fontWeight: "bold",
                           color: "#ff4500",
+                          fontSize: 25,
                         }}
                       >
                         {amount ? formatCurrency(amount) : "-"}
@@ -643,6 +651,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       fontWeight: "bold",
                       border: "1px solid #ddd",
                       color: "#2196f3",
+                      fontSize: 25,
                     }}
                   >
                     {formatCurrency(payment.total)}
@@ -650,9 +659,9 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
 
                   <TableCell align="center" sx={{ border: "1px solid #ddd" }}>
                     {payment.isPaid ? (
-                      <CheckCircle sx={{ color: "#4caf50", fontSize: 20 }} />
+                      <CheckCircle sx={{ color: "#4caf50", fontSize: 25 }} />
                     ) : (
-                      <Cancel sx={{ color: "#f44336", fontSize: 20 }} />
+                      <Cancel sx={{ color: "#f44336", fontSize: 25 }} />
                     )}
                   </TableCell>
                 </TableRow>
@@ -665,6 +674,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     fontWeight: "bold",
                     border: "1px solid #ddd",
                     color: "#000000",
+                    fontSize: 25,
                   }}
                 >
                   TỔNG CỘNG ({memberPayments.length} người)
@@ -676,6 +686,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     fontWeight: "bold",
                     border: "1px solid #ddd",
                     color: "#000000",
+                    fontSize: 25,
                   }}
                 >
                   {formatCurrency(totalBaseCost)}
@@ -691,6 +702,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                         fontWeight: "bold",
                         border: "1px solid #ddd",
                         color: "#000000",
+                        fontSize: 25,
                       }}
                     >
                       {formatCurrency(total)}
@@ -704,7 +716,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     fontWeight: "bold",
                     border: "1px solid #ddd",
                     color: "#2196f3",
-                    fontSize: "1.1rem",
+                    fontSize: 25,
                   }}
                 >
                   {formatCurrency(grandTotal)}
@@ -714,8 +726,8 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   <Typography
                     variant="caption"
                     fontWeight="bold"
-                    fontSize="1.1rem"
                     color="info.main"
+                    sx={{ fontSize: 25 }}
                   >
                     {memberPayments.filter((m) => m.isPaid).length}/
                     {memberPayments.length}
@@ -735,9 +747,10 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
           backgroundColor: "#fff3e0",
           borderRadius: 1,
           border: "1px solid #ffb74d",
+          fontSize: 18,
         }}
       >
-        <Typography variant="body2" color="#000000">
+        <Typography variant="body2" color="#000000" sx={{ fontSize: 20 }}>
           💡 <strong>Ghi chú:</strong> 📝 Sân + Cầu chia đều cho người có mặt.
           Chi phí bổ sung chỉ tính cho người tham gia. Tiền slot vui lòng tự
           thanh toán với chủ slot!
@@ -757,7 +770,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
         >
           <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
             <QrCode2 sx={{ mr: 1, color: "success.main" }} />
-            <Typography variant="h6" fontWeight="bold" color="#000000">
+            <Typography variant="h6" fontWeight="bold" color="#000000" sx={{ fontSize: 20 }}>
               Quét mã QR để thanh toán
             </Typography>
           </Box>
@@ -798,7 +811,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
           variant="caption"
           color="text.secondary"
           display="block"
-          sx={{ mt: 0.5 }}
+          sx={{ mt: 0.5, fontSize: 18 }}
         >
           Được tạo bởi: {session.host?.name || "Hệ thống"} •{" "}
           {formatDate(new Date())}
