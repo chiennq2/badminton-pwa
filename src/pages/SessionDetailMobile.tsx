@@ -684,6 +684,9 @@ const SessionDetailMobile: React.FC = () => {
               <Typography variant="body2" color="text.secondary">
                 🕐 {formatTime(session.startTime)} - {formatTime(session.endTime)}
               </Typography>
+              <Typography variant="body2" color="text.secondary">
+                🛂 {session.host?.name || "Chưa xác định"}
+              </Typography>
             </Box>
 
             {/* Desktop Action Buttons */}
@@ -785,7 +788,7 @@ const SessionDetailMobile: React.FC = () => {
       </Card>
 
       {/* Session Summary - Mobile Accordion */}
-      <Accordion 
+      {/* <Accordion 
         defaultExpanded={false}
         sx={{ mb: 2, borderRadius: 2, '&:before': { display: 'none' } }}
       >
@@ -796,7 +799,6 @@ const SessionDetailMobile: React.FC = () => {
         </AccordionSummary>
         <AccordionDetails sx={{ p: 2 }}>
           <Stack spacing={2}>
-            {/* Thông tin sân */}
             <Paper sx={{ p: 1.5, backgroundColor: 'primary.lighter', borderRadius: 2 }}>
               <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                 <LocationOn sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
@@ -820,7 +822,6 @@ const SessionDetailMobile: React.FC = () => {
               </Stack>
             </Paper>
 
-            {/* Chi phí */}
             <Paper sx={{ p: 1.5, backgroundColor: 'warning.lighter', borderRadius: 2 }}>
               <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                 <AttachMoney sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
@@ -856,7 +857,7 @@ const SessionDetailMobile: React.FC = () => {
             </Paper>
           </Stack>
         </AccordionDetails>
-      </Accordion>
+      </Accordion> */}
 
       {/* Pass List & Attendance */}
       <SessionDetailPassList
