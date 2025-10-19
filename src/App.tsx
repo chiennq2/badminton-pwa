@@ -44,6 +44,7 @@ import ReportsMobile from "./components/ReportsMobile";
 import SessionDetailMobile from "./pages/SessionDetailMobile";
 import usePullToRefresh from "./hooks/usePullToRefresh";
 import PullToRefreshIndicator from "./components/PullToRefreshIndicator";
+import Tournaments from "./pages/Tournaments";
 
 // ===== CONFIG DAYJS =====
 dayjs.extend(updateLocale);
@@ -215,6 +216,7 @@ const AppContent: React.FC = () => {
                     isMobile ? <SessionDetailMobile /> : <SessionDetail />
                   }
                 />
+                <Route path="/tournaments" element={<Tournaments />} />
                 <Route
                   path="/reports"
                   element={isMobile ? <ReportsMobile /> : <Reports />}

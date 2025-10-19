@@ -941,7 +941,7 @@ const formik = useFormik({
                     ) || []
                   }
                   getOptionLabel={(option) =>
-                    `${option.name} (${option.skillLevel})`
+                    `${option.name}`
                   }
                   onChange={(_, value) => {
                     if (value) {
@@ -970,9 +970,9 @@ const formik = useFormik({
 
                       <Box>
                         <Typography variant="body2">{option.name}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        {/* <Typography variant="caption" color="text.secondary">
                           {option.skillLevel}
-                        </Typography>
+                        </Typography> */}
                       </Box>
                     </Box>
                   )}
@@ -1155,7 +1155,7 @@ const formik = useFormik({
                     ) || []
                   }
                   getOptionLabel={(option) =>
-                    `${option.name} (${option.skillLevel})`
+                    `${option.name}`
                   }
                   onChange={(_, value) => {
                     if (value) {
@@ -1191,9 +1191,9 @@ const formik = useFormik({
 
                       <Box>
                         <Typography variant="body2">{option.name}</Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        {/* <Typography variant="caption" color="text.secondary">
                           {option.skillLevel}
-                        </Typography>
+                        </Typography> */}
                       </Box>
                     </Box>
                   )}

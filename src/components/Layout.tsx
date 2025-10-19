@@ -33,6 +33,7 @@ import {
   Settings,
   DarkMode,
   LightMode,
+  EmojiEvents,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -50,6 +51,7 @@ const adminMenuItems = [
   { text: "Thành viên", icon: <People />, path: "/members" },
   { text: "Nhóm", icon: <Groups />, path: "/groups" },
   { text: "Lịch đánh", icon: <CalendarMonth />, path: "/sessions" },
+  { text: 'Giải đấu', icon: <EmojiEvents />, path: '/tournaments' },
   { text: "Báo cáo", icon: <Assessment />, path: "/reports" },
 ];
 
