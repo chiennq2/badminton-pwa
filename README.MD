@@ -303,7 +303,7 @@ npm run preview
   name: string;
   email?: string;
   phone?: string;
-  skillLevel: 'Mới bắt đầu' | 'Trung bình' | 'Khá' | 'Giỏi' | 'Chuyên nghiệp';
+  skillLevel: 'Pot 5 '| 'Pot 4' | 'Pot 3' | 'Pot 2' | 'Pot 1';
   joinDate: Date;
   isActive: boolean;
   notes?: string;

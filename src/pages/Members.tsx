@@ -32,11 +32,11 @@ import { Member } from '../types';
 import { formatDate, validateEmail, validatePhone } from '../utils';
 
 const skillLevels = [
-  'Mới bắt đầu',
-  'Trung bình', 
-  'Khá',
-  'Giỏi',
-  'Chuyên nghiệp'
+  'Pot 5',
+  'Pot 4', 
+  'Pot 3',
+  'Pot 2',
+  'Pot 1'
 ];
 
 const Members: React.FC = () => {
@@ -68,7 +68,7 @@ const Members: React.FC = () => {
         if (!value) return true;
         return validatePhone(value);
       }),
-    skillLevel: Yup.mixed().oneOf(['Mới bắt đầu', 'Trung bình', 'Khá', 'Giỏi', 'Chuyên nghiệp']).required('Trình độ là bắt buộc'),
+    skillLevel: Yup.mixed().oneOf(['Pot 5', 'Pot 4', 'Pot 3', 'Pot 2', 'Pot 1']).required('Trình độ là bắt buộc'),
     joinDate: Yup.date().required('Ngày tham gia là bắt buộc'),
     birthDay: Yup.date().nullable().optional(),
     isWoman: Yup.boolean().oneOf([true, false]),
@@ -81,7 +81,7 @@ const Members: React.FC = () => {
       name: '',
       email: '',
       phone: '',
-      skillLevel: 'Mới bắt đầu',
+      skillLevel: 'Pot 5',
       joinDate: new Date(),
       birthDay: null,
       isWoman: false,
@@ -97,7 +97,7 @@ const Members: React.FC = () => {
           birthDay: values.birthDay ? new Date(values.birthDay) : null,
           isWoman: values.isWoman ? true : false,
           avatar: values.avatar,
-          skillLevel: values.skillLevel as 'Mới bắt đầu' | 'Trung bình' | 'Khá' | 'Giỏi' | 'Chuyên nghiệp',
+          skillLevel: values.skillLevel as 'Pot 5' | 'Pot 4' | 'Pot 3' | 'Pot 2' | 'Pot 1',
         };
         if (editingMember) {
           await updateMemberMutation.mutateAsync({
@@ -164,15 +164,15 @@ const Members: React.FC = () => {
 
   const getSkillLevelColor = (skillLevel: string): 'default' | 'primary' | 'secondary' | 'success' | 'warning' | 'error' => {
     switch (skillLevel) {
-      case 'Mới bắt đầu':
+      case 'Pot 5':
         return 'default';
-      case 'Trung bình':
+      case 'Pot 4':
         return 'primary';
-      case 'Khá':
+      case 'Pot 3':
         return 'secondary';
-      case 'Giỏi':
+      case 'Pot 2':
         return 'success';
-      case 'Chuyên nghiệp':
+      case 'Pot 1':
         return 'warning';
       default:
         return 'default';
