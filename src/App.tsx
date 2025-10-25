@@ -229,6 +229,8 @@ const AppContent: React.FC = () => {
             {/* USER */}
             {currentUser.role === "user" && (
               <>
+                <Route path="/groups" element={<Groups />} />
+
                 <Route
                   path="/sessions"
                   element={isMobile ? <SessionsMobile /> : <Sessions />}
@@ -239,6 +241,8 @@ const AppContent: React.FC = () => {
                     isMobile ? <SessionDetailMobile /> : <SessionDetail />
                   }
                 />
+                <Route path="/tournaments" element={<Tournaments />} />
+
                 <Route
                   path="/reports"
                   element={isMobile ? <ReportsMobile /> : <Reports />}

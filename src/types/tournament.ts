@@ -1,83 +1,89 @@
-// types/tournament.ts
+// src/types/tournament.ts
 
-export type TournamentFormat = 'single_elimination' | 'round_robin' | 'mixed';
-export type TournamentCategory = 'men_singles' | 'women_singles' | 'men_doubles' | 'women_doubles' | 'mixed_doubles';
+export type TournamentFormat = 'single-elimination' | 'round-robin' | 'mixed';
+export type TournamentCategory = 'men-singles' | 'women-singles' | 'men-doubles' | 'women-doubles' | 'mixed-doubles';
 export type TournamentStatus = 'draft' | 'registration' | 'ongoing' | 'completed' | 'cancelled';
-export type MatchStatus = 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
-export type PotLevel = 1 | 2 | 3 | 4 | 5;
+export type PotLevel = 'Pot 1' | 'Pot 2' | 'Pot 3' | 'Pot 4' | 'Pot 5';
+export type MatchStatus = 'pending' | 'scheduled' | 'ongoing' | 'completed' | 'walkover';
 
 export interface TournamentParticipant {
   id: string;
-  memberId: string;
-  memberName: string;
-  potLevel: PotLevel; // Trình độ: 1 (cao nhất) -> 5 (thấp nhất)
+  name: string;
+  isCustom: boolean; // true = nhập tay, false = từ danh sách members
+  memberId?: string; // ID trong collection members (nếu isCustom = false)
+  potLevel: PotLevel;
+  isWoman: boolean;
+  categories: TournamentCategory[]; // Các nội dung tham gia
+  avatar?: string;
   email?: string;
   phone?: string;
-  registeredAt: Date;
-  categories: TournamentCategory[]; // Các nội dung đăng ký
 }
 
 export interface TournamentTeam {
   id: string;
-  player1Id: string;
-  player1Name: string;
-  player2Id: string;
-  player2Name: string;
+  player1: TournamentParticipant;
+  player2: TournamentParticipant;
   potLevel: PotLevel; // Trung bình pot của 2 người
   category: TournamentCategory;
+}
+
+export interface TournamentGroup {
+  id: string;
+  name: string; // A, B, C, D
+  category: TournamentCategory;
+  participants: (TournamentParticipant | TournamentTeam)[];
+  matches: TournamentMatch[];
+  standings: GroupStanding[];
+}
+
+export interface GroupStanding {
+  participantId: string;
+  participantName: string;
+  played: number;
+  won: number;
+  lost: number;
+  points: number; // 2 điểm/thắng, 1 điểm/hòa, 0 điểm/thua
+  gamesWon: number;
+  gamesLost: number;
+  gameDiff: number; // hiệu số games
+  position: number;
 }
 
 export interface TournamentMatch {
   id: string;
   tournamentId: string;
   category: TournamentCategory;
-  round: string; // 'R1', 'R2', 'QF', 'SF', 'F' hoặc 'Group A Match 1'
+  round: string; // 'R1', 'R2', 'R16', 'R8', 'QF', 'SF', 'F' (Final)
   matchNumber: number;
+  groupId?: string; // Nếu là vòng bảng
+  
+  // Participants
+  participant1?: TournamentParticipant | TournamentTeam | null;
+  participant2?: TournamentParticipant | TournamentTeam | null;
+  
+  // Scheduling
   courtId?: string;
   scheduledDate?: Date;
   scheduledTime?: string;
   
-  // Đơn
-  player1Id?: string;
-  player1Name?: string;
-  player1Score?: number[];
-  
-  player2Id?: string;
-  player2Name?: string;
-  player2Score?: number[];
-  
-  // Đôi
-  team1Id?: string;
-  team1Player1Name?: string;
-  team1Player2Name?: string;
-  team1Score?: number[];
-  
-  team2Id?: string;
-  team2Player1Name?: string;
-  team2Player2Name?: string;
-  team2Score?: number[];
-  
-  winnerId?: string;
+  // Match details
   status: MatchStatus;
-  notes?: string;
+  scores: MatchScore[];
+  winner?: string; // participant ID
+  
+  // Bracket info (for single elimination)
+  nextMatchId?: string; // Match tiếp theo nếu thắng
+  previousMatch1Id?: string; // Match trước (người thắng vào đây)
+  previousMatch2Id?: string;
+  
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface TournamentGroup {
-  id: string;
-  name: string; // 'Group A', 'Group B'
-  category: TournamentCategory;
-  participants: string[]; // IDs của participants hoặc teams
-  standings: {
-    participantId: string;
-    played: number;
-    won: number;
-    lost: number;
-    gamesWon: number;
-    gamesLost: number;
-    points: number; // 2 điểm thắng, 1 điểm hòa, 0 điểm thua
-  }[];
+export interface MatchScore {
+  set: number; // 1, 2, 3
+  participant1Score: number;
+  participant2Score: number;
 }
 
 export interface Tournament {
@@ -85,64 +91,47 @@ export interface Tournament {
   name: string;
   description?: string;
   format: TournamentFormat;
-  categories: TournamentCategory[];
+  categories: TournamentCategory[]; // Các nội dung thi đấu
+  
+  // Dates
   startDate: Date;
   endDate: Date;
   registrationDeadline: Date;
-  venue: string;
-  courtIds: string[];
+  
+  // Venue
+  location: string;
+  courtIds: string[]; // Các sân sử dụng
   
   // Participants
   participants: TournamentParticipant[];
   teams: TournamentTeam[]; // Cho các nội dung đôi
+  maxParticipants?: number;
   
-  // Matches & Groups
+  // Tournament structure
+  groups?: TournamentGroup[]; // Cho round-robin và mixed
   matches: TournamentMatch[];
-  groups?: TournamentGroup[]; // Chỉ dùng cho round-robin
   
   // Settings
-  maxParticipantsPerCategory?: number;
-  registrationFee?: number;
-  prizeMoney?: {
-    category: TournamentCategory;
-    first: number;
-    second: number;
-    third: number;
-  }[];
+  entryFee?: number;
+  rules?: string;
+  notes?: string;
   
+  // Status
   status: TournamentStatus;
+  
+  // Metadata
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface TournamentSchedule {
-  date: Date;
-  courts: {
-    courtId: string;
-    courtName: string;
-    matches: TournamentMatch[];
-  }[];
-}
-
 export interface BracketNode {
-  id: string;
+  matchId: string;
   round: string;
-  matchNumber: number;
-  participant1?: {
-    id: string;
-    name: string;
-    seed?: number;
-  };
-  participant2?: {
-    id: string;
-    name: string;
-    seed?: number;
-  };
-  winner?: {
-    id: string;
-    name: string;
-  };
+  position: number;
+  participant1?: TournamentParticipant | TournamentTeam | null;
+  participant2?: TournamentParticipant | TournamentTeam | null;
+  winner?: string;
+  scores?: MatchScore[];
   nextMatchId?: string;
-  status: MatchStatus;
 }
