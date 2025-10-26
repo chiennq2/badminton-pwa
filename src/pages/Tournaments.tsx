@@ -1,4 +1,4 @@
-// src/pages/Tournaments.tsx
+// src/pages/Tournaments.tsx - Mobile Optimized
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -20,6 +20,11 @@ import {
   AvatarGroup,
   CircularProgress,
   Snackbar,
+  Fab,
+  useMediaQuery,
+  useTheme,
+  Stack,
+  Drawer,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
@@ -27,6 +32,7 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import PeopleIcon from '@mui/icons-material/People';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
+import FilterListIcon from '@mui/icons-material/FilterList';
 import {
   collection,
   addDoc,
@@ -65,6 +71,10 @@ import { SwapHoriz } from '@mui/icons-material';
 
 const Tournaments: React.FC = () => {
   const { currentUser } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [courts, setCourts] = useState<Court[]>([]);
@@ -74,21 +84,21 @@ const Tournaments: React.FC = () => {
   const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [menuTournament, setMenuTournament] = useState<Tournament | null>(null);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success" as "success" | "error" | "info" | "warning",
   });
+  
   const showSnackbar = (
     message: string,
     severity: "success" | "error" | "info" | "warning" = "success"
   ) => {
-    setSnackbar({
-      open: true,
-      message,
-      severity,
-    });
+    setSnackbar({ open: true, message, severity });
   };
+
   // Load data
   useEffect(() => {
     if (!currentUser) return;
@@ -134,8 +144,6 @@ const Tournaments: React.FC = () => {
 
   const handleCreateTournament = async (tournamentData: Partial<Tournament>) => {
     try {
-      console.log('=== CREATING/UPDATING TOURNAMENT ===');
-
       if (selectedTournament) {
         // UPDATE
         const dataToUpdate: any = {
@@ -250,8 +258,6 @@ const Tournaments: React.FC = () => {
 
   const handleGenerateSchedule = async (tournament: Tournament) => {
     try {
-      console.log('=== STARTING SCHEDULE GENERATION ===');
-      
       const updatedMatches: TournamentMatch[] = [];
       const updatedGroups: TournamentGroup[] = [];
       const updatedTeams = [...(tournament.teams || [])];
@@ -259,29 +265,20 @@ const Tournaments: React.FC = () => {
       const hasPresetGroups = tournament.groups && tournament.groups.length > 0;
 
       for (const category of tournament.categories) {
-        console.log(`\n--- Processing category: ${category} ---`);
-        
         let participants = tournament.participants.filter(p => p.categories.includes(category));
 
-        if (participants.length === 0) {
-          console.warn(`No participants for ${category}`);
-          continue;
-        }
+        if (participants.length === 0) continue;
 
         let teamsOrParticipants: any[] = participants;
         
         if (isDoublesCategory(category)) {
-          console.log('Doubles category - generating balanced teams');
-          
           const existingTeams = updatedTeams.filter(t => t.category === category);
           
           if (existingTeams.length === 0) {
             const teams = generateBalancedTeams(participants, category);
-            console.log(`Generated ${teams.length} balanced teams`);
             updatedTeams.push(...teams);
             teamsOrParticipants = teams;
           } else {
-            console.log(`Using ${existingTeams.length} existing teams`);
             teamsOrParticipants = existingTeams;
           }
         }
@@ -289,7 +286,6 @@ const Tournaments: React.FC = () => {
         if (tournament.format === 'single-elimination') {
           const matches = generateSingleEliminationBracket(teamsOrParticipants, tournament.id, category);
           updatedMatches.push(...matches);
-          
         } else if (tournament.format === 'round-robin') {
           let groups = hasPresetGroups 
             ? tournament.groups!.filter(g => g.category === category)
@@ -302,7 +298,6 @@ const Tournaments: React.FC = () => {
           }
           
           updatedGroups.push(...groups);
-          
         } else if (tournament.format === 'mixed') {
           let groups = hasPresetGroups 
             ? tournament.groups!.filter(g => g.category === category)
@@ -385,8 +380,6 @@ const Tournaments: React.FC = () => {
 
   const handleGenerateKnockoutPhase = async (tournament: Tournament, category: TournamentCategory) => {
     try {
-      console.log('=== GENERATING KNOCKOUT PHASE ===');
-      
       const categoryGroups = (tournament.groups || []).filter(g => g.category === category);
       
       if (categoryGroups.length === 0) {
@@ -480,7 +473,6 @@ const Tournaments: React.FC = () => {
     
     if (existingKnockoutMatches.length > 0) return;
     
-    console.log('Auto-generating knockout phase for', category);
     await handleGenerateKnockoutPhase(tournament, category);
   };
 
@@ -488,8 +480,6 @@ const Tournaments: React.FC = () => {
     if (!selectedTournament) return;
 
     try {
-      console.log('=== UPDATING MATCH ===');
-      
       const updatedMatches = selectedTournament.matches.map(m =>
         m.id === matchId ? { ...m, ...updates, updatedAt: new Date() } : m
       );
@@ -647,7 +637,6 @@ const Tournaments: React.FC = () => {
           }
         }
         
-        // Auto-generate knockout nếu vòng bảng hoàn thành
         if (completedMatch?.groupId) {
           await checkAndAutoGenerateKnockout(selectedTournament, completedMatch.category);
         }
@@ -738,17 +727,27 @@ const Tournaments: React.FC = () => {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+    <Container maxWidth="xl" sx={{ py: isMobile ? 2 : 4, px: isMobile ? 1 : 3 }}>
+      {/* Header - Mobile optimized */}
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'stretch' : 'center', 
+        mb: isMobile ? 2 : 4,
+        gap: isMobile ? 2 : 0,
+      }}>
         <Box>
-          <Typography variant="h4" gutterBottom>
+          <Typography variant={isMobile ? "h5" : "h4"} gutterBottom>
             🏆 Giải Đấu
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Quản lý các giải đấu cầu lông
           </Typography>
         </Box>
-        {currentUser?.role === 'admin' && (
+        
+        {/* Desktop: Button, Mobile: Hidden (sử dụng FAB) */}
+        {!isMobile && currentUser?.role === 'admin' && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -756,19 +755,32 @@ const Tournaments: React.FC = () => {
               setSelectedTournament(null);
               setFormOpen(true);
             }}
-            size="large"
+            size={isTablet ? "medium" : "large"}
           >
             Tạo Giải Đấu
           </Button>
         )}
       </Box>
 
+      {/* Mobile Filter Button */}
+      {isMobile && (
+        <Button
+          fullWidth
+          variant="outlined"
+          startIcon={<FilterListIcon />}
+          onClick={() => setFilterDrawerOpen(true)}
+          sx={{ mb: 2 }}
+        >
+          Lọc & Sắp xếp
+        </Button>
+      )}
+
       {tournaments.length === 0 ? (
         <Alert severity="info">
           Chưa có giải đấu nào. {currentUser?.role === 'admin' && 'Click "Tạo Giải Đấu" để bắt đầu.'}
         </Alert>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={isMobile ? 2 : 3}>
           {tournaments.map((tournament) => (
             <Grid item xs={12} sm={6} md={4} key={tournament.id}>
               <Card
@@ -780,21 +792,34 @@ const Tournaments: React.FC = () => {
                   transition: 'box-shadow 0.3s',
                 }}
               >
-                <CardContent sx={{ flex: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <EmojiEventsIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+                <CardContent sx={{ flex: 1, p: isMobile ? 2 : 3 }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'flex-start', 
+                    mb: 2 
+                  }}>
+                    <EmojiEventsIcon sx={{ fontSize: isMobile ? 32 : 40, color: 'primary.main' }} />
                     {currentUser?.role === 'admin' && (
-                      <IconButton size="small" onClick={(e) => handleMenuOpen(e, tournament)}>
+                      <IconButton 
+                        size="small" 
+                        onClick={(e) => handleMenuOpen(e, tournament)}
+                      >
                         <MoreVertIcon />
                       </IconButton>
                     )}
                   </Box>
 
-                  <Typography variant="h6" gutterBottom noWrap>
+                  <Typography 
+                    variant={isMobile ? "subtitle1" : "h6"} 
+                    gutterBottom 
+                    noWrap
+                    sx={{ fontWeight: 'bold' }}
+                  >
                     {tournament.name}
                   </Typography>
 
-                  <Box sx={{ display: 'flex', gap: 0.5, mb: 2, flexWrap: 'wrap' }}>
+                  <Stack direction="row" spacing={0.5} sx={{ mb: 2, flexWrap: 'wrap', gap: 0.5 }}>
                     <Chip
                       label={getStatusLabel(tournament.status)}
                       size="small"
@@ -811,47 +836,52 @@ const Tournaments: React.FC = () => {
                       size="small"
                       variant="outlined"
                     />
-                  </Box>
+                  </Stack>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <CalendarMonthIcon fontSize="small" color="action" />
-                    <Typography variant="body2" color="text.secondary">
-                      {formatDateOnly(tournament.startDate)} - {formatDateOnly(tournament.endDate)}
-                    </Typography>
-                  </Box>
+                  <Stack spacing={1}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CalendarMonthIcon fontSize="small" color="action" />
+                      <Typography variant={isMobile ? "caption" : "body2"} color="text.secondary" noWrap>
+                        {formatDateOnly(tournament.startDate)} - {formatDateOnly(tournament.endDate)}
+                      </Typography>
+                    </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <LocationOnIcon fontSize="small" color="action" />
-                    <Typography variant="body2" color="text.secondary" noWrap>
-                      {tournament.location}
-                    </Typography>
-                  </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <LocationOnIcon fontSize="small" color="action" />
+                      <Typography variant={isMobile ? "caption" : "body2"} color="text.secondary" noWrap>
+                        {tournament.location}
+                      </Typography>
+                    </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                    <PeopleIcon fontSize="small" color="action" />
-                    <Typography variant="body2" color="text.secondary">
-                      {tournament.participants.length} người
-                      {tournament.matches && tournament.matches.length > 0 && (
-                        <> • {tournament.matches.length} trận</>
-                      )}
-                    </Typography>
-                  </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <PeopleIcon fontSize="small" color="action" />
+                      <Typography variant={isMobile ? "caption" : "body2"} color="text.secondary">
+                        {tournament.participants.length} người
+                        {tournament.matches && tournament.matches.length > 0 && (
+                          <> • {tournament.matches.length} trận</>
+                        )}
+                      </Typography>
+                    </Box>
+                  </Stack>
 
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                       Nội dung:
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {tournament.categories.slice(0, 3).map(cat => (
+                      {tournament.categories.slice(0, isMobile ? 2 : 3).map(cat => (
                         <Chip key={cat} label={getCategoryName(cat)} size="small" />
                       ))}
-                      {tournament.categories.length > 3 && (
-                        <Chip label={`+${tournament.categories.length - 3}`} size="small" />
+                      {tournament.categories.length > (isMobile ? 2 : 3) && (
+                        <Chip 
+                          label={`+${tournament.categories.length - (isMobile ? 2 : 3)}`} 
+                          size="small" 
+                        />
                       )}
                     </Box>
                   </Box>
 
-                  {tournament.participants.length > 0 && (
+                  {tournament.participants.length > 0 && !isMobile && (
                     <Box sx={{ mt: 2 }}>
                       <AvatarGroup max={5}>
                         {tournament.participants.slice(0, 5).map(p => (
@@ -864,11 +894,12 @@ const Tournaments: React.FC = () => {
                   )}
                 </CardContent>
 
-                <CardActions>
+                <CardActions sx={{ p: isMobile ? 1 : 2, pt: 0 }}>
                   <Button
                     fullWidth
                     variant="contained"
                     onClick={() => handleViewDetail(tournament)}
+                    size={isMobile ? "small" : "medium"}
                   >
                     Xem Chi Tiết
                   </Button>
@@ -879,6 +910,7 @@ const Tournaments: React.FC = () => {
         </Grid>
       )}
 
+      {/* Menu */}
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}>
         <MenuItem onClick={handleEditTournament}>
           Chỉnh sửa
@@ -888,6 +920,55 @@ const Tournaments: React.FC = () => {
         </MenuItem>
       </Menu>
 
+      {/* Filter Drawer for Mobile */}
+      <Drawer
+        anchor="bottom"
+        open={filterDrawerOpen}
+        onClose={() => setFilterDrawerOpen(false)}
+        PaperProps={{
+          sx: {
+            borderTopLeftRadius: 16,
+            borderTopRightRadius: 16,
+            maxHeight: '80vh',
+          }
+        }}
+      >
+        <Box sx={{ p: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Bộ lọc
+          </Typography>
+          {/* Add filter options here */}
+          <Button 
+            fullWidth 
+            variant="contained" 
+            onClick={() => setFilterDrawerOpen(false)}
+            sx={{ mt: 2 }}
+          >
+            Áp dụng
+          </Button>
+        </Box>
+      </Drawer>
+
+      {/* FAB for Mobile */}
+      {isMobile && currentUser?.role === 'admin' && (
+        <Fab
+          color="primary"
+          sx={{
+            position: 'fixed',
+            bottom: 16,
+            right: 16,
+            zIndex: 1000,
+          }}
+          onClick={() => {
+            setSelectedTournament(null);
+            setFormOpen(true);
+          }}
+        >
+          <AddIcon />
+        </Fab>
+      )}
+
+      {/* Dialogs */}
       <TournamentForm
         open={formOpen}
         onClose={() => {
@@ -908,6 +989,7 @@ const Tournaments: React.FC = () => {
         }}
         maxWidth="xl"
         fullWidth
+        fullScreen={isMobile}
       >
         {selectedTournament && (
           <TournamentDetail
@@ -923,20 +1005,22 @@ const Tournaments: React.FC = () => {
             onGenerateKnockout={handleGenerateKnockoutPhase}
           />
         )}
+      </Dialog>
 
-      {/* ===== THÊM SNACKBAR MỚI ===== */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        anchorOrigin={{ vertical: isMobile ? "bottom" : "top", horizontal: "center" }}
+        sx={{ bottom: isMobile ? 80 : undefined }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           sx={{
             width: "100%",
-            fontSize: "1rem",
+            fontSize: isMobile ? "0.875rem" : "1rem",
             fontWeight: "bold",
             boxShadow: 3,
           }}
@@ -946,7 +1030,6 @@ const Tournaments: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-      </Dialog>
     </Container>
   );
 };

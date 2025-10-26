@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+// src/components/TournamentDetail.tsx - Mobile Optimized (Complete)
+
+import React, { useState } from 'react';
 import {
   Box,
   Paper,
@@ -23,32 +25,49 @@ import {
   IconButton,
   TextField,
   Snackbar,
-} from "@mui/material";
-import dayjs from "dayjs";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
-import EditIcon from "@mui/icons-material/Edit";
-import PlayArrowIcon from "@mui/icons-material/PlayArrow";
-import CasinoIcon from "@mui/icons-material/Casino";
-import FlashOnIcon from "@mui/icons-material/FlashOn";
-import SaveIcon from "@mui/icons-material/Save";
-import CloseIcon from "@mui/icons-material/Close";
+  useMediaQuery,
+  useTheme,
+  Stack,
+  AppBar,
+  Toolbar,
+  Slide,
+} from '@mui/material';
+import { TransitionProps } from '@mui/material/transitions';
+import dayjs from 'dayjs';
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
+import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
+import EditIcon from '@mui/icons-material/Edit';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import CasinoIcon from '@mui/icons-material/Casino';
+import FlashOnIcon from '@mui/icons-material/FlashOn';
+import SaveIcon from '@mui/icons-material/Save';
+import CloseIcon from '@mui/icons-material/Close';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 
-import GroupStandingsView from "./GroupStandingsView";
-import { Court } from "../types";
+import GroupStandingsView from './GroupStandingsView';
+import { Court } from '../types';
 import {
   Tournament,
   TournamentMatch,
   TournamentCategory,
   TournamentParticipant,
   TournamentTeam,
-} from "../types/tournament";
-import { formatDateTime } from "../utils";
-import { formatDateOnly } from "../utils/dateUtils";
-import { validateMatchScore, getCategoryName } from "../utils/tournamentUtils";
-import BracketView from "./BracketView";
-import GroupWheelSpinner from "./GroupWheelSpinner";
-import { SwapHoriz } from "@mui/icons-material";
+} from '../types/tournament';
+import { formatDateTime } from '../utils';
+import { formatDateOnly } from '../utils/dateUtils';
+import { validateMatchScore, getCategoryName } from '../utils/tournamentUtils';
+import BracketView from './BracketView';
+import GroupWheelSpinner from './GroupWheelSpinner';
+
+const Transition = React.forwardRef(function Transition(
+  props: TransitionProps & {
+    children: React.ReactElement;
+  },
+  ref: React.Ref<unknown>,
+) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
 
 interface TournamentDetailProps {
   open: boolean;
@@ -57,10 +76,7 @@ interface TournamentDetailProps {
   onClose: () => void;
   onUpdateMatch: (matchId: string, updates: Partial<TournamentMatch>) => void;
   onGenerateSchedule: (tournament: Tournament) => void;
-  onGenerateKnockout?: (
-    tournament: Tournament,
-    category: TournamentCategory
-  ) => void;
+  onGenerateKnockout?: (tournament: Tournament, category: TournamentCategory) => void;
 }
 
 interface TabPanelProps {
@@ -72,7 +88,7 @@ interface TabPanelProps {
 const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
   return (
     <div hidden={value !== index}>
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+      {value === index && <Box sx={{ py: 2 }}>{children}</Box>}
     </div>
   );
 };
@@ -86,6 +102,10 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
   onGenerateSchedule,
   onGenerateKnockout,
 }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  
   const [tabValue, setTabValue] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState<TournamentCategory>(
     tournament.categories[0]
@@ -93,52 +113,44 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [wheelSpinnerOpen, setWheelSpinnerOpen] = useState(false);
   const [editMatchDialogOpen, setEditMatchDialogOpen] = useState(false);
-  const [editParticipantDialogOpen, setEditParticipantDialogOpen] =
-    useState(false);
-  const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(
-    null
-  );
-  const [matchScores, setMatchScores] = useState<
-    { set: number; p1: number; p2: number }[]
-  >([
+  const [editParticipantDialogOpen, setEditParticipantDialogOpen] = useState(false);
+  const [selectedMatch, setSelectedMatch] = useState<TournamentMatch | null>(null);
+  const [matchScores, setMatchScores] = useState<{ set: number; p1: number; p2: number }[]>([
     { set: 1, p1: 0, p2: 0 },
     { set: 2, p1: 0, p2: 0 },
   ]);
   const [editingParticipant, setEditingParticipant] = useState<1 | 2>(1);
-  const [newParticipantName, setNewParticipantName] = useState("");
-
-  const getPotColor = (pot: string): string => {
-    const colors: Record<string, string> = {
-      "Pot 1": "#ffd700",
-      "Pot 2": "#c0c0c0",
-      "Pot 3": "#cd7f32",
-      "Pot 4": "#8b4513",
-      "Pot 5": "#696969",
-    };
-    return colors[pot] || "#999";
-  };
+  const [newParticipantName, setNewParticipantName] = useState('');
 
   const [snackbar, setSnackbar] = useState({
     open: false,
-    message: "",
-    severity: "success" as "success" | "error" | "info" | "warning",
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'info' | 'warning',
   });
+  
   const showSnackbar = (
     message: string,
-    severity: "success" | "error" | "info" | "warning" = "success"
+    severity: 'success' | 'error' | 'info' | 'warning' = 'success'
   ) => {
-    setSnackbar({
-      open: true,
-      message,
-      severity,
-    });
+    setSnackbar({ open: true, message, severity });
+  };
+
+  const getPotColor = (pot: string): string => {
+    const colors: Record<string, string> = {
+      'Pot 1': '#ffd700',
+      'Pot 2': '#c0c0c0',
+      'Pot 3': '#cd7f32',
+      'Pot 4': '#8b4513',
+      'Pot 5': '#696969',
+    };
+    return colors[pot] || '#999';
   };
 
   const getParticipantName = (
     p: TournamentParticipant | TournamentTeam | null | undefined
   ): string => {
-    if (!p) return "TBD";
-    if ("player1" in p) {
+    if (!p) return 'TBD';
+    if ('player1' in p) {
       return `${p.player1.name}/${p.player2.name}`;
     }
     return p.name;
@@ -148,10 +160,10 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
     setScheduleDialogOpen(true);
   };
 
-  const handleScheduleMethodSelect = (method: "quick" | "wheel") => {
+  const handleScheduleMethodSelect = (method: 'quick' | 'wheel') => {
     setScheduleDialogOpen(false);
 
-    if (method === "quick") {
+    if (method === 'quick') {
       onGenerateSchedule(tournament);
     } else {
       setWheelSpinnerOpen(true);
@@ -203,10 +215,7 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
     setEditMatchDialogOpen(true);
   };
 
-  const handleEditParticipant = (
-    match: TournamentMatch,
-    participantNum: 1 | 2
-  ) => {
+  const handleEditParticipant = (match: TournamentMatch, participantNum: 1 | 2) => {
     setSelectedMatch(match);
     setEditingParticipant(participantNum);
 
@@ -215,7 +224,7 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
         ? getParticipantName(match.participant1)
         : getParticipantName(match.participant2);
 
-    setNewParticipantName(currentName === "TBD" ? "" : currentName);
+    setNewParticipantName(currentName === 'TBD' ? '' : currentName);
     setEditParticipantDialogOpen(true);
   };
 
@@ -223,20 +232,17 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
     if (!selectedMatch || !newParticipantName.trim()) return;
 
     const participantToUpdate =
-      editingParticipant === 1
-        ? selectedMatch.participant1
-        : selectedMatch.participant2;
+      editingParticipant === 1 ? selectedMatch.participant1 : selectedMatch.participant2;
 
     if (!participantToUpdate) {
-      showSnackbar("Không thể chỉnh sửa participant chưa được gán!", "error");
+      showSnackbar('Không thể chỉnh sửa participant chưa được gán!', 'error');
       return;
     }
 
     let updatedParticipant;
 
-    if ("player1" in participantToUpdate) {
-      // Team - split by /
-      const names = newParticipantName.split("/").map((n) => n.trim());
+    if ('player1' in participantToUpdate) {
+      const names = newParticipantName.split('/').map((n) => n.trim());
       if (names.length === 2) {
         updatedParticipant = {
           ...participantToUpdate,
@@ -244,11 +250,10 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
           player2: { ...participantToUpdate.player2, name: names[1] },
         };
       } else {
-        showSnackbar("Tên đội phải có định dạng: Tên1/Tên2", "error");
+        showSnackbar('Tên đội phải có định dạng: Tên1/Tên2', 'error');
         return;
       }
     } else {
-      // Single participant
       updatedParticipant = {
         ...participantToUpdate,
         name: newParticipantName.trim(),
@@ -269,24 +274,18 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
     if (!selectedMatch) return;
 
     if (!validateMatchScore(matchScores)) {
-      showSnackbar(
-        "Tỉ số không hợp lệ! Kiểm tra lại điểm số các set.",
-        "error"
-      );
+      showSnackbar('Tỉ số không hợp lệ! Kiểm tra lại điểm số các set.', 'error');
       return;
     }
 
-    let p1Sets = 0,
-      p2Sets = 0;
+    let p1Sets = 0, p2Sets = 0;
     matchScores.forEach((s) => {
       if (s.p1 > s.p2) p1Sets++;
       else p2Sets++;
     });
 
     const winner =
-      p1Sets > p2Sets
-        ? selectedMatch.participant1?.id
-        : selectedMatch.participant2?.id;
+      p1Sets > p2Sets ? selectedMatch.participant1?.id : selectedMatch.participant2?.id;
 
     const updates: Partial<TournamentMatch> = {
       scores: matchScores.map((s) => ({
@@ -295,7 +294,7 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
         participant2Score: s.p2,
       })),
       winner,
-      status: "completed",
+      status: 'completed',
       updatedAt: new Date(),
     };
 
@@ -306,10 +305,7 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
 
   const addSet = () => {
     if (matchScores.length < 3) {
-      setMatchScores([
-        ...matchScores,
-        { set: matchScores.length + 1, p1: 0, p2: 0 },
-      ]);
+      setMatchScores([...matchScores, { set: matchScores.length + 1, p1: 0, p2: 0 }]);
     }
   };
 
@@ -334,95 +330,114 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
   const hasSchedule = categoryMatches.length > 0;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth>
-      <DialogTitle>
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <EmojiEventsIcon sx={{ fontSize: 40, color: "primary.main" }} />
-            <Box>
-              <Typography variant="h5">{tournament.name}</Typography>
-              <Box sx={{ display: "flex", gap: 1, mt: 1 }}>
-                <Chip
-                  label={
-                    tournament.format === "single-elimination"
-                      ? "Loại Trực Tiếp"
-                      : tournament.format === "round-robin"
-                      ? "Vòng Tròn"
-                      : "Kết Hợp"
-                  }
-                  color="primary"
-                  size="small"
-                />
-                <Chip label={tournament.status} size="small" />
-                <Chip
-                  icon={<CalendarMonthIcon />}
-                  label={`${formatDateOnly(
-                    tournament.startDate
-                  )} - ${formatDateOnly(tournament.endDate)}`}
-                  size="small"
-                />
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xl"
+      fullWidth
+      fullScreen={isMobile}
+      TransitionComponent={isMobile ? Transition : undefined}
+    >
+      {/* Mobile Header with AppBar */}
+      {isMobile ? (
+        <AppBar position="static" elevation={0}>
+          <Toolbar>
+            <IconButton edge="start" color="inherit" onClick={onClose}>
+              <ArrowBackIcon />
+            </IconButton>
+            <Box sx={{ flex: 1, ml: 2 }}>
+              <Typography variant="h6" noWrap>
+                {tournament.name}
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                {tournament.format === 'single-elimination'
+                  ? 'Loại Trực Tiếp'
+                  : tournament.format === 'round-robin'
+                  ? 'Vòng Tròn'
+                  : 'Kết Hợp'}
+              </Typography>
+            </Box>
+          </Toolbar>
+        </AppBar>
+      ) : (
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <EmojiEventsIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+              <Box>
+                <Typography variant="h5">{tournament.name}</Typography>
+                <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                  <Chip
+                    label={
+                      tournament.format === 'single-elimination'
+                        ? 'Loại Trực Tiếp'
+                        : tournament.format === 'round-robin'
+                        ? 'Vòng Tròn'
+                        : 'Kết Hợp'
+                    }
+                    color="primary"
+                    size="small"
+                  />
+                  <Chip label={tournament.status} size="small" />
+                  <Chip
+                    icon={<CalendarMonthIcon />}
+                    label={`${formatDateOnly(tournament.startDate)} - ${formatDateOnly(tournament.endDate)}`}
+                    size="small"
+                  />
+                </Box>
               </Box>
             </Box>
+            <IconButton onClick={onClose}>
+              <CloseIcon />
+            </IconButton>
           </Box>
-          <IconButton onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
-      </DialogTitle>
+        </DialogTitle>
+      )}
 
-      <DialogContent dividers>
-        <Paper sx={{ mb: 3 }}>
-          <Tabs value={tabValue} onChange={(_, v) => setTabValue(v)}>
+      <DialogContent dividers sx={{ p: isMobile ? 1 : 3 }}>
+        <Paper sx={{ mb: isMobile ? 1 : 3 }}>
+          <Tabs
+            value={tabValue}
+            onChange={(_, v) => setTabValue(v)}
+            variant={isMobile ? 'scrollable' : 'standard'}
+            scrollButtons={isMobile ? 'auto' : false}
+            allowScrollButtonsMobile
+          >
             <Tab label="Thông Tin" />
             <Tab label="Danh Sách" />
             <Tab label="Lịch Thi Đấu" />
-            {tournament.format !== "round-robin" && <Tab label="Bracket" />}
-            {tournament.format !== "single-elimination" && (
-              <Tab label="Bảng Xếp Hạng" />
-            )}
+            {tournament.format !== 'round-robin' && <Tab label="Bracket" />}
+            {tournament.format !== 'single-elimination' && <Tab label="Bảng XH" />}
           </Tabs>
         </Paper>
 
         {/* Tab 0: Thông tin */}
         <TabPanel value={tabValue} index={0}>
-          <Grid container spacing={3}>
+          <Grid container spacing={isMobile ? 2 : 3}>
             <Grid item xs={12} md={6}>
               <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+                  <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
                     Chi Tiết Giải
                   </Typography>
-                  <Typography variant="body2" paragraph>
-                    <strong>Địa điểm:</strong> {tournament.location}
-                  </Typography>
-                  <Typography variant="body2" paragraph>
-                    <strong>Hạn đăng ký:</strong>{" "}
-                    {formatDateOnly(tournament.registrationDeadline)}
-                  </Typography>
-                  <Typography variant="body2" paragraph>
-                    <strong>Lệ phí:</strong>{" "}
-                    {tournament.entryFee
-                      ? `${tournament.entryFee.toLocaleString()} VNĐ`
-                      : "Miễn phí"}
-                  </Typography>
-                  <Typography variant="body2">
+                  <Stack spacing={1}>
+                    <Typography variant="body2">
+                      <strong>Địa điểm:</strong> {tournament.location}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Hạn đăng ký:</strong> {formatDateOnly(tournament.registrationDeadline)}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Lệ phí:</strong>{' '}
+                      {tournament.entryFee ? `${tournament.entryFee.toLocaleString()} VNĐ` : 'Miễn phí'}
+                    </Typography>
+                  </Stack>
+                  <Typography variant="body2" sx={{ mt: 2 }}>
                     <strong>Nội dung:</strong>
                   </Typography>
-                  <Box
-                    sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 1 }}
-                  >
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
                     {tournament.categories.map((cat) => (
-                      <Chip
-                        key={cat}
-                        label={getCategoryName(cat)}
-                        size="small"
-                      />
+                      <Chip key={cat} label={getCategoryName(cat)} size="small" />
                     ))}
                   </Box>
                 </CardContent>
@@ -431,26 +446,25 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
 
             <Grid item xs={12} md={6}>
               <Card>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>
+                <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+                  <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
                     Thống Kê
                   </Typography>
-                  <Typography variant="body2" paragraph>
-                    <strong>Tổng số người:</strong>{" "}
-                    {tournament.participants.length}
-                  </Typography>
-                  <Typography variant="body2" paragraph>
-                    <strong>Số nội dung:</strong> {tournament.categories.length}
-                  </Typography>
-                  <Typography variant="body2" paragraph>
-                    <strong>Số trận đấu:</strong>{" "}
-                    {tournament.matches?.length || 0}
-                  </Typography>
-                  <Typography variant="body2">
-                    <strong>Trận đã hoàn thành:</strong>{" "}
-                    {tournament.matches?.filter((m) => m.status === "completed")
-                      .length || 0}
-                  </Typography>
+                  <Stack spacing={1}>
+                    <Typography variant="body2">
+                      <strong>Tổng số người:</strong> {tournament.participants.length}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Số nội dung:</strong> {tournament.categories.length}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Số trận đấu:</strong> {tournament.matches?.length || 0}
+                    </Typography>
+                    <Typography variant="body2">
+                      <strong>Trận đã hoàn thành:</strong>{' '}
+                      {tournament.matches?.filter((m) => m.status === 'completed').length || 0}
+                    </Typography>
+                  </Stack>
                 </CardContent>
               </Card>
             </Grid>
@@ -458,13 +472,11 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
             {tournament.description && (
               <Grid item xs={12}>
                 <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
+                  <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+                    <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
                       Mô Tả
                     </Typography>
-                    <Typography variant="body2">
-                      {tournament.description}
-                    </Typography>
+                    <Typography variant="body2">{tournament.description}</Typography>
                   </CardContent>
                 </Card>
               </Grid>
@@ -473,14 +485,11 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
             {tournament.rules && (
               <Grid item xs={12}>
                 <Card>
-                  <CardContent>
-                    <Typography variant="h6" gutterBottom>
+                  <CardContent sx={{ p: isMobile ? 2 : 3 }}>
+                    <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
                       Quy Định
                     </Typography>
-                    <Typography
-                      variant="body2"
-                      style={{ whiteSpace: "pre-line" }}
-                    >
+                    <Typography variant="body2" style={{ whiteSpace: 'pre-line' }}>
                       {tournament.rules}
                     </Typography>
                   </CardContent>
@@ -493,13 +502,11 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
         {/* Tab 1: Danh sách */}
         <TabPanel value={tabValue} index={1}>
           <Box sx={{ mb: 2 }}>
-            <FormControl size="small" sx={{ minWidth: 200 }}>
+            <FormControl fullWidth size="small">
               <InputLabel>Nội dung</InputLabel>
               <Select
                 value={selectedCategory}
-                onChange={(e) =>
-                  setSelectedCategory(e.target.value as TournamentCategory)
-                }
+                onChange={(e) => setSelectedCategory(e.target.value as TournamentCategory)}
               >
                 {tournament.categories.map((cat) => (
                   <MenuItem key={cat} value={cat}>
@@ -510,50 +517,54 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
             </FormControl>
           </Box>
 
-          <Typography variant="h6" gutterBottom>
-            {getCategoryName(selectedCategory)} - {categoryParticipants.length}{" "}
-            người
+          <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
+            {getCategoryName(selectedCategory)} - {categoryParticipants.length} người
           </Typography>
 
           {categoryParticipants.length === 0 ? (
-            <Alert severity="info">
-              Chưa có thành viên nào đăng ký tham gia nội dung này
-            </Alert>
+            <Alert severity="info">Chưa có thành viên nào đăng ký tham gia nội dung này</Alert>
           ) : (
-            <Grid container spacing={2}>
+            <Grid container spacing={isMobile ? 1 : 2}>
               {categoryParticipants.map((participant) => (
                 <Grid item xs={12} sm={6} md={4} key={participant.id}>
                   <Card variant="outlined">
                     <CardContent
-                      sx={{ display: "flex", alignItems: "center", gap: 2 }}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2,
+                        p: isMobile ? 1.5 : 2,
+                      }}
                     >
                       <Avatar
                         src={participant.avatar}
-                        sx={{ bgcolor: getPotColor(participant.potLevel) }}
+                        sx={{
+                          bgcolor: getPotColor(participant.potLevel),
+                          width: isMobile ? 36 : 40,
+                          height: isMobile ? 36 : 40,
+                        }}
                       >
                         {participant.name.charAt(0)}
                       </Avatar>
-                      <Box sx={{ flex: 1 }}>
-                        <Typography variant="body1" fontWeight="medium">
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant={isMobile ? 'body2' : 'body1'} fontWeight="medium" noWrap>
                           {participant.name}
                         </Typography>
-                        <Chip
-                          label={participant.potLevel}
-                          size="small"
-                          sx={{
-                            backgroundColor: getPotColor(participant.potLevel),
-                            color: "white",
-                            fontSize: "0.7rem",
-                          }}
-                        />
-                        {participant.isWoman && (
+                        <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
                           <Chip
-                            label="Nữ"
+                            label={participant.potLevel}
                             size="small"
-                            color="secondary"
-                            sx={{ ml: 0.5 }}
+                            sx={{
+                              backgroundColor: getPotColor(participant.potLevel),
+                              color: 'white',
+                              fontSize: '0.7rem',
+                              height: 20,
+                            }}
                           />
-                        )}
+                          {participant.isWoman && (
+                            <Chip label="Nữ" size="small" color="secondary" sx={{ height: 20 }} />
+                          )}
+                        </Stack>
                       </Box>
                     </CardContent>
                   </Card>
@@ -565,22 +576,12 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
 
         {/* Tab 2: Lịch thi đấu */}
         <TabPanel value={tabValue} index={2}>
-          <Box
-            sx={{
-              mb: 2,
-              display: "flex",
-              gap: 2,
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <FormControl size="small" sx={{ minWidth: 200 }}>
+          <Stack spacing={2} sx={{ mb: 2 }}>
+            <FormControl fullWidth size="small">
               <InputLabel>Nội dung</InputLabel>
               <Select
                 value={selectedCategory}
-                onChange={(e) =>
-                  setSelectedCategory(e.target.value as TournamentCategory)
-                }
+                onChange={(e) => setSelectedCategory(e.target.value as TournamentCategory)}
               >
                 {tournament.categories.map((cat) => (
                   <MenuItem key={cat} value={cat}>
@@ -590,103 +591,104 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
               </Select>
             </FormControl>
 
-            {!hasSchedule && categoryParticipants.length > 0 && (
-              <Button
-                variant="contained"
-                startIcon={<PlayArrowIcon />}
-                onClick={handleGenerateSchedule}
-              >
-                Tạo Lịch Thi Đấu
-              </Button>
-            )}
+            <Stack direction={isMobile ? 'column' : 'row'} spacing={1}>
+              {!hasSchedule && categoryParticipants.length > 0 && (
+                <Button
+                  fullWidth={isMobile}
+                  variant="contained"
+                  startIcon={<PlayArrowIcon />}
+                  onClick={handleGenerateSchedule}
+                  size={isMobile ? 'medium' : 'large'}
+                >
+                  Tạo Lịch Thi Đấu
+                </Button>
+              )}
 
-            {tournament.format === "mixed" && categoryGroups.length > 0 && (
-              <Button
-                variant="contained"
-                color="secondary"
-                startIcon={<EmojiEventsIcon />}
-                onClick={() => {
-                  if (onGenerateKnockout) {
-                    onGenerateKnockout(tournament, selectedCategory);
-                  }
-                }}
-              >
-                Tạo Vòng Knockout
-              </Button>
-            )}
-          </Box>
+              {tournament.format === 'mixed' && categoryGroups.length > 0 && (
+                <Button
+                  fullWidth={isMobile}
+                  variant="contained"
+                  color="secondary"
+                  startIcon={<EmojiEventsIcon />}
+                  onClick={() => {
+                    if (onGenerateKnockout) {
+                      onGenerateKnockout(tournament, selectedCategory);
+                    }
+                  }}
+                  size={isMobile ? 'medium' : 'large'}
+                >
+                  Tạo Vòng Knockout
+                </Button>
+              )}
+            </Stack>
+          </Stack>
 
           {categoryParticipants.length === 0 ? (
-            <Alert severity="warning">
-              Chưa có thành viên nào đăng ký tham gia nội dung này
-            </Alert>
+            <Alert severity="warning">Chưa có thành viên nào đăng ký tham gia nội dung này</Alert>
           ) : !hasSchedule ? (
-            <Alert severity="info">
-              Chưa có lịch thi đấu. Click "Tạo Lịch Thi Đấu" để bắt đầu.
-            </Alert>
+            <Alert severity="info">Chưa có lịch thi đấu. Click "Tạo Lịch Thi Đấu" để bắt đầu.</Alert>
           ) : (
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                {getCategoryName(selectedCategory)} - {categoryMatches.length}{" "}
-                trận
+            <Stack spacing={2}>
+              <Typography variant={isMobile ? 'subtitle1' : 'h6'}>
+                {getCategoryName(selectedCategory)} - {categoryMatches.length} trận
               </Typography>
 
               {categoryMatches.map((match) => (
-                <Card key={match.id} sx={{ mb: 2 }}>
-                  <CardContent>
-                    <Grid container spacing={2} alignItems="center">
-                      <Grid item xs={12} sm={3}>
-                        <Box
-                          sx={{ display: "flex", alignItems: "center", gap: 1 }}
-                        >
-                          <Typography variant="body2" fontWeight="bold">
-                            {match.round} - Trận {match.matchNumber}
-                          </Typography>
-                          <Chip
-                            label={
-                              match.status === "completed"
-                                ? "Hoàn thành"
-                                : match.status === "scheduled"
-                                ? "Đã lên lịch"
-                                : "Chờ đấu"
-                            }
-                            size="small"
-                            color={
-                              match.status === "completed"
-                                ? "success"
-                                : "default"
-                            }
-                          />
-                        </Box>
-                        {match.groupId && (
-                          <Typography variant="caption" color="text.secondary">
-                            Bảng{" "}
-                            {
-                              tournament.groups?.find(
-                                (g) => g.id === match.groupId
-                              )?.name
-                            }
-                          </Typography>
-                        )}
-                      </Grid>
+                <Card key={match.id} variant="outlined">
+                  <CardContent sx={{ p: isMobile ? 1.5 : 2 }}>
+                    <Stack spacing={1.5}>
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          flexWrap: 'wrap',
+                          gap: 1,
+                        }}
+                      >
+                        <Typography variant={isMobile ? 'caption' : 'body2'} fontWeight="bold">
+                          {match.round} - Trận {match.matchNumber}
+                        </Typography>
+                        <Chip
+                          label={
+                            match.status === 'completed'
+                              ? 'Hoàn thành'
+                              : match.status === 'scheduled'
+                              ? 'Đã lên lịch'
+                              : 'Chờ đấu'
+                          }
+                          size="small"
+                          color={match.status === 'completed' ? 'success' : 'default'}
+                        />
+                      </Box>
 
-                      <Grid item xs={12} sm={5}>
-                        <Box>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                              mb: 1,
-                            }}
+                      {match.groupId && (
+                        <Typography variant="caption" color="text.secondary">
+                          Bảng {tournament.groups?.find((g) => g.id === match.groupId)?.name}
+                        </Typography>
+                      )}
+
+                      <Box>
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            mb: 1,
+                            p: 1,
+                            bgcolor: 'background.default',
+                            borderRadius: 1,
+                          }}
+                        >
+                          <Typography
+                            variant={isMobile ? 'body2' : 'body1'}
+                            fontWeight="medium"
+                            sx={{ flex: 1, minWidth: 0 }}
+                            noWrap
                           >
-                            <Typography
-                              variant="body1"
-                              fontWeight="medium"
-                              sx={{ flex: 1 }}
-                            >
-                              {getParticipantName(match.participant1)}
-                            </Typography>
+                            {getParticipantName(match.participant1)}
+                          </Typography>
+                          {!isMobile && (
                             <IconButton
                               size="small"
                               onClick={() => handleEditParticipant(match, 1)}
@@ -694,37 +696,38 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
                             >
                               <EditIcon fontSize="small" />
                             </IconButton>
-                          </Box>
+                          )}
+                        </Box>
 
+                        <Typography
+                          variant={isMobile ? 'body1' : 'h6'}
+                          color="primary.main"
+                          sx={{ textAlign: 'center', my: 1 }}
+                        >
+                          {match.scores.length > 0
+                            ? match.scores.map((s) => `${s.participant1Score}-${s.participant2Score}`).join(' ')
+                            : 'VS'}
+                        </Typography>
+
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            p: 1,
+                            bgcolor: 'background.default',
+                            borderRadius: 1,
+                          }}
+                        >
                           <Typography
-                            variant="h6"
-                            color="primary.main"
-                            sx={{ textAlign: "center", my: 1 }}
+                            variant={isMobile ? 'body2' : 'body1'}
+                            fontWeight="medium"
+                            sx={{ flex: 1, minWidth: 0 }}
+                            noWrap
                           >
-                            {match.scores.length > 0
-                              ? match.scores
-                                  .map(
-                                    (s) =>
-                                      `${s.participant1Score}-${s.participant2Score}`
-                                  )
-                                  .join(" ")
-                              : "VS"}
+                            {getParticipantName(match.participant2)}
                           </Typography>
-
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                            }}
-                          >
-                            <Typography
-                              variant="body1"
-                              fontWeight="medium"
-                              sx={{ flex: 1 }}
-                            >
-                              {getParticipantName(match.participant2)}
-                            </Typography>
+                          {!isMobile && (
                             <IconButton
                               size="small"
                               onClick={() => handleEditParticipant(match, 2)}
@@ -732,92 +735,53 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
                             >
                               <EditIcon fontSize="small" />
                             </IconButton>
-                          </Box>
+                          )}
                         </Box>
-                      </Grid>
+                      </Box>
 
-                      <Grid item xs={12} sm={4}>
+                      <Stack spacing={1}>
                         {match.scheduledDate ? (
                           <Box>
-                            <Typography variant="body2">
+                            <Typography variant={isMobile ? 'caption' : 'body2'}>
                               📅 {formatDateTime(match.scheduledDate)}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                              🏸{" "}
-                              {courts.find((c) => c.id === match.courtId)
-                                ?.name || "TBD"}
+                            <Typography variant={isMobile ? 'caption' : 'body2'} color="text.secondary">
+                              🏸 {courts.find((c) => c.id === match.courtId)?.name || 'TBD'}
                             </Typography>
                           </Box>
                         ) : (
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant={isMobile ? 'caption' : 'body2'} color="text.secondary">
                             Chưa xếp lịch
                           </Typography>
                         )}
 
-                        <Box sx={{ mt: 1 }}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<EditIcon />}
-                            onClick={() => handleEditMatch(match)}
-                          >
-                            Nhập Kết Quả
-                          </Button>
-                        </Box>
-                      </Grid>
-                    </Grid>
+                        <Button
+                          fullWidth
+                          size="small"
+                          variant="outlined"
+                          startIcon={<EditIcon />}
+                          onClick={() => handleEditMatch(match)}
+                        >
+                          Nhập Kết Quả
+                        </Button>
+                      </Stack>
+                    </Stack>
                   </CardContent>
                 </Card>
               ))}
-            </Box>
+            </Stack>
           )}
         </TabPanel>
 
         {/* Tab 3: Bracket */}
-        {tournament.format !== "round-robin" && (
+        {tournament.format !== 'round-robin' && (
           <TabPanel value={tabValue} index={3}>
             <Box sx={{ mb: 2 }}>
-              <FormControl size="small" sx={{ minWidth: 200 }}>
+              <FormControl fullWidth size="small">
                 <InputLabel>Nội dung</InputLabel>
                 <Select
                   value={selectedCategory}
-                  onChange={(e) =>
-                    setSelectedCategory(e.target.value as TournamentCategory)
-                  }
-                >
-                  {tournament.categories.map((cat) => (
-                    <MenuItem key={cat} value={cat}>
-                      {getCategoryName(cat)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-
-            {categoryMatches.length === 0 ? (
-              <Alert severity="info">
-                Chưa có lịch thi đấu để hiển thị bracket
-              </Alert>
-            ) : (
-              <BracketView matches={categoryMatches} />
-            )}
-          </TabPanel>
-        )}
-
-        {/* Tab 4: Bảng xếp hạng */}
-        {tournament.format !== "single-elimination" && (
-          <TabPanel
-            value={tabValue}
-            index={tournament.format === "round-robin" ? 3 : 4}
-          >
-            <Box sx={{ mb: 2 }}>
-              <FormControl size="small" sx={{ minWidth: 200 }}>
-                <InputLabel>Nội dung</InputLabel>
-                <Select
-                  value={selectedCategory}
-                  onChange={(e) =>
-                    setSelectedCategory(e.target.value as TournamentCategory)
-                  }
+                  onChange={(e) => setSelectedCategory(e.target.value as TournamentCategory)}
                 >
                   {tournament.categories.map((cat) => (
                     <MenuItem key={cat} value={cat}>
@@ -843,31 +807,42 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
         onClose={() => setScheduleDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
       >
-        <DialogTitle>Chọn Phương Thức Chia Bảng</DialogTitle>
+        <DialogTitle>
+          {isMobile && (
+            <IconButton
+              edge="start"
+              onClick={() => setScheduleDialogOpen(false)}
+              sx={{ position: 'absolute', left: 8, top: 8 }}
+            >
+              <CloseIcon />
+            </IconButton>
+          )}
+          <Typography variant={isMobile ? 'h6' : 'h5'} textAlign="center">
+            Chọn Phương Thức Chia Bảng
+          </Typography>
+        </DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} sm={6}>
               <Card
                 sx={{
-                  cursor: "pointer",
+                  cursor: 'pointer',
                   border: 2,
-                  borderColor: "transparent",
-                  "&:hover": { borderColor: "primary.main", boxShadow: 3 },
-                  height: "100%",
+                  borderColor: 'transparent',
+                  '&:hover': { borderColor: 'primary.main', boxShadow: 3 },
+                  height: '100%',
                 }}
-                onClick={() => handleScheduleMethodSelect("quick")}
+                onClick={() => handleScheduleMethodSelect('quick')}
               >
-                <CardContent sx={{ textAlign: "center", py: 4 }}>
-                  <FlashOnIcon
-                    sx={{ fontSize: 60, color: "warning.main", mb: 2 }}
-                  />
-                  <Typography variant="h6" gutterBottom>
+                <CardContent sx={{ textAlign: 'center', py: isMobile ? 3 : 4 }}>
+                  <FlashOnIcon sx={{ fontSize: isMobile ? 50 : 60, color: 'warning.main', mb: 2 }} />
+                  <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
                     Sắp Xếp Nhanh
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Hệ thống tự động chia bảng theo thuật toán snake draft,
-                    nhanh chóng và công bằng
+                    Hệ thống tự động chia bảng theo thuật toán snake draft, nhanh chóng và công bằng
                   </Typography>
                 </CardContent>
               </Card>
@@ -876,33 +851,32 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
             <Grid item xs={12} sm={6}>
               <Card
                 sx={{
-                  cursor: "pointer",
+                  cursor: 'pointer',
                   border: 2,
-                  borderColor: "transparent",
-                  "&:hover": { borderColor: "primary.main", boxShadow: 3 },
-                  height: "100%",
+                  borderColor: 'transparent',
+                  '&:hover': { borderColor: 'primary.main', boxShadow: 3 },
+                  height: '100%',
                 }}
-                onClick={() => handleScheduleMethodSelect("wheel")}
+                onClick={() => handleScheduleMethodSelect('wheel')}
               >
-                <CardContent sx={{ textAlign: "center", py: 4 }}>
-                  <CasinoIcon
-                    sx={{ fontSize: 60, color: "success.main", mb: 2 }}
-                  />
-                  <Typography variant="h6" gutterBottom>
+                <CardContent sx={{ textAlign: 'center', py: isMobile ? 3 : 4 }}>
+                  <CasinoIcon sx={{ fontSize: isMobile ? 50 : 60, color: 'success.main', mb: 2 }} />
+                  <Typography variant={isMobile ? 'subtitle1' : 'h6'} gutterBottom>
                     Quay Bảng
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Trải nghiệm quay bảng thú vị với hiệu ứng animation, xem
-                    từng người được chia vào bảng
+                    Trải nghiệm quay bảng thú vị với hiệu ứng animation, xem từng người được chia vào bảng
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setScheduleDialogOpen(false)}>Hủy</Button>
-        </DialogActions>
+        {!isMobile && (
+          <DialogActions sx={{ p: 2 }}>
+            <Button onClick={() => setScheduleDialogOpen(false)}>Hủy</Button>
+          </DialogActions>
+        )}
       </Dialog>
 
       {/* Dialog: Wheel Spinner */}
@@ -911,6 +885,7 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
         onClose={() => setWheelSpinnerOpen(false)}
         maxWidth="lg"
         fullWidth
+        fullScreen={isMobile}
       >
         <GroupWheelSpinner
           participants={categoryParticipants}
@@ -927,24 +902,34 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
         onClose={() => setEditParticipantDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
       >
-        <DialogTitle>
-          Chỉnh Sửa Tên {editingParticipant === 1 ? "Đội 1" : "Đội 2"}
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <TextField
-              fullWidth
-              label="Tên mới"
-              value={newParticipantName}
-              onChange={(e) => setNewParticipantName(e.target.value)}
-              placeholder="Nhập tên mới (đôi: Tên1/Tên2)"
-              helperText="Đối với đôi, sử dụng dấu / để tách tên: VD: Nguyễn Văn A/Trần Văn B"
-            />
-          </Box>
+        {isMobile ? (
+          <AppBar position="static" elevation={0}>
+            <Toolbar>
+              <IconButton edge="start" color="inherit" onClick={() => setEditParticipantDialogOpen(false)}>
+                <ArrowBackIcon />
+              </IconButton>
+              <Typography variant="h6" sx={{ ml: 2 }}>
+                Chỉnh Sửa Tên {editingParticipant === 1 ? 'Đội 1' : 'Đội 2'}
+              </Typography>
+            </Toolbar>
+          </AppBar>
+        ) : (
+          <DialogTitle>Chỉnh Sửa Tên {editingParticipant === 1 ? 'Đội 1' : 'Đội 2'}</DialogTitle>
+        )}
+        <DialogContent sx={{ pt: 3 }}>
+          <TextField
+            fullWidth
+            label="Tên mới"
+            value={newParticipantName}
+            onChange={(e) => setNewParticipantName(e.target.value)}
+            placeholder="Nhập tên mới (đôi: Tên1/Tên2)"
+            helperText="Đối với đôi, sử dụng dấu / để tách tên: VD: Nguyễn Văn A/Trần Văn B"
+          />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditParticipantDialogOpen(false)}>
+        <DialogActions sx={{ p: 2, flexDirection: isMobile ? 'column' : 'row', gap: 1 }}>
+          <Button onClick={() => setEditParticipantDialogOpen(false)} fullWidth={isMobile}>
             Hủy
           </Button>
           <Button
@@ -952,6 +937,7 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
             startIcon={<SaveIcon />}
             onClick={handleSaveParticipantName}
             disabled={!newParticipantName.trim()}
+            fullWidth={isMobile}
           >
             Lưu
           </Button>
@@ -964,118 +950,126 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
         onClose={() => setEditMatchDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
       >
-        <DialogTitle>Nhập Kết Quả Trận Đấu</DialogTitle>
-        <DialogContent dividers>
+        {isMobile ? (
+          <AppBar position="static" elevation={0}>
+            <Toolbar>
+              <IconButton edge="start" color="inherit" onClick={() => setEditMatchDialogOpen(false)}>
+                <ArrowBackIcon />
+              </IconButton>
+              <Typography variant="h6" sx={{ ml: 2 }}>
+                Nhập Kết Quả Trận Đấu
+              </Typography>
+            </Toolbar>
+          </AppBar>
+        ) : (
+          <DialogTitle>Nhập Kết Quả Trận Đấu</DialogTitle>
+        )}
+        <DialogContent dividers sx={{ pt: 3 }}>
           {selectedMatch && (
-            <Box>
-              <Typography variant="h6" gutterBottom textAlign="center">
-                {getParticipantName(selectedMatch.participant1)}
-                <br />
-                <Typography variant="body2" color="text.secondary">
+            <Stack spacing={2}>
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant={isMobile ? 'subtitle1' : 'h6'} fontWeight="bold">
+                  {getParticipantName(selectedMatch.participant1)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ my: 1 }}>
                   VS
                 </Typography>
-                {getParticipantName(selectedMatch.participant2)}
-              </Typography>
-
-              <Box sx={{ mt: 3 }}>
-                {matchScores.map((score, index) => (
-                  <Box
-                    key={index}
-                    sx={{
-                      display: "flex",
-                      gap: 2,
-                      mb: 2,
-                      alignItems: "center",
-                    }}
-                  >
-                    <Typography variant="body1" sx={{ minWidth: 60 }}>
-                      Set {score.set}:
-                    </Typography>
-                    <TextField
-                      type="number"
-                      size="small"
-                      label={
-                        getParticipantName(selectedMatch.participant1)?.split(
-                          "/"
-                        )[0] || "P1"
-                      }
-                      value={score.p1}
-                      onChange={(e) => {
-                        const newScores = [...matchScores];
-                        newScores[index].p1 = parseInt(e.target.value) || 0;
-                        setMatchScores(newScores);
-                      }}
-                      inputProps={{ min: 0, max: 30 }}
-                      sx={{ width: 100 }}
-                    />
-                    <Typography variant="h6">-</Typography>
-                    <TextField
-                      type="number"
-                      size="small"
-                      label={
-                        getParticipantName(selectedMatch.participant2)?.split(
-                          "/"
-                        )[0] || "P2"
-                      }
-                      value={score.p2}
-                      onChange={(e) => {
-                        const newScores = [...matchScores];
-                        newScores[index].p2 = parseInt(e.target.value) || 0;
-                        setMatchScores(newScores);
-                      }}
-                      inputProps={{ min: 0, max: 30 }}
-                      sx={{ width: 100 }}
-                    />
-                  </Box>
-                ))}
+                <Typography variant={isMobile ? 'subtitle1' : 'h6'} fontWeight="bold">
+                  {getParticipantName(selectedMatch.participant2)}
+                </Typography>
               </Box>
 
-              <Box sx={{ display: "flex", gap: 1, mt: 2 }}>
+              {matchScores.map((score, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    display: 'flex',
+                    gap: 1,
+                    alignItems: 'center',
+                    flexWrap: isMobile ? 'wrap' : 'nowrap',
+                  }}
+                >
+                  <Typography variant="body1" sx={{ minWidth: 60 }}>
+                    Set {score.set}:
+                  </Typography>
+                  <TextField
+                    type="number"
+                    size="small"
+                    label={getParticipantName(selectedMatch.participant1)?.split('/')[0] || 'P1'}
+                    value={score.p1}
+                    onChange={(e) => {
+                      const newScores = [...matchScores];
+                      newScores[index].p1 = parseInt(e.target.value) || 0;
+                      setMatchScores(newScores);
+                    }}
+                    inputProps={{ min: 0, max: 30 }}
+                    sx={{ width: isMobile ? '45%' : 100 }}
+                  />
+                  <Typography variant="h6">-</Typography>
+                  <TextField
+                    type="number"
+                    size="small"
+                    label={getParticipantName(selectedMatch.participant2)?.split('/')[0] || 'P2'}
+                    value={score.p2}
+                    onChange={(e) => {
+                      const newScores = [...matchScores];
+                      newScores[index].p2 = parseInt(e.target.value) || 0;
+                      setMatchScores(newScores);
+                    }}
+                    inputProps={{ min: 0, max: 30 }}
+                    sx={{ width: isMobile ? '45%' : 100 }}
+                  />
+                </Box>
+              ))}
+
+              <Stack direction={isMobile ? 'column' : 'row'} spacing={1}>
                 {matchScores.length < 3 && (
-                  <Button size="small" onClick={addSet}>
+                  <Button size="small" onClick={addSet} fullWidth={isMobile}>
                     + Thêm Set 3
                   </Button>
                 )}
                 {matchScores.length > 2 && (
-                  <Button size="small" color="error" onClick={removeSet}>
+                  <Button size="small" color="error" onClick={removeSet} fullWidth={isMobile}>
                     - Xóa Set 3
                   </Button>
                 )}
-              </Box>
+              </Stack>
 
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Tỉ số hợp lệ: 21-x (chênh ≥2) hoặc 30-29/29-30
-              </Alert>
-            </Box>
+              <Alert severity="info">Tỉ số hợp lệ: 21-x (chênh ≥2) hoặc 30-29/29-30</Alert>
+            </Stack>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditMatchDialogOpen(false)}>Hủy</Button>
-          <Button variant="contained" onClick={handleSaveMatchResult}>
+        <DialogActions sx={{ p: 2, flexDirection: isMobile ? 'column' : 'row', gap: 1 }}>
+          <Button onClick={() => setEditMatchDialogOpen(false)} fullWidth={isMobile}>
+            Hủy
+          </Button>
+          <Button variant="contained" onClick={handleSaveMatchResult} fullWidth={isMobile}>
             Lưu Kết Quả
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ===== THÊM SNACKBAR MỚI ===== */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        anchorOrigin={{ vertical: isMobile ? 'bottom' : 'top', horizontal: 'center' }}
+        sx={{ bottom: isMobile ? 80 : undefined }}
       >
         <Alert
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           severity={snackbar.severity}
           sx={{
-            width: "100%",
-            fontSize: "1rem",
-            fontWeight: "bold",
+            width: '100%',
+            fontSize: isMobile ? '0.875rem' : '1rem',
+            fontWeight: 'bold',
             boxShadow: 3,
           }}
           variant="filled"
-          icon={snackbar.severity === "info" ? <SwapHoriz /> : undefined}
+          icon={snackbar.severity === 'info' ? <SwapHorizIcon /> : undefined}
         >
           {snackbar.message}
         </Alert>
@@ -1085,3 +1079,4 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
 };
 
 export default TournamentDetail;
+                
