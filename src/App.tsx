@@ -45,6 +45,7 @@ import SessionDetailMobile from "./pages/SessionDetailMobile";
 import usePullToRefresh from "./hooks/usePullToRefresh";
 import PullToRefreshIndicator from "./components/PullToRefreshIndicator";
 import Tournaments from "./pages/Tournaments";
+import Profile from "./pages/Profile";
 
 // ===== CONFIG DAYJS =====
 dayjs.extend(updateLocale);
@@ -222,6 +223,8 @@ const AppContent: React.FC = () => {
                   element={isMobile ? <ReportsMobile /> : <Reports />}
                 />
                 <Route path="/admin/users" element={<AdminUsers />} />
+                <Route path="/profile" element={<Profile />} />
+
                 <Route path="/settings" element={<Settings />} />
               </>
             )}
@@ -247,6 +250,8 @@ const AppContent: React.FC = () => {
                   path="/reports"
                   element={isMobile ? <ReportsMobile /> : <Reports />}
                 />
+                <Route path="/profile" element={<Profile />} />
+
                 <Route
                   path="*"
                   element={<Navigate to="/sessions" replace />}
