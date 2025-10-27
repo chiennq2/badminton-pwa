@@ -34,6 +34,7 @@ import {
   DarkMode,
   LightMode,
   EmojiEvents,
+  Person,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -65,6 +66,8 @@ const userMenuItems = [
   { text: "Nhóm của tôi", icon: <Groups />, path: "/groups" },
   { text: "Lịch đánh của tôi", icon: <CalendarMonth />, path: "/sessions" },
   { text: "Báo cáo của tôi", icon: <Assessment />, path: "/reports" },
+  { text: 'Giải đấu (Beta)', icon: <EmojiEvents />, path: '/tournaments' },
+
 ];
 
 const Layout: React.FC<LayoutProps> = ({
@@ -127,7 +130,7 @@ const Layout: React.FC<LayoutProps> = ({
               <SportsTennis />
             </Avatar>
             <Typography variant="h6" fontWeight="bold">
-              Quản Lý Cầu Lông
+              Quản Lý Lịch Đánh
             </Typography>
           </Box>
         )}
@@ -313,6 +316,15 @@ const Layout: React.FC<LayoutProps> = ({
               </Box>
             </MenuItem>
             <Divider />
+            <MenuItem onClick={() => {
+              handleProfileMenuClose();
+              navigate('/profile');
+            }}>
+              <ListItemIcon>
+                <Person fontSize="small" />
+              </ListItemIcon>
+              Cập nhật thông tin
+            </MenuItem>
             <MenuItem onClick={handleSignOut}>
               <ListItemIcon>
                 <Logout fontSize="small" />
@@ -387,6 +399,8 @@ const getPageTitle = (pathname: string, role?: string): string => {
       return "Quản lý nhóm";
     case "/sessions":
       return "Lịch đánh cầu lông";
+    case "/tournaments":
+      return "Giải đấu";
     case "/reports":
       return "Báo cáo thống kê";
     case "/admin/users":

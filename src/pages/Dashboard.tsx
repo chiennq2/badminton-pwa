@@ -6,7 +6,6 @@ import {
   Typography,
   Box,
   CircularProgress,
-  Paper,
   Chip,
   List,
   ListItem,
@@ -99,13 +98,23 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  const activeCourts = courts?.filter(court => court.isActive) || [];
-  const activeMembers = members?.filter(member => member.isActive) || [];
-  const todaySessions = sessions?.filter(session => isToday(new Date(session.date))) || [];
-  const upcomingSessions = sessions?.filter(session => isFuture(session.date)) || [];
-  const completedSessions = sessions?.filter(session => session.status === 'completed') || [];
+  const activeCourts = courts?.filter((court) => court.isActive) || [];
+  const activeMembers = members?.filter((member) => member.isActive) || [];
+  const todaySessions = sessions?.filter((session) => isToday(new Date(session.date))) || [];
+  
+  // Lấy lịch sắp tới và sắp xếp theo thời gian gần nhất
+  const upcomingSessions = sessions
+    ?.filter((session) => isFuture(session.date))
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 3) || [];
+  
+  // Lấy lịch đã hoàn thành và sắp xếp theo thời gian gần nhất
+  const completedSessions = sessions
+    ?.filter((session) => session.status === 'completed')
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .slice(0, 3) || [];
 
-  const totalRevenue = completedSessions.reduce((sum, session) => sum + session.totalCost, 0);
+  const totalRevenue = sessions?.filter((s) => s.status === 'completed').reduce((sum, session) => sum + session.totalCost, 0) || 0;
 
   return (
     <Box>
@@ -122,39 +131,16 @@ const Dashboard: React.FC = () => {
       {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Sân hoạt động"
-            value={activeCourts.length}
-            icon={<SportsTennis />}
-            color="primary"
-            subtitle={`Tổng ${courts?.length || 0} sân`}
-          />
+          <StatCard title="Sân hoạt động" value={activeCourts.length} icon={<SportsTennis />} color="primary" subtitle={`Tổng ${courts?.length || 0} sân`} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Thành viên"
-            value={activeMembers.length}
-            icon={<People />}
-            color="success"
-            subtitle={`Tổng ${members?.length || 0} thành viên`}
-          />
+          <StatCard title="Thành viên" value={activeMembers.length} icon={<People />} color="success" subtitle={`Tổng ${members?.length || 0} thành viên`} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Nhóm"
-            value={groups?.length || 0}
-            icon={<Groups />}
-            color="info"
-          />
+          <StatCard title="Nhóm" value={groups?.length || 0} icon={<Groups />} color="info" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard
-            title="Doanh thu"
-            value={formatCurrency(totalRevenue)}
-            icon={<TrendingUp />}
-            color="warning"
-            subtitle={`${completedSessions.length} lịch đã hoàn thành`}
-          />
+          <StatCard title="Doanh thu" value={formatCurrency(totalRevenue)} icon={<TrendingUp />} color="warning" subtitle={`${completedSessions.length} lịch hoàn thành`} />
         </Grid>
       </Grid>
 
@@ -168,14 +154,9 @@ const Dashboard: React.FC = () => {
                 <Typography variant="h6" component="h2" fontWeight="bold">
                   Lịch hôm nay
                 </Typography>
-                <Chip
-                  label={todaySessions.length}
-                  size="small"
-                  color="primary"
-                  sx={{ ml: 'auto' }}
-                />
+                <Chip label={todaySessions.length} size="small" color="primary" sx={{ ml: 'auto' }} />
               </Box>
-              
+
               {todaySessions.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                   Không có lịch đánh nào hôm nay
@@ -199,12 +180,7 @@ const Dashboard: React.FC = () => {
                           primary={session.name}
                           secondary={`${session.startTime} - ${session.endTime} • ${formatCurrency(session.totalCost)}`}
                         />
-                        <Chip
-                          label={getSessionStatusText(session.status)}
-                          size="small"
-                          color={getSessionStatusChipColor(session.status)}
-                          variant="outlined"
-                        />
+                        <Chip label={getSessionStatusText(session.status)} size="small" color={getSessionStatusChipColor(session.status)} variant="outlined" />
                       </ListItem>
                       {index < todaySessions.slice(0, 5).length - 1 && <Divider />}
                     </React.Fragment>
@@ -215,7 +191,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Grid>
 
-        {/* Upcoming Sessions */}
+        {/* Upcoming Sessions - 3 items */}
         <Grid item xs={12} md={6}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
@@ -224,21 +200,16 @@ const Dashboard: React.FC = () => {
                 <Typography variant="h6" component="h2" fontWeight="bold">
                   Lịch sắp tới
                 </Typography>
-                <Chip
-                  label={upcomingSessions.length}
-                  size="small"
-                  color="secondary"
-                  sx={{ ml: 'auto' }}
-                />
+                <Chip label={upcomingSessions.length} size="small" color="secondary" sx={{ ml: 'auto' }} />
               </Box>
-              
+
               {upcomingSessions.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                   Không có lịch đánh sắp tới
                 </Typography>
               ) : (
                 <List dense>
-                  {upcomingSessions.slice(0, 5).map((session, index) => (
+                  {upcomingSessions.map((session, index) => (
                     <React.Fragment key={session.id}>
                       <ListItem disablePadding>
                         <ListItemIcon>
@@ -249,7 +220,7 @@ const Dashboard: React.FC = () => {
                           secondary={`${formatDate(session.date)} • ${session.startTime} - ${session.endTime}`}
                         />
                       </ListItem>
-                      {index < upcomingSessions.slice(0, 5).length - 1 && <Divider />}
+                      {index < upcomingSessions.length - 1 && <Divider />}
                     </React.Fragment>
                   ))}
                 </List>
@@ -258,7 +229,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </Grid>
 
-        {/* Recent Activity */}
+        {/* Recent Activity - 3 items */}
         <Grid item xs={12}>
           <Card>
             <CardContent>
@@ -267,15 +238,16 @@ const Dashboard: React.FC = () => {
                 <Typography variant="h6" component="h2" fontWeight="bold">
                   Hoạt động gần đây
                 </Typography>
+                <Chip label={completedSessions.length} size="small" color="success" sx={{ ml: 'auto' }} />
               </Box>
-              
+
               {completedSessions.length === 0 ? (
                 <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                   Chưa có hoạt động nào được hoàn thành
                 </Typography>
               ) : (
                 <List>
-                  {completedSessions.slice(0, 8).map((session, index) => (
+                  {completedSessions.map((session, index) => (
                     <React.Fragment key={session.id}>
                       <ListItem>
                         <ListItemIcon>
@@ -289,7 +261,7 @@ const Dashboard: React.FC = () => {
                           {formatDate(session.updatedAt)}
                         </Typography>
                       </ListItem>
-                      {index < completedSessions.slice(0, 8).length - 1 && <Divider />}
+                      {index < completedSessions.length - 1 && <Divider />}
                     </React.Fragment>
                   ))}
                 </List>

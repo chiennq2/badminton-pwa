@@ -22,13 +22,25 @@ import {
   Tooltip,
   Paper,
   DialogContentText,
+  IconButton,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  ListItemSecondaryAction,
+  Menu,
+  useMediaQuery,
+  useTheme,
+  TextField,
+  Divider,
+  ListItemIcon,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem, GridRowParams } from '@mui/x-data-grid';
-import { 
-  Edit, 
+import {
+  Edit,
   Delete,
-  Block, 
-  CheckCircle, 
+  Block,
+  CheckCircle,
   AdminPanelSettings,
   Person,
   SupervisorAccount,
@@ -38,15 +50,16 @@ import {
   MoreVert,
   FileDownload,
   PersonOff,
+  NotificationsActive,
 } from '@mui/icons-material';
 import { useUsers, useUpdateUser, useDeleteUser } from '../hooks';
 import { User } from '../types';
 import { formatDate, exportToCsv } from '../utils';
 import { useAuth } from '../contexts/AuthContext';
-import NotificationsActiveIcon from '@mui/icons-material/NotificationsActive';
-import TextField from '@mui/material/TextField';
 
 const AdminUsers: React.FC = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { data: users, isLoading } = useUsers();
   const updateUserMutation = useUpdateUser();
   const deleteUserMutation = useDeleteUser();
@@ -61,13 +74,15 @@ const AdminUsers: React.FC = () => {
   const [deletingUser, setDeletingUser] = useState<User | null>(null);
   const [toggleActiveDialogOpen, setToggleActiveDialogOpen] = useState(false);
   const [togglingUser, setTogglingUser] = useState<User | null>(null);
-  const [snackbar, setSnackbar] = useState({ 
-    open: false, 
-    message: '', 
-    severity: 'success' as 'success' | 'error' 
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error',
   });
 
-  // stage notification
+  // Notification state
   const [notifyDialogOpen, setNotifyDialogOpen] = useState(false);
   const [notifyTitle, setNotifyTitle] = useState('');
   const [notifyMessage, setNotifyMessage] = useState('');
@@ -75,125 +90,123 @@ const AdminUsers: React.FC = () => {
 
   const handleSendNotification = async () => {
     if (!notifyMessage.trim()) {
-      showSnackbar("Vui lòng nhập nội dung thông báo!", "error");
+      showSnackbar('Vui lòng nhập nội dung thông báo!', 'error');
       return;
     }
 
     setSendingNotify(true);
     try {
-      if ("serviceWorker" in navigator) {
-        // Đảm bảo Service Worker đã sẵn sàng
+      if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.ready;
-
         if (registration?.active) {
           registration.active.postMessage({
-            type: "LOCAL_NOTIFICATION",
-            title: notifyTitle || "Thông báo từ quản trị viên",
+            type: 'LOCAL_NOTIFICATION',
+            title: notifyTitle || 'Thông báo từ quản trị viên',
             body: notifyMessage,
           });
-          showSnackbar(
-            "Thông báo đã được gửi tới tất cả thiết bị đang mở!",
-            "success"
-          );
+          showSnackbar('Thông báo đã được gửi tới tất cả thiết bị đang mở!', 'success');
         } else {
-          showSnackbar(
-            "Không tìm thấy Service Worker đang hoạt động.",
-            "error"
-          );
+          showSnackbar('Không tìm thấy Service Worker đang hoạt động.', 'error');
         }
       } else {
-        showSnackbar("Trình duyệt không hỗ trợ Service Worker.", "error");
+        showSnackbar('Trình duyệt không hỗ trợ Service Worker.', 'error');
       }
     } catch (error) {
-      console.error("Error sending notification:", error);
-      showSnackbar("Gửi thông báo thất bại!", "error");
+      console.error('Error sending notification:', error);
+      showSnackbar('Gửi thông báo thất bại!', 'error');
     } finally {
       setSendingNotify(false);
       setNotifyDialogOpen(false);
-      setNotifyMessage("");
-      setNotifyTitle("");
+      setNotifyMessage('');
+      setNotifyTitle('');
     }
   };
 
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, user: User) => {
+    setMenuAnchorEl(event.currentTarget);
+    setSelectedUser(user);
+  };
 
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+    setSelectedUser(null);
+  };
 
   const handleEditRole = (user: User) => {
     setEditingUser(user);
     setNewRole(user.role);
     setEditDialogOpen(true);
+    handleMenuClose();
   };
 
   const handleViewUser = (user: User) => {
     setViewingUser(user);
     setViewDialogOpen(true);
+    handleMenuClose();
   };
 
   const handleDeleteClick = (user: User) => {
     setDeletingUser(user);
     setDeleteDialogOpen(true);
+    handleMenuClose();
   };
 
   const handleToggleActiveClick = (user: User) => {
     setTogglingUser(user);
     setToggleActiveDialogOpen(true);
+    handleMenuClose();
   };
 
   const handleDeleteConfirm = async () => {
     if (!deletingUser) return;
-
     try {
       await deleteUserMutation.mutateAsync(deletingUser.id);
       showSnackbar('Xóa người dùng thành công!', 'success');
       setDeleteDialogOpen(false);
       setDeletingUser(null);
     } catch (error: any) {
-      console.error('Error deleting user:', error);
       showSnackbar(`Có lỗi xảy ra: ${error.message}`, 'error');
     }
   };
 
   const handleToggleActive = async () => {
     if (!togglingUser) return;
-
     try {
       await updateUserMutation.mutateAsync({
         id: togglingUser.id,
-        data: { 
+        data: {
           isActive: !togglingUser.isActive,
           updatedAt: new Date(),
         },
       });
       showSnackbar(
-        `${togglingUser.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'} người dùng thành công!`, 
+        `${togglingUser.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'} người dùng thành công!`,
         'success'
       );
       setToggleActiveDialogOpen(false);
       setTogglingUser(null);
     } catch (error: any) {
-      console.error('Error toggling user active status:', error);
       showSnackbar(`Có lỗi xảy ra: ${error.message}`, 'error');
     }
   };
 
   const handleUpdateRole = async () => {
     if (!editingUser) return;
-
     try {
       await updateUserMutation.mutateAsync({
         id: editingUser.id,
-        data: { 
+        data: {
           role: newRole,
           updatedAt: new Date(),
         },
       });
       showSnackbar(
-        `Cập nhật quyền ${newRole === 'admin' ? 'quản trị viên' : 'người dùng'} thành công!`, 
+        `Cập nhật quyền ${newRole === 'admin' ? 'quản trị viên' : 'người dùng'} thành công!`,
         'success'
       );
       setEditDialogOpen(false);
       setEditingUser(null);
     } catch (error: any) {
-      console.error('Error updating user role:', error);
       showSnackbar(`Có lỗi xảy ra khi cập nhật quyền: ${error.message}`, 'error');
     }
   };
@@ -204,10 +217,10 @@ const AdminUsers: React.FC = () => {
 
   const handleExport = () => {
     if (!users) return;
-    const exportData = users.map(user => ({
+    const exportData = users.map((user) => ({
       'Tên hiển thị': user.displayName,
-      'Email': user.email,
-      'Quyền': user.role === 'admin' ? 'Quản trị viên' : 'Người dùng',
+      Email: user.email,
+      Quyền: user.role === 'admin' ? 'Quản trị viên' : 'Người dùng',
       'Trạng thái': user.isActive ? 'Đã kích hoạt' : 'Chưa kích hoạt',
       'Ngày tạo': formatDate(user.createdAt),
       'Cập nhật cuối': formatDate(user.updatedAt),
@@ -228,6 +241,23 @@ const AdminUsers: React.FC = () => {
     return role === 'admin' ? <AdminPanelSettings /> : <Person />;
   };
 
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', py: 8 }}>
+        <CircularProgress size={60} sx={{ mb: 2 }} />
+        <Typography variant="body1" color="text.secondary">
+          Đang tải danh sách người dùng...
+        </Typography>
+      </Box>
+    );
+  }
+
+  const adminUsers = users?.filter((u) => u.role === 'admin') || [];
+  const regularUsers = users?.filter((u) => u.role === 'user') || [];
+  const activeUsers = users?.filter((u) => u.isActive) || [];
+  const inactiveUsers = users?.filter((u) => !u.isActive) || [];
+
+  // Desktop columns
   const columns: GridColDef[] = [
     {
       field: 'displayName',
@@ -236,11 +266,11 @@ const AdminUsers: React.FC = () => {
       minWidth: 250,
       renderCell: (params) => (
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Avatar 
-            src={params.row.photoURL} 
-            sx={{ 
-              mr: 2, 
-              width: 40, 
+          <Avatar
+            src={params.row.photoURL}
+            sx={{
+              mr: 2,
+              width: 40,
               height: 40,
               bgcolor: params.row.role === 'admin' ? 'error.main' : 'primary.main',
               opacity: params.row.isActive ? 1 : 0.5,
@@ -308,7 +338,7 @@ const AdminUsers: React.FC = () => {
       getActions: (params: GridRowParams) => {
         const user = params.row as User;
         const isCurrentUser = user.id === currentUser?.id;
-        
+
         return [
           <GridActionsCellItem
             icon={
@@ -347,28 +377,6 @@ const AdminUsers: React.FC = () => {
     },
   ];
 
-  if (isLoading) {
-    return (
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: 'column',
-        justifyContent: 'center', 
-        alignItems: 'center',
-        py: 8 
-      }}>
-        <CircularProgress size={60} sx={{ mb: 2 }} />
-        <Typography variant="body1" color="text.secondary">
-          Đang tải danh sách người dùng...
-        </Typography>
-      </Box>
-    );
-  }
-
-  const adminUsers = users?.filter(u => u.role === 'admin') || [];
-  const regularUsers = users?.filter(u => u.role === 'user') || [];
-  const activeUsers = users?.filter(u => u.isActive) || [];
-  const inactiveUsers = users?.filter(u => !u.isActive) || [];
-
   return (
     <Box>
       {/* Header */}
@@ -382,57 +390,57 @@ const AdminUsers: React.FC = () => {
       </Box>
 
       {/* Statistics Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={6} sm={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <SupervisorAccount sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold">
+            <CardContent sx={{ textAlign: 'center', p: { xs: 2, sm: 3 } }}>
+              <SupervisorAccount sx={{ fontSize: { xs: 30, sm: 40 }, color: 'primary.main', mb: 1 }} />
+              <Typography variant="h5" fontWeight="bold">
                 {users?.length || 0}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="caption" color="text.secondary">
                 Tổng người dùng
               </Typography>
             </CardContent>
           </Card>
         </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
+
+        <Grid item xs={6} sm={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <AdminPanelSettings sx={{ fontSize: 40, color: 'error.main', mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold" color="error.main">
+            <CardContent sx={{ textAlign: 'center', p: { xs: 2, sm: 3 } }}>
+              <AdminPanelSettings sx={{ fontSize: { xs: 30, sm: 40 }, color: 'error.main', mb: 1 }} />
+              <Typography variant="h5" fontWeight="bold" color="error.main">
                 {adminUsers.length}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="caption" color="text.secondary">
                 Quản trị viên
               </Typography>
             </CardContent>
           </Card>
         </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
+
+        <Grid item xs={6} sm={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <CheckCircle sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold" color="success.main">
+            <CardContent sx={{ textAlign: 'center', p: { xs: 2, sm: 3 } }}>
+              <CheckCircle sx={{ fontSize: { xs: 30, sm: 40 }, color: 'success.main', mb: 1 }} />
+              <Typography variant="h5" fontWeight="bold" color="success.main">
                 {activeUsers.length}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="caption" color="text.secondary">
                 Đã kích hoạt
               </Typography>
             </CardContent>
           </Card>
         </Grid>
-        
-        <Grid item xs={12} sm={6} md={3}>
+
+        <Grid item xs={6} sm={3}>
           <Card>
-            <CardContent sx={{ textAlign: 'center' }}>
-              <PersonOff sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
-              <Typography variant="h4" fontWeight="bold" color="warning.main">
+            <CardContent sx={{ textAlign: 'center', p: { xs: 2, sm: 3 } }}>
+              <PersonOff sx={{ fontSize: { xs: 30, sm: 40 }, color: 'warning.main', mb: 1 }} />
+              <Typography variant="h5" fontWeight="bold" color="warning.main">
                 {inactiveUsers.length}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="caption" color="text.secondary">
                 Chưa kích hoạt
               </Typography>
             </CardContent>
@@ -441,11 +449,13 @@ const AdminUsers: React.FC = () => {
       </Grid>
 
       {/* Actions Bar */}
-      <Box sx={{ mb: 2, display: 'flex', gap: 2 }}>
+      <Box sx={{ mb: 2, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
         <Button
           variant="outlined"
           startIcon={<FileDownload />}
           onClick={handleExport}
+          fullWidth={isMobile}
+          size={isMobile ? 'medium' : 'large'}
         >
           Xuất CSV
         </Button>
@@ -453,48 +463,143 @@ const AdminUsers: React.FC = () => {
         <Button
           variant="contained"
           color="primary"
-          startIcon={<NotificationsActiveIcon />}
+          startIcon={<NotificationsActive />}
           onClick={() => setNotifyDialogOpen(true)}
+          fullWidth={isMobile}
+          size={isMobile ? 'medium' : 'large'}
         >
           Gửi thông báo
         </Button>
       </Box>
-      
 
-      {/* Users Table */}
-      <Card>
-        <DataGrid
-          rows={users || []}
-          columns={columns}
-          autoHeight
-          pageSizeOptions={[10, 25, 50, 100]}
-          initialState={{
-            pagination: { paginationModel: { pageSize: 25 } },
-          }}
-          slots={{ toolbar: GridToolbar }}
-          slotProps={{
-            toolbar: {
-              showQuickFilter: true,
-              quickFilterProps: { debounceMs: 500 },
-            },
-          }}
-          sx={{
-            '& .MuiDataGrid-row': {
-              cursor: 'pointer',
-            },
-          }}
-        />
-      </Card>
+      {/* Mobile List View */}
+      {isMobile ? (
+        <List sx={{ bgcolor: 'background.paper', borderRadius: 2 }}>
+          {users?.map((user) => {
+            const isCurrentUser = user.id === currentUser?.id;
+            return (
+              <Card key={user.id} sx={{ mb: 1 }}>
+                <ListItem>
+                  <ListItemAvatar>
+                    <Avatar
+                      src={user.photoURL}
+                      sx={{
+                        bgcolor: user.role === 'admin' ? 'error.main' : 'primary.main',
+                        opacity: user.isActive ? 1 : 0.5,
+                      }}
+                    >
+                      {user.displayName?.charAt(0).toUpperCase() || 'U'}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Typography variant="body2" fontWeight="medium">
+                          {user.displayName || 'Không có tên'}
+                        </Typography>
+                        <Chip
+                          label={getRoleText(user.role)}
+                          color={getRoleColor(user.role)}
+                          size="small"
+                          sx={{ height: 20 }}
+                        />
+                      </Box>
+                    }
+                    secondary={
+                      <Box sx={{ mt: 0.5 }}>
+                        <Typography variant="caption" display="block" color="text.secondary">
+                          {user.email}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                          <Chip
+                            label={user.isActive ? 'Hoạt động' : 'Ngừng'}
+                            color={user.isActive ? 'success' : 'default'}
+                            size="small"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            {formatDate(user.createdAt)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    }
+                  />
+                  <ListItemSecondaryAction>
+                    <IconButton
+                      edge="end"
+                      onClick={(e) => handleMenuOpen(e, user)}
+                      disabled={isCurrentUser}
+                    >
+                      <MoreVert />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              </Card>
+            );
+          })}
+        </List>
+      ) : (
+        /* Desktop DataGrid */
+        <Card>
+          <DataGrid
+            rows={users || []}
+            columns={columns}
+            autoHeight
+            pageSizeOptions={[10, 25, 50, 100]}
+            initialState={{
+              pagination: { paginationModel: { pageSize: 25 } },
+            }}
+            slots={{ toolbar: GridToolbar }}
+            slotProps={{
+              toolbar: {
+                showQuickFilter: true,
+                quickFilterProps: { debounceMs: 500 },
+              },
+            }}
+            sx={{
+              '& .MuiDataGrid-row': {
+                cursor: 'pointer',
+              },
+            }}
+          />
+        </Card>
+      )}
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-      >
+      {/* Mobile Menu */}
+      <Menu anchorEl={menuAnchorEl} open={Boolean(menuAnchorEl)} onClose={handleMenuClose}>
+        <MenuItem onClick={() => selectedUser && handleViewUser(selectedUser)}>
+          <ListItemIcon>
+            <Person fontSize="small" />
+          </ListItemIcon>
+          Xem chi tiết
+        </MenuItem>
+        <MenuItem onClick={() => selectedUser && handleEditRole(selectedUser)}>
+          <ListItemIcon>
+            <Edit fontSize="small" />
+          </ListItemIcon>
+          Sửa quyền
+        </MenuItem>
+        <MenuItem onClick={() => selectedUser && handleToggleActiveClick(selectedUser)}>
+          <ListItemIcon>
+            {selectedUser?.isActive ? <Block fontSize="small" /> : <CheckCircle fontSize="small" />}
+          </ListItemIcon>
+          {selectedUser?.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => selectedUser && handleDeleteClick(selectedUser)} sx={{ color: 'error.main' }}>
+          <ListItemIcon>
+            <Delete fontSize="small" color="error" />
+          </ListItemIcon>
+          Xóa
+        </MenuItem>
+      </Menu>
+
+      {/* Delete Dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Delete sx={{ mr: 1, color: 'error.main' }} />
-            Xác nhận xóa người dùng
+            Xác nhận xóa
           </Box>
         </DialogTitle>
         <DialogContent>
@@ -507,8 +612,8 @@ const AdminUsers: React.FC = () => {
             </Typography>
           </Alert>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} fullWidth={isMobile}>
             Hủy
           </Button>
           <Button
@@ -517,19 +622,15 @@ const AdminUsers: React.FC = () => {
             color="error"
             disabled={deleteUserMutation.isPending}
             startIcon={deleteUserMutation.isPending ? <CircularProgress size={20} /> : <Delete />}
+            fullWidth={isMobile}
           >
             {deleteUserMutation.isPending ? 'Đang xóa...' : 'Xóa'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Toggle Active Confirmation Dialog */}
-      <Dialog
-        open={toggleActiveDialogOpen}
-        onClose={() => setToggleActiveDialogOpen(false)}
-        maxWidth="sm"
-        fullWidth
-      >
+      {/* Toggle Active Dialog */}
+      <Dialog open={toggleActiveDialogOpen} onClose={() => setToggleActiveDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             {togglingUser?.isActive ? (
@@ -545,9 +646,9 @@ const AdminUsers: React.FC = () => {
             <Box>
               <Paper sx={{ p: 2, mb: 2, backgroundColor: 'action.hover' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Avatar 
-                    src={togglingUser.photoURL} 
-                    sx={{ 
+                  <Avatar
+                    src={togglingUser.photoURL}
+                    sx={{
                       mr: 2,
                       bgcolor: togglingUser.role === 'admin' ? 'error.main' : 'primary.main',
                     }}
@@ -562,11 +663,7 @@ const AdminUsers: React.FC = () => {
                       {togglingUser.email}
                     </Typography>
                   </Box>
-                  <Chip
-                    label={getRoleText(togglingUser.role)}
-                    color={getRoleColor(togglingUser.role)}
-                    size="small"
-                  />
+                  <Chip label={getRoleText(togglingUser.role)} color={getRoleColor(togglingUser.role)} size="small" />
                 </Box>
               </Paper>
 
@@ -575,26 +672,19 @@ const AdminUsers: React.FC = () => {
                   <Typography variant="body2" gutterBottom>
                     <strong>Vô hiệu hóa tài khoản này?</strong>
                   </Typography>
-                  <Typography variant="body2">
-                    Người dùng sẽ:
-                  </Typography>
+                  <Typography variant="body2">Người dùng sẽ:</Typography>
                   <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
                     <li>Không thể đăng nhập vào hệ thống</li>
                     <li>Bị đăng xuất ngay lập tức nếu đang online</li>
                     <li>Không thể truy cập bất kỳ chức năng nào</li>
                   </ul>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    Bạn có thể kích hoạt lại tài khoản bất cứ lúc nào.
-                  </Typography>
                 </Alert>
               ) : (
                 <Alert severity="success" sx={{ mb: 2 }}>
                   <Typography variant="body2" gutterBottom>
                     <strong>Kích hoạt tài khoản này?</strong>
                   </Typography>
-                  <Typography variant="body2">
-                    Người dùng sẽ có thể:
-                  </Typography>
+                  <Typography variant="body2">Người dùng sẽ có thể:</Typography>
                   <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
                     <li>Đăng nhập vào hệ thống</li>
                     <li>Truy cập các chức năng theo quyền của mình</li>
@@ -602,22 +692,11 @@ const AdminUsers: React.FC = () => {
                   </ul>
                 </Alert>
               )}
-
-              {togglingUser.role === 'admin' && togglingUser.isActive && (
-                <Alert severity="error">
-                  <Typography variant="body2">
-                    <strong>Lưu ý:</strong> Đây là tài khoản quản trị viên. Vô hiệu hóa có thể ảnh hưởng đến quản lý hệ thống!
-                  </Typography>
-                </Alert>
-              )}
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button 
-            onClick={() => setToggleActiveDialogOpen(false)}
-            size="large"
-          >
+        <DialogActions sx={{ p: 2, flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+          <Button onClick={() => setToggleActiveDialogOpen(false)} size="large" fullWidth={isMobile}>
             Hủy
           </Button>
           <Button
@@ -626,6 +705,7 @@ const AdminUsers: React.FC = () => {
             color={togglingUser?.isActive ? 'warning' : 'success'}
             disabled={updateUserMutation.isPending}
             size="large"
+            fullWidth={isMobile}
             startIcon={
               updateUserMutation.isPending ? (
                 <CircularProgress size={20} color="inherit" />
@@ -636,97 +716,8 @@ const AdminUsers: React.FC = () => {
               )
             }
           >
-            {updateUserMutation.isPending 
-              ? 'Đang xử lý...' 
-              : togglingUser?.isActive 
-                ? 'Vô hiệu hóa' 
-                : 'Kích hoạt'
-            }
+            {updateUserMutation.isPending ? 'Đang xử lý...' : togglingUser?.isActive ? 'Vô hiệu hóa' : 'Kích hoạt'}
           </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* View User Dialog */}
-      <Dialog open={viewDialogOpen} onClose={() => setViewDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          Thông tin người dùng
-        </DialogTitle>
-        <DialogContent>
-          {viewingUser && (
-            <Box sx={{ pt: 2 }}>
-              <Paper sx={{ p: 3, textAlign: 'center', mb: 3 }}>
-                <Avatar 
-                  src={viewingUser.photoURL}
-                  sx={{ 
-                    width: 80, 
-                    height: 80, 
-                    mx: 'auto', 
-                    mb: 2,
-                    bgcolor: viewingUser.role === 'admin' ? 'error.main' : 'primary.main',
-                  }}
-                >
-                  {viewingUser.displayName?.charAt(0).toUpperCase() || 'U'}
-                </Avatar>
-                <Typography variant="h6" gutterBottom>
-                  {viewingUser.displayName || 'Không có tên'}
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                  <Chip
-                    label={getRoleText(viewingUser.role)}
-                    color={getRoleColor(viewingUser.role)}
-                    icon={getRoleIcon(viewingUser.role)}
-                    variant={viewingUser.role === 'admin' ? 'filled' : 'outlined'}
-                  />
-                  <Chip
-                    label={viewingUser.isActive ? 'Đã kích hoạt' : 'Chưa kích hoạt'}
-                    color={viewingUser.isActive ? 'success' : 'default'}
-                    icon={viewingUser.isActive ? <CheckCircle /> : <Block />}
-                  />
-                </Box>
-              </Paper>
-
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Email sx={{ mr: 1, color: 'text.secondary' }} />
-                    <Typography variant="body2" color="text.secondary">Email:</Typography>
-                  </Box>
-                  <Typography variant="body1">{viewingUser.email}</Typography>
-                </Grid>
-                
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <Security sx={{ mr: 1, color: 'text.secondary' }} />
-                    <Typography variant="body2" color="text.secondary">Quyền hạn:</Typography>
-                  </Box>
-                  <Typography variant="body1">
-                    {getRoleText(viewingUser.role)}
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Ngày tạo tài khoản:
-                  </Typography>
-                  <Typography variant="body1">
-                    {formatDate(viewingUser.createdAt)}
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" color="text.secondary">
-                    Cập nhật cuối:
-                  </Typography>
-                  <Typography variant="body1">
-                    {formatDate(viewingUser.updatedAt)}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setViewDialogOpen(false)}>Đóng</Button>
         </DialogActions>
       </Dialog>
 
@@ -747,11 +738,7 @@ const AdminUsers: React.FC = () => {
 
               <FormControl fullWidth>
                 <InputLabel>Quyền</InputLabel>
-                <Select
-                  value={newRole}
-                  label="Quyền"
-                  onChange={(e) => setNewRole(e.target.value as 'admin' | 'user')}
-                >
+                <Select value={newRole} label="Quyền" onChange={(e) => setNewRole(e.target.value as 'admin' | 'user')}>
                   <MenuItem value="user">
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
                       <Person sx={{ mr: 1, color: 'primary.main' }} />
@@ -784,21 +771,15 @@ const AdminUsers: React.FC = () => {
               {newRole === 'admin' && (
                 <Alert severity="warning" sx={{ mt: 2 }}>
                   <Typography variant="body2">
-                    <strong>Lưu ý:</strong> Quyền quản trị viên cho phép người dùng:
+                    <strong>Lưu ý:</strong> Quyền quản trị viên cho phép người dùng quản lý tất cả dữ liệu và người dùng khác.
                   </Typography>
-                  <ul style={{ margin: '8px 0', paddingLeft: '20px' }}>
-                    <li>Quản lý tất cả sân, thành viên, nhóm</li>
-                    <li>Xem và chỉnh sửa tất cả lịch đánh</li>
-                    <li>Quản lý quyền người dùng khác</li>
-                    <li>Truy cập báo cáo và cài đặt hệ thống</li>
-                  </ul>
                 </Alert>
               )}
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)} size="large">
+        <DialogActions sx={{ p: 2, flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+          <Button onClick={() => setEditDialogOpen(false)} size="large" fullWidth={isMobile}>
             Hủy
           </Button>
           <Button
@@ -807,13 +788,48 @@ const AdminUsers: React.FC = () => {
             disabled={updateUserMutation.isPending}
             size="large"
             color={newRole === 'admin' ? 'error' : 'primary'}
-            sx={{ minWidth: 120 }}
+            fullWidth={isMobile}
           >
-            {updateUserMutation.isPending ? (
-              <CircularProgress size={20} color="inherit" />
-            ) : (
-              'Cập nhật'
-            )}
+            {updateUserMutation.isPending ? <CircularProgress size={20} color="inherit" /> : 'Cập nhật'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Notification Dialog */}
+      <Dialog open={notifyDialogOpen} onClose={() => setNotifyDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <NotificationsActive sx={{ mr: 1, color: 'primary.main' }} />
+            Gửi thông báo đến tất cả thiết bị
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField label="Tiêu đề (tùy chọn)" fullWidth value={notifyTitle} onChange={(e) => setNotifyTitle(e.target.value)} />
+            <TextField
+              label="Nội dung thông báo"
+              fullWidth
+              required
+              multiline
+              minRows={3}
+              value={notifyMessage}
+              onChange={(e) => setNotifyMessage(e.target.value)}
+            />
+            <Alert severity="info">Tất cả thiết bị đang mở ứng dụng PWA sẽ hiển thị thông báo này ngay lập tức.</Alert>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+          <Button onClick={() => setNotifyDialogOpen(false)} fullWidth={isMobile}>
+            Hủy
+          </Button>
+          <Button
+            onClick={handleSendNotification}
+            variant="contained"
+            disabled={sendingNotify}
+            startIcon={sendingNotify ? <CircularProgress size={20} /> : <NotificationsActive />}
+            fullWidth={isMobile}
+          >
+            {sendingNotify ? 'Đang gửi...' : 'Gửi thông báo'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -825,62 +841,10 @@ const AdminUsers: React.FC = () => {
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-          variant="filled"
-        >
+        <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }} variant="filled">
           {snackbar.message}
         </Alert>
       </Snackbar>
-
-              <Dialog
-          open={notifyDialogOpen}
-          onClose={() => setNotifyDialogOpen(false)}
-          maxWidth="sm"
-          fullWidth
-        >
-          <DialogTitle>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <NotificationsActiveIcon sx={{ mr: 1, color: 'primary.main' }} />
-              Gửi thông báo đến tất cả thiết bị
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                label="Tiêu đề (tùy chọn)"
-                fullWidth
-                value={notifyTitle}
-                onChange={(e) => setNotifyTitle(e.target.value)}
-              />
-              <TextField
-                label="Nội dung thông báo"
-                fullWidth
-                required
-                multiline
-                minRows={3}
-                value={notifyMessage}
-                onChange={(e) => setNotifyMessage(e.target.value)}
-              />
-              <Alert severity="info">
-                Tất cả thiết bị đang mở ứng dụng PWA sẽ hiển thị thông báo này ngay lập tức.
-              </Alert>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setNotifyDialogOpen(false)}>Hủy</Button>
-            <Button
-              onClick={handleSendNotification}
-              variant="contained"
-              disabled={sendingNotify}
-              startIcon={sendingNotify ? <CircularProgress size={20} /> : <NotificationsActiveIcon />}
-            >
-              {sendingNotify ? 'Đang gửi...' : 'Gửi thông báo'}
-            </Button>
-          </DialogActions>
-        </Dialog>
     </Box>
   );
 };
