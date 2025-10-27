@@ -42,6 +42,8 @@ export interface Group {
   name: string;
   description?: string;
   memberIds: string[];
+  createdBy: string; // ✅ Thêm người tạo
+  createdByName?: string; // ✅ Tên người tạo (optional để dễ hiển thị)
   createdAt: Date;
   updatedAt: Date;
 }

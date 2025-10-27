@@ -1,0 +1,152 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ================================
+    // ⚙️ HELPER FUNCTIONS
+    // ================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function isAdmin() {
+      return isSignedIn() && userDoc().data.role == 'admin';
+    }
+
+    function isActive() {
+      return isSignedIn() && userDoc().data.isActive == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ================================
+    // 👤 USERS COLLECTION
+    // ================================
+    match /users/{userId} {
+      // Cho phép đọc thông tin người dùng đăng nhập (để hàm get() hoạt động)
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+
+      // Cho phép tạo tài khoản riêng của họ
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // Cho phép user chỉnh sửa chính họ (không đổi role hoặc isActive)
+      allow update: if isAdmin() ||
+        (isOwner(userId) &&
+         request.resource.data.role == resource.data.role &&
+         request.resource.data.isActive == resource.data.isActive);
+
+      // Xóa: chỉ admin
+      allow delete: if isAdmin();
+    }
+
+    // ================================
+    // 🏸 COURTS COLLECTION
+    // ================================
+    match /courts/{courtId} {
+      allow read: if isActive();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ================================
+    // 👥 MEMBERS COLLECTION
+    // ================================
+    match /members/{memberId} {
+      allow read: if isActive();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ================================
+    // 👪 GROUPS COLLECTION
+    // ================================
+    // match /groups/{groupId} {
+    //   allow read: if isActive();
+    //   allow create, update, delete: if isAdmin();
+    // }
+    // 
+    // ================================
+    // 👪 GROUPS COLLECTION (CẬP NHẬT)
+    // ================================
+    match /groups/{groupId} {
+      // Đọc: User active có thể đọc tất cả nhóm
+      allow read: if isActive();
+
+      // Tạo: User active có thể tạo nhóm với createdBy là chính họ
+      allow create: if isActive() && 
+                       request.resource.data.createdBy == request.auth.uid;
+
+      // Cập nhật: 
+      // - Admin có thể cập nhật bất kỳ nhóm nào
+      // - User chỉ có thể cập nhật nhóm của mình
+      allow update: if isActive() && 
+                       (isAdmin() || resource.data.createdBy == request.auth.uid);
+
+      // Xóa:
+      // - Admin có thể xóa bất kỳ nhóm nào  
+      // - User chỉ có thể xóa nhóm của mình
+      allow delete: if isActive() && 
+                       (isAdmin() || resource.data.createdBy == request.auth.uid);
+    }
+
+    // ================================
+    // 🗓️ SESSIONS COLLECTION
+    // ================================
+    match /sessions/{sessionId} {
+      allow read: if isActive();
+
+      // User chỉ được tạo session của chính họ
+      allow create: if isActive() &&
+                    request.resource.data.createdBy == request.auth.uid;
+
+      // User được update session của họ, admin có full quyền
+      allow update: if isActive() &&
+                    (isAdmin() || resource.data.createdBy == request.auth.uid);
+
+      // Xóa tương tự
+      allow delete: if isActive() &&
+                    (isAdmin() || resource.data.createdBy == request.auth.uid);
+    }
+    
+    
+match /tournaments/{tournamentId} {
+  // Đọc: User đã đăng nhập và active
+  allow read: if isActive();
+  
+  // Tạo: User active có thể tạo tournament
+  allow create: if isActive() && 
+                   request.resource.data.createdBy == request.auth.uid;
+  
+  // Cập nhật: 
+  // - Admin có thể cập nhật bất kỳ tournament nào
+  // - User chỉ có thể cập nhật tournament của mình
+  allow update: if isActive() && 
+                   (isAdmin() || resource.data.createdBy == request.auth.uid);
+  
+  // Xóa:
+  // - Admin có thể xóa bất kỳ tournament nào
+  // - User chỉ có thể xóa tournament của mình
+  allow delete: if isActive() && 
+                   (isAdmin() || resource.data.createdBy == request.auth.uid);
+}
+    // ================================
+    // ⚙️ SETTINGS COLLECTION
+    // ================================
+    match /settings/{settingId} {
+      allow read: if isActive();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ================================
+    // 🚫 DEFAULT DENY
+    // ================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
