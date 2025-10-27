@@ -62,6 +62,7 @@ const adminSettingsItems = [
 
 // Menu cho user - chỉ có lịch đánh
 const userMenuItems = [
+  { text: "Nhóm của tôi", icon: <Groups />, path: "/groups" },
   { text: "Lịch đánh của tôi", icon: <CalendarMonth />, path: "/sessions" },
   { text: "Báo cáo của tôi", icon: <Assessment />, path: "/reports" },
 ];
