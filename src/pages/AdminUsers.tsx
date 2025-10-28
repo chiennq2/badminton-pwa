@@ -93,7 +93,15 @@ const AdminUsers: React.FC = () => {
       showSnackbar('Vui lòng nhập nội dung thông báo!', 'error');
       return;
     }
-
+  
+    // Kiểm tra quyền thông báo
+    if ((Notification.permission as any) !== 'granted') {
+      await requestNotificationPermission();  // Yêu cầu quyền
+      if (Notification.permission !== 'granted') {
+        return;  // Nếu quyền không được cấp, thoát khỏi hàm
+      }
+    }
+  
     setSendingNotify(true);
     try {
       if ('serviceWorker' in navigator) {
@@ -121,6 +129,21 @@ const AdminUsers: React.FC = () => {
       setNotifyTitle('');
     }
   };
+  const requestNotificationPermission = async () => {
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        console.log('Quyền thông báo đã được cấp');
+      } else {
+        console.log('Quyền thông báo bị từ chối');
+        showSnackbar('Quyền thông báo bị từ chối!', 'error');
+      }
+    } catch (error) {
+      console.error('Lỗi khi yêu cầu quyền thông báo:', error);
+      showSnackbar('Lỗi khi yêu cầu quyền thông báo!', 'error');
+    }
+  };
+  
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, user: User) => {
     setMenuAnchorEl(event.currentTarget);
