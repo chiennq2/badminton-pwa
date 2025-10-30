@@ -62,7 +62,6 @@ import { useUsers, useUpdateUser, useDeleteUser } from '../hooks';
 import { User } from '../types';
 import { formatDate, exportToCsv } from '../utils';
 import { useAuth } from '../contexts/AuthContext';
-import { notificationService } from '../services/notificationService';
 import NotificationDashboard from '../components/NotificationDashboard';
 import dayjs, { Dayjs } from 'dayjs';
 import { ScheduledNotification } from '../types/notification';
@@ -590,7 +589,7 @@ const handleSendNotification = async () => {
           Xuất CSV
         </Button>
 
-        <Button
+        {/* <Button
           variant="contained"
           color="primary"
           startIcon={<NotificationsActive />}
@@ -618,10 +617,10 @@ const handleSendNotification = async () => {
           fullWidth={isMobile}
         >
           Xem lịch ({scheduledNotifications.length})
-        </Button>
+        </Button> */}
       </Box>
 
-      <NotificationDashboard />
+      {/* <NotificationDashboard /> */}
 
       {/* Mobile List View */}
       {isMobile ? (

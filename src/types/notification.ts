@@ -17,3 +17,15 @@ export interface ScheduledNotification {
     time: string; // HH:mm format
   };
 }
+
+export interface NotificationHistory {
+  id: string;
+  title: string;
+  body: string;
+  failureCount: number;
+  readBy?: string[];
+  sentAt?: Date;
+  successCount: number;
+  targetType: 'all' | 'user' | 'group';
+  totalDevices: number;
+}

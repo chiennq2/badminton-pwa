@@ -47,6 +47,7 @@ import PullToRefreshIndicator from "./components/PullToRefreshIndicator";
 import Tournaments from "./pages/Tournaments";
 import Profile from "./pages/Profile";
 import { notificationService } from "./services/notificationService";
+import NotificationManagement from "./pages/NotificationManagement";
 
 // ===== CONFIG DAYJS =====
 dayjs.extend(updateLocale);
@@ -255,6 +256,8 @@ const AppContent: React.FC = () => {
                 />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/admin/notifications" element={<NotificationManagement />} />
+
 
                 <Route path="/settings" element={<Settings />} />
               </>
