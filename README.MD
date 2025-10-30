@@ -82,6 +82,7 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
+VITE_BACKEND_NOTI_URL="https://example.com/noti"
 ```
 
 ### 4. Cấu hình Firestore Rules
