@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -34,6 +34,8 @@ import {
   TextField,
   Divider,
   ListItemIcon,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem, GridRowParams } from '@mui/x-data-grid';
 import {
@@ -51,11 +53,22 @@ import {
   FileDownload,
   PersonOff,
   NotificationsActive,
+  Schedule,
+  CalendarToday,
+  Cancel,
+  Repeat,
 } from '@mui/icons-material';
 import { useUsers, useUpdateUser, useDeleteUser } from '../hooks';
 import { User } from '../types';
 import { formatDate, exportToCsv } from '../utils';
 import { useAuth } from '../contexts/AuthContext';
+import { notificationService } from '../services/notificationService';
+import NotificationDashboard from '../components/NotificationDashboard';
+import dayjs, { Dayjs } from 'dayjs';
+import { ScheduledNotification } from '../types/notification';
+import { scheduledNotificationService } from '../services/scheduledNotificationService';
+import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 
 const AdminUsers: React.FC = () => {
   const theme = useTheme();
@@ -88,47 +101,140 @@ const AdminUsers: React.FC = () => {
   const [notifyMessage, setNotifyMessage] = useState('');
   const [sendingNotify, setSendingNotify] = useState(false);
 
-  const handleSendNotification = async () => {
-    if (!notifyMessage.trim()) {
-      showSnackbar('Vui lòng nhập nội dung thông báo!', 'error');
-      return;
-    }
-  
-    // Kiểm tra quyền thông báo
-    if ((Notification.permission as any) !== 'granted') {
-      await requestNotificationPermission();  // Yêu cầu quyền
-      if (Notification.permission !== 'granted') {
-        return;  // Nếu quyền không được cấp, thoát khỏi hàm
-      }
-    }
-  
-    setSendingNotify(true);
+// Thêm state mới
+const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
+const [scheduledTime, setScheduledTime] = useState<Dayjs | null>(dayjs().add(1, 'hour'));
+const [isRecurring, setIsRecurring] = useState(false);
+const [recurringFrequency, setRecurringFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+const [selectedDaysOfWeek, setSelectedDaysOfWeek] = useState<number[]>([]);
+const [selectedDayOfMonth, setSelectedDayOfMonth] = useState(1);
+const [recurringTime, setRecurringTime] = useState('09:00');
+const [scheduledNotifications, setScheduledNotifications] = useState<ScheduledNotification[]>([]);
+const [viewScheduledDialogOpen, setViewScheduledDialogOpen] = useState(false);
+
+  // Load danh sách thông báo đã lên lịch
+  useEffect(() => {
+    loadScheduledNotifications();
+  }, []);
+
+  const loadScheduledNotifications = async () => {
     try {
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.ready;
-        if (registration?.active) {
-          registration.active.postMessage({
-            type: 'LOCAL_NOTIFICATION',
-            title: notifyTitle || 'Thông báo từ quản trị viên',
-            body: notifyMessage,
-          });
-          showSnackbar('Thông báo đã được gửi tới tất cả thiết bị đang mở!', 'success');
-        } else {
-          showSnackbar('Không tìm thấy Service Worker đang hoạt động.', 'error');
-        }
-      } else {
-        showSnackbar('Trình duyệt không hỗ trợ Service Worker.', 'error');
-      }
+      const notifications = await scheduledNotificationService.getScheduledNotifications('pending');
+      setScheduledNotifications(notifications);
     } catch (error) {
-      console.error('Error sending notification:', error);
-      showSnackbar('Gửi thông báo thất bại!', 'error');
-    } finally {
-      setSendingNotify(false);
-      setNotifyDialogOpen(false);
-      setNotifyMessage('');
-      setNotifyTitle('');
+      console.error('Error loading scheduled notifications:', error);
     }
   };
+
+// Xử lý lên lịch thông báo
+const handleScheduleNotification = async () => {
+  if (!notifyMessage.trim()) {
+    showSnackbar('Vui lòng nhập nội dung thông báo!', 'error');
+    return;
+  }
+
+  if (!scheduledTime) {
+    showSnackbar('Vui lòng chọn thời gian gửi!', 'error');
+    return;
+  }
+
+  if (scheduledTime.isBefore(dayjs())) {
+    showSnackbar('Thời gian gửi phải sau thời điểm hiện tại!', 'error');
+    return;
+  }
+
+  setSendingNotify(true);
+  try {
+    const notification: Omit<ScheduledNotification, 'id' | 'status' | 'createdAt'> = {
+      title: notifyTitle || 'Thông báo từ quản trị viên',
+      body: notifyMessage,
+      scheduledTime: scheduledTime.toDate(),
+      targetType: 'all',
+      createdBy: currentUser?.id || '',
+    };
+
+    if (isRecurring) {
+      notification.recurring = {
+        enabled: true,
+        frequency: recurringFrequency,
+        time: recurringTime,
+        ...(recurringFrequency === 'weekly' && { daysOfWeek: selectedDaysOfWeek }),
+        ...(recurringFrequency === 'monthly' && { dayOfMonth: selectedDayOfMonth }),
+      };
+    }
+
+    await scheduledNotificationService.createScheduledNotification(notification);
+    showSnackbar('Đã lên lịch thông báo thành công!', 'success');
+    
+    setScheduleDialogOpen(false);
+    setNotifyMessage('');
+    setNotifyTitle('');
+    setIsRecurring(false);
+    loadScheduledNotifications();
+  } catch (error) {
+    console.error('Error scheduling notification:', error);
+    showSnackbar('Lên lịch thông báo thất bại!', 'error');
+  } finally {
+    setSendingNotify(false);
+  }
+};
+
+// Hủy thông báo đã lên lịch
+const handleCancelScheduled = async (id: string) => {
+  try {
+    await scheduledNotificationService.cancelScheduledNotification(id);
+    showSnackbar('Đã hủy thông báo!', 'success');
+    loadScheduledNotifications();
+  } catch (error) {
+    console.error('Error cancelling notification:', error);
+    showSnackbar('Hủy thông báo thất bại!', 'error');
+  }
+};
+
+// Xóa thông báo đã lên lịch
+const handleDeleteScheduled = async (id: string) => {
+  try {
+    await scheduledNotificationService.deleteScheduledNotification(id);
+    showSnackbar('Đã xóa thông báo!', 'success');
+    loadScheduledNotifications();
+  } catch (error) {
+    console.error('Error deleting notification:', error);
+    showSnackbar('Xóa thông báo thất bại!', 'error');
+  }
+};
+
+// Toggle ngày trong tuần
+const toggleDayOfWeek = (day: number) => {
+  setSelectedDaysOfWeek((prev) =>
+    prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+  );
+};
+const handleSendNotification = async () => {
+  if (!notifyMessage.trim()) {
+    showSnackbar('Vui lòng nhập nội dung thông báo!', 'error');
+    return;
+  }
+
+  setSendingNotify(true);
+  try {
+    // Gửi thông báo qua FCM đến tất cả thiết bị
+    await notificationService.sendNotificationToAll(
+      notifyTitle || 'Thông báo từ quản trị viên',
+      notifyMessage
+    );
+
+    showSnackbar('Thông báo đã được gửi đến tất cả thiết bị!', 'success');
+    setNotifyDialogOpen(false);
+    setNotifyMessage('');
+    setNotifyTitle('');
+  } catch (error) {
+    console.error('Error sending notification:', error);
+    showSnackbar('Gửi thông báo thất bại!', 'error');
+  } finally {
+    setSendingNotify(false);
+  }
+};
+
   const requestNotificationPermission = async () => {
     try {
       const permission = await Notification.requestPermission();
@@ -493,7 +599,28 @@ const AdminUsers: React.FC = () => {
         >
           Gửi thông báo
         </Button>
+        <Button
+          variant="contained"
+          color="secondary"
+          startIcon={<Schedule />}
+          onClick={() => setScheduleDialogOpen(true)}
+          fullWidth={isMobile}
+        >
+          Lên lịch
+        </Button>
+
+        <Button
+          variant="outlined"
+          color="info"
+          startIcon={<CalendarToday />}
+          onClick={() => setViewScheduledDialogOpen(true)}
+          fullWidth={isMobile}
+        >
+          Xem lịch ({scheduledNotifications.length})
+        </Button>
       </Box>
+
+      <NotificationDashboard />
 
       {/* Mobile List View */}
       {isMobile ? (
@@ -856,6 +983,257 @@ const AdminUsers: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+// JSX - Dialog lên lịch thông báo
+<Dialog 
+  open={scheduleDialogOpen} 
+  onClose={() => setScheduleDialogOpen(false)} 
+  maxWidth="md" 
+  fullWidth
+>
+  <DialogTitle>
+    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <Schedule sx={{ mr: 1, color: 'secondary.main' }} />
+      Lên lịch gửi thông báo
+    </Box>
+  </DialogTitle>
+  <DialogContent>
+    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <TextField
+        label="Tiêu đề (tùy chọn)"
+        fullWidth
+        value={notifyTitle}
+        onChange={(e) => setNotifyTitle(e.target.value)}
+      />
+      
+      <TextField
+        label="Nội dung thông báo"
+        fullWidth
+        required
+        multiline
+        minRows={3}
+        value={notifyMessage}
+        onChange={(e) => setNotifyMessage(e.target.value)}
+      />
+
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <DateTimePicker
+          label="Thời gian gửi"
+          value={scheduledTime}
+          onChange={(newValue) => setScheduledTime(newValue)}
+          minDateTime={dayjs()}
+          format="DD/MM/YYYY HH:mm"
+          slotProps={{
+            textField: {
+              fullWidth: true,
+              required: true,
+            },
+          }}
+        />
+      </LocalizationProvider>
+
+      <Box>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={isRecurring}
+              onChange={(e) => setIsRecurring(e.target.checked)}
+            />
+          }
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Repeat sx={{ mr: 1 }} />
+              Lặp lại định kỳ
+            </Box>
+          }
+        />
+      </Box>
+
+      {isRecurring && (
+        <Paper sx={{ p: 2, bgcolor: 'action.hover' }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Cài đặt lặp lại
+          </Typography>
+
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Tần suất</InputLabel>
+            <Select
+              value={recurringFrequency}
+              label="Tần suất"
+              onChange={(e) => setRecurringFrequency(e.target.value as any)}
+            >
+              <MenuItem value="daily">Hàng ngày</MenuItem>
+              <MenuItem value="weekly">Hàng tuần</MenuItem>
+              <MenuItem value="monthly">Hàng tháng</MenuItem>
+            </Select>
+          </FormControl>
+
+          {recurringFrequency === 'weekly' && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Chọn các ngày trong tuần:
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'].map((day, index) => (
+                  <Chip
+                    key={index}
+                    label={day}
+                    onClick={() => toggleDayOfWeek(index)}
+                    color={selectedDaysOfWeek.includes(index) ? 'primary' : 'default'}
+                    variant={selectedDaysOfWeek.includes(index) ? 'filled' : 'outlined'}
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
+
+          {recurringFrequency === 'monthly' && (
+            <TextField
+              label="Ngày trong tháng"
+              type="number"
+              fullWidth
+              value={selectedDayOfMonth}
+              onChange={(e) => setSelectedDayOfMonth(Number(e.target.value))}
+              inputProps={{ min: 1, max: 31 }}
+              sx={{ mb: 2 }}
+            />
+          )}
+
+          <TextField
+            label="Giờ gửi"
+            type="time"
+            fullWidth
+            value={recurringTime}
+            onChange={(e) => setRecurringTime(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+          />
+        </Paper>
+      )}
+
+      <Alert severity="info">
+        Thông báo sẽ được gửi tự động vào thời gian đã chọn.
+        {isRecurring && ' Thông báo sẽ lặp lại theo lịch đã cài đặt.'}
+      </Alert>
+    </Box>
+  </DialogContent>
+  <DialogActions sx={{ p: 2, flexDirection: { xs: 'column', sm: 'row' }, gap: 1 }}>
+    <Button onClick={() => setScheduleDialogOpen(false)} fullWidth={isMobile}>
+      Hủy
+    </Button>
+    <Button
+      onClick={handleScheduleNotification}
+      variant="contained"
+      color="secondary"
+      disabled={sendingNotify}
+      startIcon={sendingNotify ? <CircularProgress size={20} /> : <Schedule />}
+      fullWidth={isMobile}
+    >
+      {sendingNotify ? 'Đang lên lịch...' : 'Lên lịch'}
+    </Button>
+  </DialogActions>
+</Dialog>
+
+// JSX - Dialog xem danh sách thông báo đã lên lịch
+<Dialog
+  open={viewScheduledDialogOpen}
+  onClose={() => setViewScheduledDialogOpen(false)}
+  maxWidth="md"
+  fullWidth
+>
+  <DialogTitle>
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+        <CalendarToday sx={{ mr: 1, color: 'info.main' }} />
+        Danh sách thông báo đã lên lịch
+      </Box>
+      <Chip label={`${scheduledNotifications.length} thông báo`} color="primary" />
+    </Box>
+  </DialogTitle>
+  <DialogContent>
+    {scheduledNotifications.length === 0 ? (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <CalendarToday sx={{ fontSize: 60, color: 'text.secondary', mb: 2 }} />
+        <Typography variant="body1" color="text.secondary">
+          Chưa có thông báo nào được lên lịch
+        </Typography>
+      </Box>
+    ) : (
+      <List>
+        {scheduledNotifications.map((notification) => (
+          <Card key={notification.id} sx={{ mb: 2 }}>
+            <ListItem>
+              <ListItemAvatar>
+                <Avatar sx={{ bgcolor: 'secondary.main' }}>
+                  {notification.recurring?.enabled ? <Repeat /> : <Schedule />}
+                </Avatar>
+              </ListItemAvatar>
+              <ListItemText
+                primary={
+                  <Box>
+                    <Typography variant="body1" fontWeight="medium">
+                      {notification.title}
+                    </Typography>
+                    {notification.recurring?.enabled && (
+                      <Chip
+                        icon={<Repeat />}
+                        label={`Lặp ${
+                          notification.recurring.frequency === 'daily'
+                            ? 'hàng ngày'
+                            : notification.recurring.frequency === 'weekly'
+                            ? 'hàng tuần'
+                            : 'hàng tháng'
+                        }`}
+                        size="small"
+                        color="info"
+                        sx={{ mt: 0.5 }}
+                      />
+                    )}
+                  </Box>
+                }
+                secondary={
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      {notification.body}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1 }}>
+                      <AccessTime fontSize="small" />
+                      <Typography variant="caption">
+                        {dayjs(notification.scheduledTime).format('DD/MM/YYYY HH:mm')}
+                      </Typography>
+                    </Box>
+                  </Box>
+                }
+              />
+              <ListItemSecondaryAction>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <IconButton
+                    edge="end"
+                    color="error"
+                    onClick={() => handleCancelScheduled(notification.id)}
+                    size="small"
+                  >
+                    <Cancel />
+                  </IconButton>
+                  <IconButton
+                    edge="end"
+                    color="error"
+                    onClick={() => handleDeleteScheduled(notification.id)}
+                    size="small"
+                  >
+                    <Delete />
+                  </IconButton>
+                </Box>
+              </ListItemSecondaryAction>
+            </ListItem>
+          </Card>
+        ))}
+      </List>
+    )}
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setViewScheduledDialogOpen(false)}>Đóng</Button>
+  </DialogActions>
+</Dialog>
 
       {/* Snackbar */}
       <Snackbar
