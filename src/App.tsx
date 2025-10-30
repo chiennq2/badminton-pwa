@@ -46,6 +46,7 @@ import usePullToRefresh from "./hooks/usePullToRefresh";
 import PullToRefreshIndicator from "./components/PullToRefreshIndicator";
 import Tournaments from "./pages/Tournaments";
 import Profile from "./pages/Profile";
+import { notificationService } from "./services/notificationService";
 
 // ===== CONFIG DAYJS =====
 dayjs.extend(updateLocale);
@@ -156,6 +157,36 @@ const AppContent: React.FC = () => {
     onRefresh: handleRefresh,
   });
 
+
+  useEffect(() => {
+  // Đăng ký nhận thông báo khi user đăng nhập
+  if (currentUser) {
+    notificationService.registerDevice(currentUser.id)
+      .then((token) => {
+        if (token) {
+          console.log('Device registered for notifications');
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to register device:', error);
+      });
+
+    // Lắng nghe thông báo khi app đang mở
+    notificationService.onMessageReceived((payload) => {
+      console.log('Notification received:', payload);
+      
+      // Hiển thị snackbar hoặc alert
+      // hoặc tự động reload dữ liệu nếu cần
+      const notification = new Notification(
+        payload.notification.title,
+        {
+          body: payload.notification.body,
+          icon: '/favicon.ico',
+        }
+      );
+    });
+  }
+}, [currentUser]);
 
   if (loading) {
     return (
