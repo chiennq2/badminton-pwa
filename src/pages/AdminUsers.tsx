@@ -69,6 +69,7 @@ import { ScheduledNotification } from '../types/notification';
 import { scheduledNotificationService } from '../services/scheduledNotificationService';
 import { DateTimePicker, LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { backEndNotificationService } from '../services/backendNotificationService';
 
 const AdminUsers: React.FC = () => {
   const theme = useTheme();
@@ -218,7 +219,7 @@ const handleSendNotification = async () => {
   setSendingNotify(true);
   try {
     // Gửi thông báo qua FCM đến tất cả thiết bị
-    await notificationService.sendNotificationToAll(
+    await backEndNotificationService.sendNotificationToAll(
       notifyTitle || 'Thông báo từ quản trị viên',
       notifyMessage
     );
