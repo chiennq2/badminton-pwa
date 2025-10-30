@@ -3,6 +3,7 @@ import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { getApp } from 'firebase/app';
 
 // Lấy VAPID key từ Firebase Console
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY;
@@ -13,8 +14,9 @@ export class NotificationService {
 
   constructor() {
     if ('serviceWorker' in navigator) {
-      this.messaging = getMessaging();
-      this.functions = getFunctions();
+        const app = getApp(); // Lấy Firebase app đã khởi tạo ở đâu đó
+        this.messaging = getMessaging(app);
+        this.functions = getFunctions(app, 'us-central1'); // <-- quan trọng
     }
   }
 
@@ -71,9 +73,10 @@ export class NotificationService {
     }
   }
 
-  // Gửi thông báo ngay lập tức đến tất cả thiết bị (gọi Cloud Function v2)
+  // Gửi thông báo ngay lập tức đến tất cả thiết bị
   async sendNotificationToAll(title: string, body: string): Promise<any> {
     try {
+      // Gọi Firebase Callable Function
       const sendNotification = httpsCallable(this.functions, 'sendImmediateNotification');
       const result = await sendNotification({
         title,
@@ -81,10 +84,10 @@ export class NotificationService {
         targetType: 'all',
       });
 
-      console.log('Notification sent to all devices:', result.data);
+      console.log('✅ Notification sent successfully:', result.data);
       return result.data;
     } catch (error) {
-      console.error('Error sending notification:', error);
+      console.error('❌ Error sending notification:', error);
       throw error;
     }
   }
