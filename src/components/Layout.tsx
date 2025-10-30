@@ -38,6 +38,7 @@ import {
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import NotificationHistory from "./NotificationHistory";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -283,6 +284,8 @@ const Layout: React.FC<LayoutProps> = ({
           </Typography>
 
           {/* User Profile */}
+          <NotificationHistory />
+
           <IconButton
             size="large"
             edge="end"
