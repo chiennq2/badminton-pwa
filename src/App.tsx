@@ -158,36 +158,33 @@ const AppContent: React.FC = () => {
     onRefresh: handleRefresh,
   });
 
-
   useEffect(() => {
-  // Đăng ký nhận thông báo khi user đăng nhập
-  if (currentUser) {
-    notificationService.registerDevice(currentUser.id)
-      .then((token) => {
-        if (token) {
-          console.log('Device registered for notifications');
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to register device:', error);
-      });
+    // Đăng ký nhận thông báo khi user đăng nhập
+    if (currentUser) {
+      notificationService
+        .registerDevice(currentUser.id)
+        .then((token) => {
+          if (token) {
+            console.log("Device registered for notifications");
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to register device:", error);
+        });
 
-    // Lắng nghe thông báo khi app đang mở
-    notificationService.onMessageReceived((payload) => {
-      console.log('Notification received:', payload);
-      
-      // Hiển thị snackbar hoặc alert
-      // hoặc tự động reload dữ liệu nếu cần
-      const notification = new Notification(
-        payload.notification.title,
-        {
+      // Lắng nghe thông báo khi app đang mở
+      notificationService.onMessageReceived((payload) => {
+        console.log("Notification received:", payload);
+
+        // Hiển thị snackbar hoặc alert
+        // hoặc tự động reload dữ liệu nếu cần
+        const notification = new Notification(payload.notification.title, {
           body: payload.notification.body,
-          icon: '/favicon.ico',
-        }
-      );
-    });
-  }
-}, [currentUser]);
+          icon: "/favicon.ico",
+        });
+      });
+    }
+  }, [currentUser]);
 
   if (loading) {
     return (
@@ -256,8 +253,10 @@ const AppContent: React.FC = () => {
                 />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/profile" element={<Profile />} />
-                <Route path="/admin/notifications" element={<NotificationManagement />} />
-
+                <Route
+                  path="/admin/notifications"
+                  element={<NotificationManagement />}
+                />
 
                 <Route path="/settings" element={<Settings />} />
               </>
@@ -286,10 +285,7 @@ const AppContent: React.FC = () => {
                 />
                 <Route path="/profile" element={<Profile />} />
 
-                <Route
-                  path="*"
-                  element={<Navigate to="/sessions" replace />}
-                />
+                <Route path="*" element={<Navigate to="/sessions" replace />} />
               </>
             )}
 
@@ -318,16 +314,19 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
+      // 1️⃣ Đăng ký Service Worker chính cho PWA
       navigator.serviceWorker
         .register("/sw.js")
         .then((registration) => {
           console.log("[PWA] Service Worker registered:", registration);
-          
-          // ✅ Kiểm tra khi Service Worker đã sẵn sàng
+
           navigator.serviceWorker.ready.then((readyReg) => {
-            console.log("[PWA] Service Worker ready and active:", readyReg.active?.state);
+            console.log(
+              "[PWA] Service Worker ready and active:",
+              readyReg.active?.state
+            );
           });
-          // Khi có SW mới được cài
+
           registration.addEventListener("updatefound", () => {
             const newWorker = registration.installing;
             if (newWorker) {
@@ -348,7 +347,19 @@ const App: React.FC = () => {
           console.log("[PWA] Service Worker registration failed:", err)
         );
 
-      // 🔔 Lắng nghe message từ SW (ví dụ: { type: "RELOAD_PAGE" })
+      // 2️⃣ Đăng ký Firebase Messaging Service Worker
+      navigator.serviceWorker
+        .register("/firebase-messaging-sw.js")
+        .then((registration) => {
+          console.log("[FCM] Firebase Messaging SW registered:", registration);
+        })
+        .catch((err) => {
+          console.error(
+            "[FCM] Firebase Messaging SW registration failed:",
+            err
+          );
+        });
+
       const handleSWMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === "RELOAD_PAGE") {
           console.log("[PWA] Received RELOAD_PAGE from Service Worker");
@@ -357,9 +368,8 @@ const App: React.FC = () => {
       };
       navigator.serviceWorker.addEventListener("message", handleSWMessage);
 
-      // 🔄 Khi SW mới kích hoạt → reload app
       const handleControllerChange = () => {
-        console.log("[PWA] Controller changed — reloading app");
+        console.log("[PWA] Controller changed – reloading app");
         window.location.reload();
       };
       navigator.serviceWorker.addEventListener(
@@ -367,12 +377,8 @@ const App: React.FC = () => {
         handleControllerChange
       );
 
-      // 🧹 Cleanup
       return () => {
-        navigator.serviceWorker.removeEventListener(
-          "message",
-          handleSWMessage
-        );
+        navigator.serviceWorker.removeEventListener("message", handleSWMessage);
         navigator.serviceWorker.removeEventListener(
           "controllerchange",
           handleControllerChange
