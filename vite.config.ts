@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
-import { readFileSync } from 'fs';
+import { readFileSync, writeFileSync } from 'fs';
+import { resolve } from 'path';
 import { firebaseMessagingSw } from './vite-plugin-firebase-sw';
 
 export default defineConfig(async () => {
@@ -15,6 +16,28 @@ export default defineConfig(async () => {
     console.warn('Could not read package.json, using default version');
   }
 
+  // Plugin để inject version vào swV2.js
+  const injectVersionPlugin = {
+    name: 'inject-version-to-sw',
+    writeBundle() {
+      try {
+        const swPath = resolve(process.cwd(), 'public', 'swV2.js');
+        let swContent = readFileSync(swPath, 'utf-8');
+        
+        // Replace APP_VERSION placeholder
+        swContent = swContent.replace(
+          /const APP_VERSION = ['"][^'"]*['"]/,
+          `const APP_VERSION = '${appVersion}'`
+        );
+        
+        writeFileSync(swPath, swContent, 'utf-8');
+        console.log(`✅ Injected version ${appVersion} into swV2.js`);
+      } catch (error) {
+        console.warn('⚠️ Could not inject version into swV2.js:', error);
+      }
+    }
+  };
+
   return {
     plugins: [
       reactPlugin(),
@@ -24,11 +47,14 @@ export default defineConfig(async () => {
         envPrefix: 'VITE_',
       }),
       
+      // Plugin inject version vào SW
+      injectVersionPlugin,
+      
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
         manifest: {
-          name: 'Quản Lý Cầu Lông',
+          name: 'DrunkSmasherS',
           short_name: 'DrunkSmasherS',
           description: 'Ứng dụng quản lý lịch đánh cầu lông',
           theme_color: '#4caf50',

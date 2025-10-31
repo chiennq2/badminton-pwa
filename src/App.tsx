@@ -12,6 +12,7 @@ import {
   CircularProgress,
   Snackbar,
   Button,
+  Alert,
 } from "@mui/material";
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
@@ -46,8 +47,8 @@ import usePullToRefresh from "./hooks/usePullToRefresh";
 import PullToRefreshIndicator from "./components/PullToRefreshIndicator";
 import Tournaments from "./pages/Tournaments";
 import Profile from "./pages/Profile";
-import { notificationService } from "./services/notificationService";
 import NotificationManagement from "./pages/NotificationManagement";
+import notificationService from "./services/notificationService";
 
 // ===== CONFIG DAYJS =====
 dayjs.extend(updateLocale);
@@ -124,6 +125,9 @@ const AppContent: React.FC = () => {
   const [darkMode, setDarkMode] = useState<boolean>(() =>
     getLocalStorageItem("darkMode", true)
   );
+  const [notificationError, setNotificationError] = useState<string>("");
+  const [notificationSuccess, setNotificationSuccess] = useState<string>("");
+  
   const theme = getTheme(darkMode ? "dark" : "light");
   const { isMobile } = useResponsive();
 
@@ -133,12 +137,7 @@ const AppContent: React.FC = () => {
     setLocalStorageItem("darkMode", newDarkMode);
   };
 
-  // const handleRefresh = async () => {
-  //   // Invalidate all queries để tải lại dữ liệu
-  //   await queryClient.refetchQueries();
-  // };
   const handleRefresh = async () => {
-    // 🔄 Làm mới hoàn toàn (bỏ cache nếu có)
     if ("caches" in window) {
       try {
         const cacheNames = await caches.keys();
@@ -148,8 +147,6 @@ const AppContent: React.FC = () => {
         console.warn("[PWA] Cache clear failed:", e);
       }
     }
-
-    // 🧹 Force reload bypassing cache (tương tự Ctrl+Shift+R)
     window.location.reload();
   };
 
@@ -158,36 +155,97 @@ const AppContent: React.FC = () => {
     onRefresh: handleRefresh,
   });
 
-
+  // ✅ FIX: Đăng ký thiết bị ĐÚNG CÁCH
   useEffect(() => {
-  // Đăng ký nhận thông báo khi user đăng nhập
-  if (currentUser) {
-    notificationService.registerDevice(currentUser.id)
-      .then((token) => {
-        if (token) {
-          console.log('Device registered for notifications');
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to register device:', error);
-      });
+    if (!currentUser) return;
 
-    // Lắng nghe thông báo khi app đang mở
-    notificationService.onMessageReceived((payload) => {
-      console.log('Notification received:', payload);
-      
-      // Hiển thị snackbar hoặc alert
-      // hoặc tự động reload dữ liệu nếu cần
-      const notification = new Notification(
-        payload.notification.title,
-        {
-          body: payload.notification.body,
-          icon: '/favicon.ico',
+    const registerForNotifications = async () => {
+      try {
+        console.log('[Notification] Starting registration process...');
+        
+        // 1️⃣ Kiểm tra browser support
+        if (!('Notification' in window)) {
+          throw new Error('Browser không hỗ trợ thông báo');
         }
-      );
-    });
-  }
-}, [currentUser]);
+
+        if (!('serviceWorker' in navigator)) {
+          throw new Error('Browser không hỗ trợ Service Worker');
+        }
+
+        // 2️⃣ Đợi Service Worker sẵn sàng
+        console.log('[Notification] Waiting for Service Worker...');
+        const registration = await navigator.serviceWorker.ready;
+        console.log('[Notification] Service Worker ready:', registration);
+
+        // 3️⃣ Kiểm tra quyền thông báo
+        let permission = Notification.permission;
+        console.log('[Notification] Current permission:', permission);
+
+        if (permission === 'default') {
+          console.log('[Notification] Requesting permission...');
+          permission = await Notification.requestPermission();
+          console.log('[Notification] Permission result:', permission);
+        }
+
+        if (permission !== 'granted') {
+          throw new Error('Người dùng từ chối quyền thông báo');
+        }
+
+        // 4️⃣ Đăng ký thiết bị với Firebase
+        console.log('[Notification] Registering device with Firebase...');
+        const token = await notificationService.registerDevice(currentUser.id);
+        
+        if (token) {
+          console.log('[Notification] Device registered successfully:', token);
+          setNotificationSuccess('Đã bật thông báo thành công!');
+          
+          // 5️⃣ Lắng nghe thông báo khi app đang mở
+          notificationService.onMessageReceived((payload) => {
+            console.log('[Notification] Message received:', payload);
+            
+            // Hiển thị notification nếu browser hỗ trợ
+            if (Notification.permission === 'granted') {
+              new Notification(
+                payload.notification?.title || 'Thông báo mới',
+                {
+                  body: payload.notification?.body || '',
+                  icon: '/favicon.ico',
+                  badge: '/pwa-192x192.png',
+                  tag: payload.data?.tag || 'default',
+                  requireInteraction: false,
+                }
+              );
+            }
+          });
+        } else {
+          throw new Error('Không lấy được FCM token');
+        }
+
+      } catch (error: any) {
+        console.error('[Notification] Registration failed:', error);
+        
+        // Xử lý các lỗi cụ thể
+        let errorMessage = 'Không thể đăng ký thông báo';
+        
+        if (error.code === 'messaging/permission-blocked') {
+          errorMessage = 'Vui lòng bật quyền thông báo trong cài đặt trình duyệt';
+        } else if (error.code === 'messaging/token-subscribe-failed') {
+          errorMessage = 'Không thể kết nối với máy chủ thông báo';
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        
+        setNotificationError(errorMessage);
+      }
+    };
+
+    // Delay 1 giây để đảm bảo Service Worker đã sẵn sàng
+    const timer = setTimeout(() => {
+      registerForNotifications();
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [currentUser]);
 
   if (loading) {
     return (
@@ -257,8 +315,6 @@ const AppContent: React.FC = () => {
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/admin/notifications" element={<NotificationManagement />} />
-
-
                 <Route path="/settings" element={<Settings />} />
               </>
             )}
@@ -267,7 +323,6 @@ const AppContent: React.FC = () => {
             {currentUser.role === "user" && (
               <>
                 <Route path="/groups" element={<Groups />} />
-
                 <Route
                   path="/sessions"
                   element={isMobile ? <SessionsMobile /> : <Sessions />}
@@ -279,13 +334,11 @@ const AppContent: React.FC = () => {
                   }
                 />
                 <Route path="/tournaments" element={<Tournaments />} />
-
                 <Route
                   path="/reports"
                   element={isMobile ? <ReportsMobile /> : <Reports />}
                 />
                 <Route path="/profile" element={<Profile />} />
-
                 <Route
                   path="*"
                   element={<Navigate to="/sessions" replace />}
@@ -305,28 +358,54 @@ const AppContent: React.FC = () => {
           </Routes>
         </Layout>
       </Router>
+
+      {/* Snackbar cho lỗi thông báo */}
+      <Snackbar
+        open={!!notificationError}
+        autoHideDuration={6000}
+        onClose={() => setNotificationError("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="error" onClose={() => setNotificationError("")}>
+          {notificationError}
+        </Alert>
+      </Snackbar>
+
+      {/* Snackbar cho thành công */}
+      <Snackbar
+        open={!!notificationSuccess}
+        autoHideDuration={3000}
+        onClose={() => setNotificationSuccess("")}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert severity="success" onClose={() => setNotificationSuccess("")}>
+          {notificationSuccess}
+        </Alert>
+      </Snackbar>
     </ThemeProvider>
   );
 };
 
 // ===== MAIN APP COMPONENT =====
 const App: React.FC = () => {
-  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(
-    null
-  );
+  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
   const [showReload, setShowReload] = useState(false);
 
   useEffect(() => {
     if ("serviceWorker" in navigator) {
+      let isReloading = false;
+
+      // ✅ CHỈ đăng ký 1 Service Worker duy nhất
       navigator.serviceWorker
         .register("/sw.js")
         .then((registration) => {
-          console.log("[PWA] Service Worker registered:", registration);
+          console.log("[SW] Service Worker registered:", registration);
           
-          // ✅ Kiểm tra khi Service Worker đã sẵn sàng
+          // Kiểm tra khi Service Worker đã sẵn sàng
           navigator.serviceWorker.ready.then((readyReg) => {
-            console.log("[PWA] Service Worker ready and active:", readyReg.active?.state);
+            console.log("[SW] Service Worker ready and active:", readyReg.active?.state);
           });
+
           // Khi có SW mới được cài
           registration.addEventListener("updatefound", () => {
             const newWorker = registration.installing;
@@ -336,7 +415,7 @@ const App: React.FC = () => {
                   newWorker.state === "installed" &&
                   navigator.serviceWorker.controller
                 ) {
-                  console.log("[PWA] New version found");
+                  console.log("[SW] New version found");
                   setWaitingWorker(newWorker);
                   setShowReload(true);
                 }
@@ -345,34 +424,39 @@ const App: React.FC = () => {
           });
         })
         .catch((err) =>
-          console.log("[PWA] Service Worker registration failed:", err)
+          console.log("[SW] Service Worker registration failed:", err)
         );
 
-      // 🔔 Lắng nghe message từ SW (ví dụ: { type: "RELOAD_PAGE" })
+      // Lắng nghe message từ SW
       const handleSWMessage = (event: MessageEvent) => {
-        if (event.data && event.data.type === "RELOAD_PAGE") {
-          console.log("[PWA] Received RELOAD_PAGE from Service Worker");
-          window.location.reload();
+        if (event.data && event.data.type === "RELOAD_PAGE" && !isReloading) {
+          console.log("[SW] Received RELOAD_PAGE from Service Worker");
+          isReloading = true;
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
         }
       };
       navigator.serviceWorker.addEventListener("message", handleSWMessage);
 
-      // 🔄 Khi SW mới kích hoạt → reload app
+      // Khi SW mới kích hoạt → reload app
       const handleControllerChange = () => {
-        console.log("[PWA] Controller changed — reloading app");
-        window.location.reload();
+        if (!isReloading) {
+          console.log("[SW] Controller changed – reloading app");
+          isReloading = true;
+          setTimeout(() => {
+            window.location.reload();
+          }, 100);
+        }
       };
       navigator.serviceWorker.addEventListener(
         "controllerchange",
         handleControllerChange
       );
 
-      // 🧹 Cleanup
+      // Cleanup
       return () => {
-        navigator.serviceWorker.removeEventListener(
-          "message",
-          handleSWMessage
-        );
+        navigator.serviceWorker.removeEventListener("message", handleSWMessage);
         navigator.serviceWorker.removeEventListener(
           "controllerchange",
           handleControllerChange
