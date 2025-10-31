@@ -133,10 +133,6 @@ const AppContent: React.FC = () => {
     setLocalStorageItem("darkMode", newDarkMode);
   };
 
-  // const handleRefresh = async () => {
-  //   // Invalidate all queries để tải lại dữ liệu
-  //   await queryClient.refetchQueries();
-  // };
   const handleRefresh = async () => {
     // 🔄 Làm mới hoàn toàn (bỏ cache nếu có)
     if ("caches" in window) {
@@ -158,30 +154,37 @@ const AppContent: React.FC = () => {
     onRefresh: handleRefresh,
   });
 
+  // 🔔 Đăng ký nhận thông báo khi user đăng nhập
   useEffect(() => {
-    // Đăng ký nhận thông báo khi user đăng nhập
     if (currentUser) {
-      notificationService
-        .registerDevice(currentUser.id)
+      console.log('🔐 Current user ID:', currentUser.id);
+      console.log('🔔 Starting notification registration...');
+      
+      notificationService.registerDevice(currentUser.id)
         .then((token) => {
           if (token) {
-            console.log("Device registered for notifications");
+            console.log('✅ Device registered with token:', token.substring(0, 20) + '...');
+          } else {
+            console.warn('⚠️ Registration returned null token');
           }
         })
         .catch((error) => {
-          console.error("Failed to register device:", error);
+          console.error('❌ Failed to register device:', error);
         });
 
       // Lắng nghe thông báo khi app đang mở
       notificationService.onMessageReceived((payload) => {
-        console.log("Notification received:", payload);
-
-        // Hiển thị snackbar hoặc alert
-        // hoặc tự động reload dữ liệu nếu cần
-        const notification = new Notification(payload.notification.title, {
-          body: payload.notification.body,
-          icon: "/favicon.ico",
-        });
+        console.log('📬 Notification received:', payload);
+        
+        if (Notification.permission === 'granted') {
+          const notification = new Notification(
+            payload.notification.title,
+            {
+              body: payload.notification.body,
+              icon: '/favicon.ico',
+            }
+          );
+        }
       });
     }
   }, [currentUser]);
@@ -253,11 +256,7 @@ const AppContent: React.FC = () => {
                 />
                 <Route path="/admin/users" element={<AdminUsers />} />
                 <Route path="/profile" element={<Profile />} />
-                <Route
-                  path="/admin/notifications"
-                  element={<NotificationManagement />}
-                />
-
+                <Route path="/admin/notifications" element={<NotificationManagement />} />
                 <Route path="/settings" element={<Settings />} />
               </>
             )}
@@ -266,7 +265,6 @@ const AppContent: React.FC = () => {
             {currentUser.role === "user" && (
               <>
                 <Route path="/groups" element={<Groups />} />
-
                 <Route
                   path="/sessions"
                   element={isMobile ? <SessionsMobile /> : <Sessions />}
@@ -278,14 +276,15 @@ const AppContent: React.FC = () => {
                   }
                 />
                 <Route path="/tournaments" element={<Tournaments />} />
-
                 <Route
                   path="/reports"
                   element={isMobile ? <ReportsMobile /> : <Reports />}
                 />
                 <Route path="/profile" element={<Profile />} />
-
-                <Route path="*" element={<Navigate to="/sessions" replace />} />
+                <Route
+                  path="*"
+                  element={<Navigate to="/sessions" replace />}
+                />
               </>
             )}
 
@@ -319,14 +318,13 @@ const App: React.FC = () => {
         .register("/sw.js")
         .then((registration) => {
           console.log("[PWA] Service Worker registered:", registration);
-
+          
+          // ✅ Kiểm tra khi Service Worker đã sẵn sàng
           navigator.serviceWorker.ready.then((readyReg) => {
-            console.log(
-              "[PWA] Service Worker ready and active:",
-              readyReg.active?.state
-            );
+            console.log("[PWA] Service Worker ready and active:", readyReg.active?.state);
           });
 
+          // Khi có SW mới được cài
           registration.addEventListener("updatefound", () => {
             const newWorker = registration.installing;
             if (newWorker) {
@@ -352,14 +350,17 @@ const App: React.FC = () => {
         .register("/firebase-messaging-sw.js")
         .then((registration) => {
           console.log("[FCM] Firebase Messaging SW registered:", registration);
+          
+          // Kiểm tra trạng thái
+          navigator.serviceWorker.ready.then(() => {
+            console.log("[FCM] Firebase Messaging SW is ready");
+          });
         })
         .catch((err) => {
-          console.error(
-            "[FCM] Firebase Messaging SW registration failed:",
-            err
-          );
+          console.error("[FCM] Firebase Messaging SW registration failed:", err);
         });
 
+      // 🔔 Lắng nghe message từ SW (ví dụ: { type: "RELOAD_PAGE" })
       const handleSWMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === "RELOAD_PAGE") {
           console.log("[PWA] Received RELOAD_PAGE from Service Worker");
@@ -368,6 +369,7 @@ const App: React.FC = () => {
       };
       navigator.serviceWorker.addEventListener("message", handleSWMessage);
 
+      // 🔄 Khi SW mới kích hoạt → reload app
       const handleControllerChange = () => {
         console.log("[PWA] Controller changed – reloading app");
         window.location.reload();
@@ -377,8 +379,12 @@ const App: React.FC = () => {
         handleControllerChange
       );
 
+      // 🧹 Cleanup
       return () => {
-        navigator.serviceWorker.removeEventListener("message", handleSWMessage);
+        navigator.serviceWorker.removeEventListener(
+          "message",
+          handleSWMessage
+        );
         navigator.serviceWorker.removeEventListener(
           "controllerchange",
           handleControllerChange
