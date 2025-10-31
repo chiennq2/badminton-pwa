@@ -35,10 +35,12 @@ import {
   LightMode,
   EmojiEvents,
   Person,
+  NotificationAdd,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import NotificationHistory from "./NotificationHistory";
+import NotificationManagement from "../pages/NotificationManagement";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -58,6 +60,7 @@ const adminMenuItems = [
 ];
 
 const adminSettingsItems = [
+  { text: "Thông báo", icon: <NotificationAdd />, path: "/admin/notifications" },
   { text: "Quản trị viên", icon: <AdminPanelSettings />, path: "/admin/users" },
   { text: "Cài đặt", icon: <Settings />, path: "/settings" },
 ];
