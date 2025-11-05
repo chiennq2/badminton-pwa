@@ -605,6 +605,51 @@ const SessionDetail: React.FC = () => {
     setSnackbar({ open: true, message, severity });
   };
 
+  const handleMarkAllPresent = async () => {
+    if (!session) return;
+
+    try {
+      // Cập nhật tất cả thành viên thành "Có mặt"
+      const updatedMembers = session.members.map((member) => ({
+        ...member,
+        isPresent: true,
+      }));
+
+      const currentParticipants = updatedMembers.length;
+      const newSettlements = generateDetailedSettlements(
+        { ...session, members: updatedMembers },
+        members || []
+      );
+
+      queryClient.setQueryData(["session", id], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          members: updatedMembers,
+          currentParticipants,
+          settlements: newSettlements,
+        };
+      });
+
+      await updateSessionMutation.mutateAsync({
+        id: session.id,
+        data: {
+          members: updatedMembers,
+          currentParticipants,
+          settlements: newSettlements,
+        },
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["session", id] });
+      await queryClient.invalidateQueries({ queryKey: ["sessions"] });
+
+      showSnackbar("✅ Đã đánh dấu tất cả có mặt!", "success");
+    } catch (error) {
+      console.error("Mark all present error:", error);
+      await queryClient.invalidateQueries({ queryKey: ["session", id] });
+      showSnackbar("❌ Có lỗi xảy ra khi cập nhật điểm danh!", "error");
+    }
+  };
   // ===== DATA GRID COLUMNS FOR DIALOG =====
   const settlementColumns: GridColDef[] = useMemo(
     () => [
@@ -879,6 +924,9 @@ const SessionDetail: React.FC = () => {
                 onUpdate={() => queryClient.invalidateQueries({ queryKey: ["session", session.id] })}
                 onRollCallChange={handleOnRollCallChange}
                 onSexChange={handleOnRollSexChange}
+                onMarkAllPresent={handleMarkAllPresent}
+                members={members}
+                updateSessionMutation={updateSessionMutation}
               />
           </Grid>
           {/* <Card>

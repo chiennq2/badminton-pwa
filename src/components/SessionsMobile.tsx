@@ -99,7 +99,16 @@ const SessionsMobile: React.FC = () => {
   const activeSessions = sessions?.filter((s) => s.status !== "completed") || [];
   const completedSessions =
     sessions?.filter((s) => s.status === "completed") || [];
-  const displayed = tab === 0 ? activeSessions : completedSessions;
+  // const displayed = tab === 0 ? activeSessions : completedSessions;
+const displayed = (tab === 0 ? activeSessions : completedSessions)
+  .slice()
+  .sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    // Tab 0: từ gần đến xa (ASC)
+    // Tab 1: từ mới đến cũ (DESC)
+    return tab === 0 ? dateA - dateB : dateB - dateA;
+  });
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, session: any) => {
     setMenuAnchor(event.currentTarget);

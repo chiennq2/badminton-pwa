@@ -105,7 +105,7 @@ export interface Session {
   startTime: string;
   endTime: string;
   maxParticipants: number;
-  priceSlot: number | 0;
+  priceSlot: number | 32500;
   isFixedBadmintonCost: boolean | false;
   fixedBadmintonCost: number | 0;
   currentParticipants: number;

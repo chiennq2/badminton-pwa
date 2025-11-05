@@ -166,7 +166,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
       startTime: editingSession?.startTime ?? "19:30",
       endTime: editingSession?.endTime ?? "21:30",
       maxParticipants: editingSession?.maxParticipants ?? 24,
-      priceSlot: editingSession?.priceSlot ?? 0,
+      priceSlot: editingSession?.priceSlot ?? 32500,
       isFixedBadmintonCost: editingSession?.isFixedBadmintonCost ?? false,
       fixedBadmintonCost: editingSession?.fixedBadmintonCost ?? 0,
       notes: editingSession?.notes ?? "",
