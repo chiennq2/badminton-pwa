@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { readFileSync } from 'fs';
 import { firebaseMessagingSw } from './vite-plugin-firebase-sw';
 
-export default defineConfig(async () => {
+export default defineConfig(async ({ mode }) => {
   const reactPlugin = (await import('@vitejs/plugin-react')).default;
   const { VitePWA } = await import('vite-plugin-pwa');
   
@@ -14,6 +14,9 @@ export default defineConfig(async () => {
   } catch (error) {
     console.warn('Could not read package.json, using default version');
   }
+
+  const isDev = mode === 'development';
+  console.log(`🔧 Building for ${isDev ? 'DEVELOPMENT' : 'PRODUCTION'}`);
 
   return {
     plugins: [
@@ -27,8 +30,12 @@ export default defineConfig(async () => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+        
+        // Chỉ inject register script trong production
+        injectRegister: false, // Tắt auto-inject, tự đăng ký trong App.tsx
+        
         manifest: {
-          name: 'Quản Lý Cầu Lông',
+          name: 'DrunkSmasherS',
           short_name: 'DrunkSmasherS',
           description: 'Ứng dụng quản lý lịch đánh cầu lông',
           theme_color: '#4caf50',
@@ -56,8 +63,13 @@ export default defineConfig(async () => {
             }
           ]
         },
+        
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+          
+          // Không cache service worker files
+          navigateFallbackDenylist: [/^\/firebase-messaging-sw\.js$/],
+          
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -67,6 +79,9 @@ export default defineConfig(async () => {
                 expiration: {
                   maxEntries: 10,
                   maxAgeSeconds: 60 * 60 * 24 * 365 // 365 days
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
                 }
               }
             },
@@ -78,15 +93,38 @@ export default defineConfig(async () => {
                 expiration: {
                   maxEntries: 100,
                   maxAgeSeconds: 60 * 60 * 24 // 1 day
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
+            {
+              urlPattern: /^https:\/\/.*\.googleapis\.com\/.*/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'googleapis-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 // 1 day
                 }
               }
             }
           ]
+        },
+
+        // Development settings
+        devOptions: {
+          enabled: true, // Bật PWA trong dev mode
+          type: 'module',
+          navigateFallback: 'index.html',
         }
       })
     ],
     
     server: {
+      port: 5173,
+      host: true, // Cho phép truy cập từ network
       proxy: {
         '/api': {
           target: 'http://localhost:5173',

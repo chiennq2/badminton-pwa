@@ -56,6 +56,7 @@ import { scheduledNotificationService } from '../services/scheduledNotificationS
 import { notificationHistoryService } from '../services/notificationHistoryService';
 import { ScheduledNotification, NotificationHistory } from '../types/notification';
 import NotificationDashboard from '../components/NotificationDashboard';
+import NotificationStatusBanner from '../components/NotificationStatusBanner';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -337,6 +338,10 @@ const NotificationManagement: React.FC = () => {
 
   return (
     <Box>
+      {/* Status Banner */}
+      {currentUser && (
+        <NotificationStatusBanner userId={currentUser.id} />
+      )}
       {/* Header */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" component="h1" fontWeight="bold" gutterBottom>
