@@ -450,11 +450,19 @@ const SessionDetailMobile: React.FC = () => {
         backgroundColor: "#ffffff",
         scale: 2,
         useCORS: true,
+        width: FIXED_WIDTH + PADDING * 2,
+        allowTaint: true,
+        imageTimeout: 0,
+        windowWidth: FIXED_WIDTH + PADDING * 2,
       });
 
       element.style.position = "absolute";
       element.style.left = "-9999px";
       element.style.zIndex = "-1";
+      element.style.width = "";
+      element.style.maxWidth = "";
+      element.style.padding = "";
+      element.style.boxSizing = "";
 
       const blob: Blob | null = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/png", 0.95)
@@ -593,6 +601,52 @@ const SessionDetailMobile: React.FC = () => {
   };
   const handleOnRollSexChange = (data: any) => {
     handleSexChange(data.memberId, data.isWoman);
+  };
+
+  const handleMarkAllPresent = async () => {
+    if (!session) return;
+
+    try {
+      // Cập nhật tất cả thành viên thành "Có mặt"
+      const updatedMembers = session.members.map((member) => ({
+        ...member,
+        isPresent: true,
+      }));
+
+      const currentParticipants = updatedMembers.length;
+      const newSettlements = generateDetailedSettlements(
+        { ...session, members: updatedMembers },
+        members || []
+      );
+
+      queryClient.setQueryData(["session", id], (oldData: any) => {
+        if (!oldData) return oldData;
+        return {
+          ...oldData,
+          members: updatedMembers,
+          currentParticipants,
+          settlements: newSettlements,
+        };
+      });
+
+      await updateSessionMutation.mutateAsync({
+        id: session.id,
+        data: {
+          members: updatedMembers,
+          currentParticipants,
+          settlements: newSettlements,
+        },
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["session", id] });
+      await queryClient.invalidateQueries({ queryKey: ["sessions"] });
+
+      showSnackbar("✅ Đã đánh dấu tất cả có mặt!", "success");
+    } catch (error) {
+      console.error("Mark all present error:", error);
+      await queryClient.invalidateQueries({ queryKey: ["session", id] });
+      showSnackbar("❌ Có lỗi xảy ra khi cập nhật điểm danh!", "error");
+    }
   };
 
   const settlementColumns: GridColDef[] = useMemo(
@@ -865,6 +919,9 @@ const SessionDetailMobile: React.FC = () => {
         onUpdate={() => queryClient.invalidateQueries({ queryKey: ["session", session.id] })}
         onRollCallChange={handleOnRollCallChange}
         onSexChange={handleOnRollSexChange}
+        onMarkAllPresent={handleMarkAllPresent}
+        members={members}
+        updateSessionMutation={updateSessionMutation}
       />
 
       {/* Expense Detail - Mobile Version */}
