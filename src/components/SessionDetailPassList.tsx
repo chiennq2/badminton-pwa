@@ -54,54 +54,8 @@ import {
   Draggable,
   DropResult,
 } from '@hello-pangea/dnd';
+import { CustomMember, Member, Session } from '../types';
 
-// Mock types (trong thực tế sẽ import từ types)
-interface SessionMember {
-  memberId: string;
-  memberName?: string;
-  isPresent: boolean;
-  isCustom?: boolean;
-  replacementNote?: string;
-  isWaitingPass?: boolean;
-  isWoman?: boolean;
-  avatar?: string;
-}
-
-interface WaitingListMember {
-  memberId: string;
-  memberName?: string;
-  addedAt: Date;
-  priority: number;
-  isCustom?: boolean;
-  isWoman?: boolean;
-  avatar?: string;
-}
-
-interface Session {
-  id: string;
-  name: string;
-  status: 'scheduled' | 'ongoing' | 'completed' | 'cancelled';
-  members: SessionMember[];
-  waitingList: WaitingListMember[];
-  passWaitingList?: string[];
-}
-
-interface Member {
-  id: string;
-  name: string;
-  isWoman: boolean;
-  avatar?: string;
-  skillLevel?: string;
-}
-
-interface CustomMember {
-  id: string;
-  name: string;
-  isCustom: boolean;
-  isWoman: boolean;
-  avatar?: string;
-  replacementNote?: string;
-}
 
 interface SessionDetailPassListProps {
   session: Session;
@@ -190,15 +144,57 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
     }
   };
 
-  const handlePassMember = async (memberId: string) => {
-    const memberToPass = session.members.find((m) => m.memberId === memberId);
+const handlePassMember = async (memberId: string) => {
+    const memberToPass = session.members.find(m => m.memberId === memberId);
     if (!memberToPass) return;
 
     const memberName = memberToPass.memberName || 'Thành viên';
-    alert(`✅ Đã pass ${memberName}`);
-    onUpdate();
-  };
+    const newMembers = session.members.filter(m => m.memberId !== memberId);
+    const newPassWaitingList = passWaitingList.filter(id => id !== memberId);
 
+    let newWaitingList = session.waitingList;
+    let replacementMember = null;
+
+    if (session.waitingList.length > 0) {
+      const firstWaiting = session.waitingList[0];
+      replacementMember = firstWaiting;
+      newWaitingList = session.waitingList.slice(1);
+      
+      newMembers.push({
+        memberId: firstWaiting.memberId,
+        memberName: firstWaiting.memberName,
+        isPresent: false,
+        isCustom: firstWaiting.isCustom,
+        replacementNote: memberToPass.replacementNote ? memberToPass.replacementNote : `Slot của ${memberName}`,
+        isWaitingPass: false,
+        isWoman: firstWaiting.isWoman,
+        avatar: firstWaiting.avatar,
+      });
+    }
+
+    try {
+      await updateSessionMutation.mutateAsync({
+        id: session.id,
+        data: {
+          members: newMembers,
+          waitingList: newWaitingList,
+          passWaitingList: newPassWaitingList,
+          currentParticipants: newMembers.length,
+        },
+      });
+
+      onUpdate();
+
+      if (replacementMember) {
+        alert(`🔄 Đã pass ${memberName} → ${replacementMember.memberName} vào slot`);
+      } else {
+        alert(`✅ Đã pass ${memberName} khỏi danh sách`);
+      }
+    } catch (error) {
+      console.error('Error passing member:', error);
+      alert('Có lỗi xảy ra khi pass thành viên');
+    }
+  };
   const passWaitingMembers = session.members.filter((m) =>
     passWaitingList.includes(m.memberId)
   );

@@ -56,6 +56,7 @@ import {
   getSessionStatusColor,
   generateDetailedSettlements,
   calculateMemberSettlement,
+  removeFirstTwoWords,
 } from "../utils";
 import SessionEditForm from "../components/SessionEditForm";
 import { useQueryClient } from "@tanstack/react-query";
@@ -542,7 +543,8 @@ const SessionDetailMobile: React.FC = () => {
       const joinedList = sessionMembers
         .map((m, i) =>
           m.replacementNote
-            ? `${i + 1}. ${m.name} <- ${m.replacementNote}`
+            // ? `${i + 1}. ${m.name} <- ${m.replacementNote}`
+            ? `${i + 1}. ${removeFirstTwoWords(m.replacementNote)} -> ${m.name} `
             : `${i + 1}. ${m.name}`
         )
         .join("\n");
