@@ -635,3 +635,15 @@ export const setLocalStorageItem = (key: string, value: any) => {
 export const generateId = (): string => {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 };
+
+
+export const removeFirstTwoWords = (str: string) => {
+  // Tách chuỗi thành mảng các từ (dựa theo khoảng trắng)
+  const words = str.trim().split(/\s+/);
+
+  // Nếu chuỗi có 2 từ trở xuống thì trả về chuỗi rỗng
+  if (words.length <= 2) return "";
+
+  // Nối lại các từ từ vị trí thứ 2 trở đi
+  return words.slice(2).join(" ");
+}

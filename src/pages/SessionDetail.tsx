@@ -73,6 +73,7 @@ import {
   exportSessionImage,
   generateDetailedSettlements,
   calculateMemberSettlement,
+  removeFirstTwoWords,
 } from "../utils";
 import SessionEditForm from "../components/SessionEditForm";
 import ExpenseDetail from "../components/ExpenseDetail";
@@ -536,7 +537,8 @@ const SessionDetail: React.FC = () => {
         // .filter((m) => m.isPresent)
         .map((m, i) =>
           m.replacementNote
-            ? `${i + 1}. ${m.name} <- ${m.replacementNote}`
+            // ? `${i + 1}. ${m.name} <- ${removeFirstTwoWords(m.replacementNote)}`
+            ? `${i + 1}. ${removeFirstTwoWords(m.replacementNote)} -> ${m.name}`
             : `${i + 1}. ${m.name}`
         )
         .join("\n");

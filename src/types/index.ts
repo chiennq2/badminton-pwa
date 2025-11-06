@@ -174,3 +174,12 @@ export interface AppSettings {
   timezone: string;
   updatedAt: Date;
 }
+
+export interface CustomMember {
+  id: string;
+  name: string;
+  isCustom: boolean;
+  isWoman: boolean;
+  avatar?: string;
+  replacementNote?: string | ""; // ✅ THÊM: Ghi chú thay thế (ví dụ: "Thay thế cho Đỗ Minh")
+}
