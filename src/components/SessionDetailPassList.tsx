@@ -136,7 +136,23 @@ const SessionDetailPassList: React.FC<SessionDetailPassListProps> = ({
     setPassWaitingList(newPassWaitingList);
 
     try {
-      // Update API call here
+      // ✅ Cập nhật cả trong session.members để đồng bộ
+      const updatedMembers = session.members.map((m) =>
+        m.memberId === memberId
+          ? { ...m, isWaitingPass: newPassWaitingList.includes(memberId) }
+          : m
+      );
+
+      // ✅ Gọi API để lưu vào database
+      if (updateSessionMutation) {
+        await updateSessionMutation.mutateAsync({
+          id: session.id,
+          data: {
+            passWaitingList: newPassWaitingList,
+            members: updatedMembers,
+          },
+        });
+      }
       onUpdate();
     } catch (error) {
       console.error('Error updating pass waiting list:', error);
@@ -567,7 +583,7 @@ const handlePassMember = async (memberId: string) => {
         )}
 
         {/* Sảnh chờ - CÓ NÚT EDIT */}
-        {session.waitingList && session.waitingList.length > 0 && (
+        { (
           <Grid item xs={12}>
             <Accordion
               defaultExpanded={!isMobile}
