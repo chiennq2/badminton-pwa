@@ -270,7 +270,7 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
                   <Alert severity="warning" sx={{ mt: 1 }} component="div">
                     <Typography variant="caption">
                       {expense.memberIds && expense.memberIds.length > 0
-                        ? `Chia cho ${
+                        ? `${formatCurrency(expense.amount)} Chia cho ${
                             expense.memberIds.length
                           } thành viên được chọn = ${formatCurrency(
                             expense.amount / expense.memberIds.length
