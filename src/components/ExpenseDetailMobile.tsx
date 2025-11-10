@@ -2,12 +2,14 @@
 // ExpenseDetail.tsx - Mobile-Friendly Version
 // ============================================================
 
-import { Receipt, ExpandMore, AccountBalance, Fastfood, People, CheckCircle, RadioButtonUnchecked } from "@mui/icons-material";
+import { Receipt, ExpandMore, AccountBalance, Fastfood, People, CheckCircle, RadioButtonUnchecked, Edit } from "@mui/icons-material";
 import { Card, CardContent, Typography, Alert, Accordion, AccordionSummary, Box, AccordionDetails, Stack, Divider, Paper, Avatar, Chip, TextField, IconButton, Button } from "@mui/material";
 import { useState, useMemo } from "react";
 import { useResponsive } from "../hooks/useResponsive";
-import { calculateMemberSettlement, formatCurrency } from "../utils";
-import { Session } from "../types";
+import { calculateMemberSettlement, formatCurrency, generateDetailedSettlements } from "../utils";
+import { Session, SessionExpense } from "../types";
+import { useCourts, useUpdateSession } from "../hooks";
+import ExpenseUpdateDialog from "./ExpenseUpdateDialog";
 
 interface ExpenseDetailProps {
   session: Session;
@@ -15,6 +17,7 @@ interface ExpenseDetailProps {
   onPaymentStatusChange: (memberId: string, isPaid: boolean) => void;
   onNoteChange?: (memberId: string, notePayment: string) => void; // ✅ thêm prop mới
   isUpdating?: boolean;
+  onUpdate?: () => void; // ✅ THÊM MỚI
 }
 
 
@@ -24,7 +27,12 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
     onPaymentStatusChange,
     onNoteChange,
     isUpdating = false,
+    onUpdate
   }) => {
+    // Thêm state
+    const [expenseDialogOpen, setExpenseDialogOpen] = useState(false);
+    const updateSessionMutation = useUpdateSession();
+    const { data: courts } = useCourts();
     const [editingNoteMemberId, setEditingNoteMemberId] = useState<string | null>(null);
     const [noteValue, setNoteValue] = useState<string>("");
     const { isMobile } = useResponsive();
@@ -98,6 +106,48 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
     const totalBaseCost = memberPayments.reduce((sum, m) => sum + m.baseCost, 0);
     const grandTotal = memberPayments.reduce((sum, m) => sum + m.total, 0);
   
+    const handleExpenseUpdate = async (expenses: SessionExpense[]) => {
+        try {
+          // Tính lại tổng chi phí
+          const totalCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+          
+          // Tính lại chi phí cơ bản/người
+          const presentMembers = session.members.filter(m => m.isPresent);
+          const courtExpense = expenses.find(exp => exp.type === 'court');
+          const shuttlecockExpense = expenses.find(exp => exp.type === 'shuttlecock');
+          const courtCost = courtExpense?.amount || 0;
+          const shuttlecockCost = shuttlecockExpense?.amount || 0;
+          const costPerPerson = presentMembers.length > 0 
+            ? (courtCost + shuttlecockCost) / presentMembers.length 
+            : 0;
+          
+          // Tạo lại settlements với chi phí mới
+          const newSettlements = generateDetailedSettlements(
+            { ...session, expenses, totalCost },
+            members
+          );
+          
+          // Cập nhật vào database
+          await updateSessionMutation.mutateAsync({
+            id: session.id,
+            data: {
+              expenses,
+              totalCost,
+              costPerPerson,
+              settlements: newSettlements,
+            },
+          });
+          
+          // Refresh data
+          if (onUpdate) {
+            onUpdate();
+          }
+        } catch (error) {
+          console.error('Error updating expenses:', error);
+          throw error;
+        }
+      };
+
     return (
       <Card sx={{ borderRadius: 2 }}>
         <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
@@ -115,6 +165,25 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
             Nhấp vào checkbox để cập nhật trạng thái thanh toán.
           </Alert>
   
+            {/* ✅ NÚT CẬP NHẬT CHI PHÍ - CHỈ HIỆN KHI ĐANG DIỄN RA */}
+            {session.status === 'ongoing' && (
+              <Button
+                variant="contained"
+                color="primary"
+                size="small"
+                startIcon={<Edit />}
+                onClick={() => setExpenseDialogOpen(true)}
+                sx={{
+                  fontSize: { xs: '0.75rem', sm: '0.813rem' },
+                  py: { xs: 0.5, sm: 0.75 },
+                  px: { xs: 1, sm: 1.5 },
+                  mb: 3
+                }}
+              >
+                Cập nhật chi phí
+              </Button>
+            )}
+
           {/* Chi phí cơ bản - Accordion cho mobile */}
           <Accordion defaultExpanded={!isMobile} sx={{ mb: 2, borderRadius: 2, '&:before': { display: 'none' } }}>
             <AccordionSummary 
@@ -395,6 +464,15 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
             </Stack>
           </Box>
         </CardContent>
+        {/* ✅ THÊM DIALOG CẬP NHẬT CHI PHÍ */}
+        <ExpenseUpdateDialog
+          open={expenseDialogOpen}
+          onClose={() => setExpenseDialogOpen(false)}
+          onSave={handleExpenseUpdate}
+          session={session}
+          members={members || []}
+          courts={courts || []}
+        />
       </Card>
     );
   };
