@@ -49,6 +49,7 @@ import dayjs from "dayjs";
 import { formatCurrency, formatDate } from "../utils";
 
 const ReportsMobile: React.FC = () => {
+  // ✅ TẤT CẢ HOOKS PHẢI Ở ĐẦU COMPONENT
   const { currentUser } = useAuth();
   const { data: sessions, isLoading } = useSessions();
   const { data: members } = useMembers();
@@ -61,40 +62,9 @@ const ReportsMobile: React.FC = () => {
     courtId: "",
   });
 
-  if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "80vh",
-        }}
-      >
-        <CircularProgress />
-        <Typography variant="body2" sx={{ mt: 2 }}>
-          Đang tải báo cáo...
-        </Typography>
-      </Box>
-    );
-  }
-
-  if (!sessions || sessions.length === 0) {
-    return (
-      <Box sx={{ p: 2 }}>
-        <Typography variant="h5" fontWeight="bold" gutterBottom>
-          Báo cáo & Thống kê
-        </Typography>
-        <Alert severity="info">
-          Chưa có lịch đánh nào trong hệ thống. Hãy tạo lịch đầu tiên!
-        </Alert>
-      </Box>
-    );
-  }
-
-  // Lọc sessions
+  // ✅ Lọc sessions - luôn gọi useMemo
   const filteredSessions = useMemo(() => {
+    if (!sessions) return [];
     return sessions.filter((s) => {
       const d = new Date(s.date);
       return (
@@ -105,7 +75,7 @@ const ReportsMobile: React.FC = () => {
     });
   }, [sessions, filters]);
 
-  // Thống kê cơ bản + court usage + monthly revenue + top members
+  // ✅ Thống kê cơ bản - luôn gọi useMemo
   const stats = useMemo(() => {
     const totalSessions = filteredSessions.length;
     const totalRevenue = filteredSessions.reduce(
@@ -135,7 +105,6 @@ const ReportsMobile: React.FC = () => {
     const revenueList = Object.entries(monthlyRevenue)
       .map(([month, total]) => ({ month, total }))
       .sort((a, b) => {
-        // sort by month ascending (MM/YYYY)
         const aDate = dayjs(a.month, "MM/YYYY").toDate();
         const bDate = dayjs(b.month, "MM/YYYY").toDate();
         return aDate.getTime() - bDate.getTime();
@@ -172,6 +141,39 @@ const ReportsMobile: React.FC = () => {
     };
   }, [filteredSessions, courts, members]);
 
+  // ✅ SAU KHI GỌI TẤT CẢ HOOKS, MỚI KIỂM TRA LOADING/EMPTY
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "80vh",
+        }}
+      >
+        <CircularProgress />
+        <Typography variant="body2" sx={{ mt: 2 }}>
+          Đang tải báo cáo...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (!sessions || sessions.length === 0) {
+    return (
+      <Box sx={{ p: 2 }}>
+        <Typography variant="h5" fontWeight="bold" gutterBottom>
+          Báo cáo & Thống kê
+        </Typography>
+        <Alert severity="info">
+          Chưa có lịch đánh nào trong hệ thống. Hãy tạo lịch đầu tiên!
+        </Alert>
+      </Box>
+    );
+  }
+
   const COLORS = ["#4caf50", "#ff9800", "#2196f3", "#9c27b0", "#f44336"];
 
   // Helper for avatar initials
@@ -194,7 +196,7 @@ const ReportsMobile: React.FC = () => {
           Báo cáo & Thống kê
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Tổng hợp hoạt động & doanh thu của các lịch đánh
+          Tổng hợp hoạt động & chi phí của các lịch đánh
         </Typography>
       </motion.div>
 
@@ -275,7 +277,7 @@ const ReportsMobile: React.FC = () => {
                 icon: <Assessment color="primary" />,
               },
               {
-                label: "Tổng doanh thu",
+                label: "Tổng chi phí",
                 value: formatCurrency(stats.totalRevenue),
                 icon: <MonetizationOn color="success" />,
               },
@@ -308,7 +310,7 @@ const ReportsMobile: React.FC = () => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Biểu đồ doanh thu + Pie Thống kê sử dụng sân */}
+      {/* Biểu đồ chi phí + Pie Thống kê sử dụng sân */}
       <motion.div
         initial={{ opacity: 0, y: 18 }}
         animate={{ opacity: 1, y: 0 }}
@@ -317,7 +319,7 @@ const ReportsMobile: React.FC = () => {
         <Card sx={{ mt: 3, borderRadius: 3, boxShadow: 3 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom>
-              Doanh thu theo tháng
+              Chi phí theo tháng
             </Typography>
             {stats.revenueList.length > 0 ? (
               <Box sx={{ height: 220 }}>
@@ -442,8 +444,6 @@ const ReportsMobile: React.FC = () => {
           </CardContent>
         </Card>
       </motion.div>
-
-      {/* Ghi chú: đã bỏ danh sách chi tiết lịch (mobile) theo yêu cầu */}
     </Box>
   );
 };

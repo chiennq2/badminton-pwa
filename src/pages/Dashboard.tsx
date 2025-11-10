@@ -140,7 +140,7 @@ const Dashboard: React.FC = () => {
           <StatCard title="Nhóm" value={groups?.length || 0} icon={<Groups />} color="info" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard title="Doanh thu" value={formatCurrency(totalRevenue)} icon={<TrendingUp />} color="warning" subtitle={`${completedSessions.length} lịch hoàn thành`} />
+          <StatCard title="Chi phí" value={formatCurrency(totalRevenue)} icon={<TrendingUp />} color="warning" subtitle={`${completedSessions.length} lịch hoàn thành`} />
         </Grid>
       </Grid>
 
