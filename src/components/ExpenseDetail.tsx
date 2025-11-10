@@ -22,6 +22,7 @@ import {
   Tooltip,
   TextField,
   IconButton,
+  Button,
 } from "@mui/material";
 import {
   ExpandMore,
@@ -31,9 +32,12 @@ import {
   SportsTennis,
   Fastfood,
   CheckCircle,
+  Edit,
 } from "@mui/icons-material";
-import { formatCurrency, calculateMemberSettlement } from "../utils";
-import { Session } from "../types";
+import { formatCurrency, calculateMemberSettlement, generateDetailedSettlements } from "../utils";
+import { Session, SessionExpense } from "../types";
+import { useCourts, useUpdateSession } from "../hooks";
+import ExpenseUpdateDialog from "./ExpenseUpdateDialog";
 
 interface ExpenseDetailProps {
   session: Session;
@@ -41,6 +45,8 @@ interface ExpenseDetailProps {
   onPaymentStatusChange: (memberId: string, isPaid: boolean) => void;
   onNoteChange?: (memberId: string, notePayment: string) => void; // ✅ thêm prop mới
   isUpdating?: boolean;
+  onUpdate?: () => void; // ✅ THÊM MỚI
+
 }
 
 const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
@@ -49,7 +55,14 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
   onPaymentStatusChange,
   onNoteChange,
   isUpdating = false,
+  onUpdate, // ✅ THÊM MỚI
+
 }) => {
+  // Thêm state
+  const [expenseDialogOpen, setExpenseDialogOpen] = React.useState(false);
+  const updateSessionMutation = useUpdateSession();
+  const { data: courts } = useCourts();
+
   // ===== STATE CHO GHI CHÚ INLINE =====
   const [pendingNoteMemberId, setPendingNoteMemberId] = React.useState<
     string | null
@@ -149,6 +162,48 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
     return totals;
   }, [additionalExpenses, memberPayments]);
 
+    const handleExpenseUpdate = async (expenses: SessionExpense[]) => {
+    try {
+      // Tính lại tổng chi phí
+      const totalCost = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+      
+      // Tính lại chi phí cơ bản/người
+      const presentMembers = session.members.filter(m => m.isPresent);
+      const courtExpense = expenses.find(exp => exp.type === 'court');
+      const shuttlecockExpense = expenses.find(exp => exp.type === 'shuttlecock');
+      const courtCost = courtExpense?.amount || 0;
+      const shuttlecockCost = shuttlecockExpense?.amount || 0;
+      const costPerPerson = presentMembers.length > 0 
+        ? (courtCost + shuttlecockCost) / presentMembers.length 
+        : 0;
+      
+      // Tạo lại settlements với chi phí mới
+      const newSettlements = generateDetailedSettlements(
+        { ...session, expenses, totalCost },
+        members
+      );
+      
+      // Cập nhật vào database
+      await updateSessionMutation.mutateAsync({
+        id: session.id,
+        data: {
+          expenses,
+          totalCost,
+          costPerPerson,
+          settlements: newSettlements,
+        },
+      });
+      
+      // Refresh data
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating expenses:', error);
+      throw error;
+    }
+  };
+
   return (
     <Card>
       <CardContent>
@@ -164,6 +219,25 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
             Nhấp vào checkbox để cập nhật trạng thái thanh toán.
           </Typography>
         </Alert>
+
+          {/* ✅ NÚT CẬP NHẬT CHI PHÍ - CHỈ HIỆN KHI ĐANG DIỄN RA */}
+          {session.status === 'ongoing' && (
+            <Button
+              variant="contained"
+              color="primary"
+              size="small"
+              startIcon={<Edit />}
+              onClick={() => setExpenseDialogOpen(true)}
+              sx={{
+                fontSize: { xs: '0.75rem', sm: '0.813rem' },
+                py: { xs: 0.5, sm: 0.75 },
+                px: { xs: 1, sm: 1.5 },
+              }}
+            >
+              Cập nhật chi phí
+            </Button>
+          )}
+      
 
         {/* Chi phí cơ bản */}
         <Accordion defaultExpanded>
@@ -525,6 +599,16 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
           </TableContainer>
         </Box>
       </CardContent>
+
+      {/* ✅ THÊM DIALOG CẬP NHẬT CHI PHÍ */}
+      <ExpenseUpdateDialog
+        open={expenseDialogOpen}
+        onClose={() => setExpenseDialogOpen(false)}
+        onSave={handleExpenseUpdate}
+        session={session}
+        members={members || []}
+        courts={courts || []}
+      />
     </Card>
   );
 };
