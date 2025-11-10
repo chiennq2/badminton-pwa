@@ -171,7 +171,7 @@ const Reports: React.FC = () => {
       labels: sortedMonths.map(month => dayjs(month).format('MM/YYYY')),
       datasets: [
         {
-          label: 'Doanh thu (VNĐ)',
+          label: 'Chi phí (VNĐ)',
           data: sortedMonths.map(month => monthlyRevenue[month]),
           backgroundColor: 'rgba(76, 175, 80, 0.6)',
           borderColor: 'rgba(76, 175, 80, 1)',
@@ -275,7 +275,7 @@ const Reports: React.FC = () => {
           </Typography>
           <Typography variant="body1" color="text.secondary">
             {currentUser?.role === 'admin' 
-              ? 'Phân tích hoạt động và doanh thu của các lịch đánh cầu lông'
+              ? 'Phân tích hoạt động và chi phí của các lịch đánh cầu lông'
               : 'Phân tích hoạt động và chi phí của các lịch đánh bạn đã tạo'
             }
           </Typography>
@@ -302,7 +302,7 @@ const Reports: React.FC = () => {
         </Typography>
         <Typography variant="body1" color="text.secondary">
           {currentUser?.role === 'admin' 
-            ? 'Phân tích hoạt động và doanh thu của các lịch đánh cầu lông'
+            ? 'Phân tích hoạt động và chi phí của các lịch đánh cầu lông'
             : 'Phân tích hoạt động và chi phí của các lịch đánh bạn đã tạo'
           }
         </Typography>
@@ -426,7 +426,7 @@ const Reports: React.FC = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                 <Analytics sx={{ mr: 1, color: 'success.main' }} />
                 <Typography variant="body2" color="text.secondary">
-                  Tổng doanh thu
+                  Tổng chi phí
                 </Typography>
               </Box>
               <Typography variant="h4" fontWeight="bold" color="success.main">
@@ -475,7 +475,7 @@ const Reports: React.FC = () => {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Doanh thu theo tháng
+                Chi phí theo tháng
               </Typography>
               {revenueChartData.labels.length > 0 ? (
                 <Bar

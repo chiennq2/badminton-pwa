@@ -18,7 +18,7 @@
 - **Hoàn thành lịch**: Xuất thông tin thanh toán cho từng thành viên
 
 ### 📊 Báo cáo và thống kê
-- **Biểu đồ doanh thu**: Chart.js với dữ liệu theo tháng
+- **Biểu đồ chi phí**: Chart.js với dữ liệu theo tháng
 - **Top thành viên**: Thống kê thành viên tích cực nhất
 - **Sử dụng sân**: Phân tích tần suất sử dụng các sân
 - **Xuất báo cáo**: CSV export cho tất cả dữ liệu
