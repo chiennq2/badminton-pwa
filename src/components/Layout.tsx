@@ -36,6 +36,7 @@ import {
   EmojiEvents,
   Person,
   NotificationAdd,
+  PriceChange,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
@@ -57,6 +58,12 @@ const adminMenuItems = [
   { text: "Lịch đánh", icon: <CalendarMonth />, path: "/sessions" },
   { text: 'Giải đấu', icon: <EmojiEvents />, path: '/tournaments' },
   { text: "Báo cáo", icon: <Assessment />, path: "/reports" },
+  { 
+    text: 'Chia tiền nhóm', 
+    icon: <PriceChange />, 
+    href: 'https://bill.drunksmashers.click', 
+    target: '_blank' // mở trong tab mới
+  }
 ];
 
 const adminSettingsItems = [
@@ -71,7 +78,12 @@ const userMenuItems = [
   { text: "Lịch đánh của tôi", icon: <CalendarMonth />, path: "/sessions" },
   { text: "Báo cáo của tôi", icon: <Assessment />, path: "/reports" },
   { text: 'Giải đấu (Beta)', icon: <EmojiEvents />, path: '/tournaments' },
-
+  { 
+    text: 'Chia tiền nhóm', 
+    icon: <PriceChange />, 
+    href: 'https://bill.drunksmashers.click', 
+    target: '_blank' // mở trong tab mới
+  }
 ];
 
 const Layout: React.FC<LayoutProps> = ({
@@ -147,50 +159,60 @@ const Layout: React.FC<LayoutProps> = ({
       <Divider />
 
       {/* Main Menu Items */}
-      <List sx={{ flexGrow: 1, px: 2, py: 1 }}>
-        {menuItems.map((item) => {
-          const isActive = location.pathname === item.path;
-          return (
-            <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
-              <ListItemButton
-                onClick={() => {
-                  navigate(item.path);
-                  if (isMobile) setMobileOpen(false);
-                }}
-                selected={isActive}
-                sx={{
-                  borderRadius: 2,
-                  "&.Mui-selected": {
-                    bgcolor: "primary.main",
-                    color: "primary.contrastText",
-                    "&:hover": {
-                      bgcolor: "primary.dark",
-                    },
-                    "& .MuiListItemIcon-root": {
-                      color: "primary.contrastText",
-                    },
-                  },
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    color: isActive ? "inherit" : "text.secondary",
-                    minWidth: 40,
-                  }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText
-                  primary={item.text}
-                  primaryTypographyProps={{
-                    fontWeight: isActive ? 600 : 400,
-                  }}
-                />
-              </ListItemButton>
-            </ListItem>
-          );
-        })}
-      </List>
+<List sx={{ flexGrow: 1, px: 2, py: 1 }}>
+  {menuItems.map((item) => {
+    const isActive = location.pathname === item.path;
+
+    const handleClick = () => {
+      if (item.href) {
+        // Nếu có href: mở link ngoài
+        window.open(item.href, item.target || "_blank");
+      } else if (item.path) {
+        // Nếu có path: điều hướng nội bộ
+        navigate(item.path);
+      }
+      if (isMobile) setMobileOpen(false);
+    };
+
+    return (
+      <ListItem key={item.text} disablePadding sx={{ mb: 0.5 }}>
+        <ListItemButton
+          onClick={handleClick}
+          selected={isActive}
+          sx={{
+            borderRadius: 2,
+            "&.Mui-selected": {
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
+              "&:hover": {
+                bgcolor: "primary.dark",
+              },
+              "& .MuiListItemIcon-root": {
+                color: "primary.contrastText",
+              },
+            },
+          }}
+        >
+          <ListItemIcon
+            sx={{
+              color: isActive ? "inherit" : "text.secondary",
+              minWidth: 40,
+            }}
+          >
+            {item.icon}
+          </ListItemIcon>
+          <ListItemText
+            primary={item.text}
+            primaryTypographyProps={{
+              fontWeight: isActive ? 600 : 400,
+            }}
+          />
+        </ListItemButton>
+      </ListItem>
+    );
+  })}
+</List>
+
 
       {/* Settings Menu (chỉ cho admin) */}
       {settingsItems.length > 0 && (
