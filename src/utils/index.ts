@@ -647,3 +647,30 @@ export const removeFirstTwoWords = (str: string) => {
   // Nối lại các từ từ vị trí thứ 2 trở đi
   return words.slice(2).join(" ");
 }
+
+
+
+export const calculateSlotPrice = (pricePerHour: number, startTime: string, endTime: string, defaultSlot: number): number => {
+  
+    const totalSlots = defaultSlot ?? 8;
+
+    const timeToMinutes = (time: string): number => {
+        const [hours, minutes] = time.split(":").map(Number);
+        return hours * 60 + minutes;
+    };
+
+    // Chuyển đổi startTime và endTime thành số phút
+    const startMinutes = timeToMinutes(startTime);
+    const endMinutes = timeToMinutes(endTime);
+
+    // Tính số phút, nếu endTime < startTime, tức là qua ngày
+    let minutesWorked = endMinutes - startMinutes;
+    if (minutesWorked < 0) {
+        minutesWorked += 24 * 60; // thêm 24 giờ (1440 phút) vào nếu qua ngày
+    }
+
+    // Tính số tiền phải trả (số tiền mỗi giờ * số giờ) / 8 (8 là số lượng người tối đa 1 sân)
+    const hoursWorked = minutesWorked / 60;
+    const pricePerHourPerPerson = pricePerHour / totalSlots;
+    return hoursWorked * pricePerHourPerPerson;
+}

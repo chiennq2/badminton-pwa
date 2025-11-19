@@ -646,6 +646,7 @@ export const getOrCreateSettings = async (): Promise<AppSettings> => {
     // Tạo settings mặc định nếu chưa tồn tại
     const defaultSettings: AppSettings = {
       defaultSessionDuration: 120,
+      defaultMaxSlot: 8,
       defaultMaxParticipants: 16,
       defaultShuttlecockCost: 25000,
       isFixedBadmintonCost: false,
@@ -670,6 +671,7 @@ export const resetSettings = async (): Promise<void> => {
   try {
     const defaultSettings: AppSettings = {
       defaultSessionDuration: 120,
+      defaultMaxSlot: 8,
       defaultMaxParticipants: 16,
       defaultShuttlecockCost: 25000,
       isFixedBadmintonCost: false,

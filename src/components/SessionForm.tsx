@@ -78,6 +78,7 @@ import {
   getCurrentUserLogin,
   formatDate,
   formatTime,
+  calculateSlotPrice,
 } from "../utils";
 import { ScheduledNotification } from "../types/notification";
 import { scheduledNotificationService } from "../services/scheduledNotificationService";
@@ -166,7 +167,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
       startTime: editingSession?.startTime ?? "19:30",
       endTime: editingSession?.endTime ?? "21:30",
       maxParticipants: editingSession?.maxParticipants ?? 24,
-      priceSlot: editingSession?.priceSlot ?? 32500,
+      priceSlot: editingSession?.priceSlot ?? "32500",
       isFixedBadmintonCost: editingSession?.isFixedBadmintonCost ?? false,
       fixedBadmintonCost: editingSession?.fixedBadmintonCost ?? 0,
       notes: editingSession?.notes ?? "",
@@ -623,6 +624,15 @@ const SessionForm: React.FC<SessionFormProps> = ({
     formik.values.startTime,
     formik.values.endTime,
   ]);
+
+  useEffect(() => {
+    // Calculate price slot
+    if (!formik.values.courtId) return;
+    const priceCourts = courts?.filter(c => c.id === formik.values.courtId);
+    const priceSlot = calculateSlotPrice(priceCourts[0].pricePerHour, formik.values.startTime, formik.values.endTime, settings?.defaultMaxSlot);
+    formik.setFieldValue("priceSlot", priceSlot);
+  }, [courts, formik.values.courtId, formik.values.startTime, formik.values.endTime]);
+
 
   const getStepContent = (step: number) => {
     switch (step) {

@@ -75,6 +75,8 @@ const Settings: React.FC = () => {
       .min(30, 'Thời lượng tối thiểu 30 phút')
       .max(480, 'Thời lượng tối đa 8 giờ')
       .required('Thời lượng mặc định là bắt buộc'),
+    defaultMaxSlot: Yup.number()
+      .min(2, 'Số slot 1 sân mặc định'),
     defaultMaxParticipants: Yup.number()
       .min(2, 'Tối thiểu 2 người')
       .max(60, 'Tối đa 60 người')
@@ -96,6 +98,7 @@ const Settings: React.FC = () => {
   const formik = useFormik({
     initialValues: {
       defaultSessionDuration: 120,
+      defaultMaxSlot: 8,
       defaultMaxParticipants: 16,
       defaultShuttlecockCost: 25000,
       isFixedBadmintonCost: false,
@@ -133,6 +136,7 @@ const Settings: React.FC = () => {
       const settings = await getOrCreateSettings();
       formik.setValues({
         defaultSessionDuration: settings.defaultSessionDuration,
+        defaultMaxSlot: settings.defaultMaxSlot,
         defaultMaxParticipants: settings.defaultMaxParticipants,
         defaultShuttlecockCost: settings.defaultShuttlecockCost,
         isFixedBadmintonCost: Boolean(settings.isFixedBadmintonCost),
@@ -364,7 +368,7 @@ const Settings: React.FC = () => {
                 </Box>
 
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={12} sm={3}>
                     <TextField
                       fullWidth
                       name="defaultSessionDuration"
@@ -384,7 +388,26 @@ const Settings: React.FC = () => {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={12} sm={3}>
+                    <TextField
+                      fullWidth
+                      name="defaultMaxSlot"
+                      label="Số Slot 1 sân mặc định"
+                      type="number"
+                      value={formik.values.defaultMaxSlot}
+                      onChange={formik.handleChange}
+                      onBlur={formik.handleBlur}
+                      error={
+                        formik.touched.defaultMaxSlot &&
+                        Boolean(formik.errors.defaultMaxSlot)
+                      }
+                      helperText={
+                        formik.touched.defaultMaxSlot &&
+                        formik.errors.defaultMaxSlot
+                      }
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={3}>
                     <TextField
                       fullWidth
                       name="defaultMaxParticipants"
@@ -404,7 +427,7 @@ const Settings: React.FC = () => {
                     />
                   </Grid>
 
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={12} sm={3}>
                     <TextField
                       fullWidth
                       name="defaultShuttlecockCost"
@@ -826,7 +849,7 @@ const Settings: React.FC = () => {
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >

@@ -166,6 +166,7 @@ export interface MemberSettlementDetail {
 
 export interface AppSettings {
   defaultSessionDuration: number; // minutes
+  defaultMaxSlot: number;
   defaultMaxParticipants: number;
   defaultShuttlecockCost: number;
   isFixedBadmintonCost: boolean;
