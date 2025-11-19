@@ -1010,7 +1010,7 @@ const Tournaments: React.FC = () => {
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={4000}
+        autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: isMobile ? "bottom" : "top", horizontal: "center" }}
         sx={{ bottom: isMobile ? 80 : undefined }}

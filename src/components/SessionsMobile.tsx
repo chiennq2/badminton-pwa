@@ -444,7 +444,7 @@ const displayed = (tab === 0 ? activeSessions : completedSessions)
         {/* ===== THÊM SNACKBAR MỚI ===== */}
         <Snackbar
           open={snackbar.open}
-          autoHideDuration={4000}
+          autoHideDuration={3000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           anchorOrigin={{ vertical: "top", horizontal: "center" }}
         >

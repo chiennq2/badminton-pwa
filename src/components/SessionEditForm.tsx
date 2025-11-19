@@ -106,6 +106,7 @@ import {
   calculateMemberSettlement,
   getSafeDateForPicker,
   getCurrentUserLogin,
+  calculateSlotPrice,
 } from "../utils";
 import { Snackbar } from "@mui/material"; // Thêm vào imports nếu chưa có
 import { useResponsive } from "../hooks/useResponsive";
@@ -401,6 +402,14 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
       );
     }
   }, [members]);
+
+  useEffect(() => {
+    // Calculate price slot
+    if (!formik.values.courtId) return;
+    const priceCourts = courts?.filter(c => c.id === formik.values.courtId);
+    const priceSlot = calculateSlotPrice(priceCourts[0].pricePerHour, formik.values.startTime, formik.values.endTime, settings?.defaultMaxSlot);
+    formik.setFieldValue("priceSlot", priceSlot);
+  }, [courts, formik.values.courtId, formik.values.startTime, formik.values.endTime]);
 
   const togglePaymentStatus = (memberId: string) => {
     setSettlements(
@@ -2989,7 +2998,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
         {/* ===== THÊM SNACKBAR MỚI ===== */}
         <Snackbar
           open={snackbar.open}
-          autoHideDuration={4000}
+          autoHideDuration={3000}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           anchorOrigin={{ vertical: "top", horizontal: "center" }}
         >
