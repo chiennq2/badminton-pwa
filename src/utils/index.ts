@@ -674,3 +674,14 @@ export const calculateSlotPrice = (pricePerHour: number, startTime: string, endT
     const pricePerHourPerPerson = pricePerHour / totalSlots;
     return hoursWorked * pricePerHourPerPerson;
 }
+
+
+export function transformUrl(inputUrl: string): string {
+    const urlParts = inputUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1];
+    const domain = urlParts.slice(0, -1).join('/');
+
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    return `${domain}/${timestamp}/${fileName}`;
+}

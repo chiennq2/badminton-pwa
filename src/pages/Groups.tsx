@@ -47,7 +47,7 @@ import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { useGroups, useCreateGroup, useUpdateGroup, useDeleteGroup, useMembers } from '../hooks';
 import { Group, Member } from '../types';
-import { formatDate, getCurrentUserLogin } from '../utils';
+import { formatDate, getCurrentUserLogin, transformUrl } from '../utils';
 
 const Groups: React.FC = () => {
   const { data: groups, isLoading: groupsLoading } = useGroups();
@@ -321,7 +321,7 @@ const Groups: React.FC = () => {
                             }}
                           >
                             <Avatar 
-                              src={member.avatar} 
+                              src={transformUrl(member.avatar)} 
                               sx={{ width: 32, height: 32 }}
                             >
                               {member.name.charAt(0)}
@@ -669,7 +669,7 @@ const Groups: React.FC = () => {
                 renderOption={(props, option) => (
                   <Box component="li" {...props}>
                     <Avatar 
-                      src={option.avatar} 
+                      src={transformUrl(option.avatar)} 
                       sx={{ mr: 2, width: 32, height: 32 }}
                     >
                       {option.name.charAt(0)}
@@ -693,7 +693,7 @@ const Groups: React.FC = () => {
                       {selectedMembers.map((member) => (
                         <ListItem key={member.id}>
                           <Avatar 
-                            src={member.avatar} 
+                            src={transformUrl(member.avatar)} 
                             sx={{ mr: 2, width: 32, height: 32 }}
                           >
                             {member.name.charAt(0)}

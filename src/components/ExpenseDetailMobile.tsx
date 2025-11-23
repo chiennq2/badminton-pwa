@@ -6,7 +6,7 @@ import { Receipt, ExpandMore, AccountBalance, Fastfood, People, CheckCircle, Rad
 import { Card, CardContent, Typography, Alert, Accordion, AccordionSummary, Box, AccordionDetails, Stack, Divider, Paper, Avatar, Chip, TextField, IconButton, Button } from "@mui/material";
 import { useState, useMemo } from "react";
 import { useResponsive } from "../hooks/useResponsive";
-import { calculateMemberSettlement, formatCurrency, generateDetailedSettlements } from "../utils";
+import { calculateMemberSettlement, formatCurrency, generateDetailedSettlements, transformUrl } from "../utils";
 import { Session, SessionExpense } from "../types";
 import { useCourts, useUpdateSession } from "../hooks";
 import ExpenseUpdateDialog from "./ExpenseUpdateDialog";
@@ -300,7 +300,7 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1.5 }}>
                         {payment.avatar ? (
                             <Avatar
-                              src={payment.avatar}
+                              src={transformUrl(payment.avatar)}
                               sx={{ mr:1, width: 32, height: 32 }}
                             />
                           ) : (
