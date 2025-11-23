@@ -39,6 +39,7 @@ import EmojiEventsIcon from '@mui/icons-material/EmojiEvents';
 import { Member, Court } from '../types';
 import { Tournament, TournamentCategory, PotLevel, TournamentParticipant, TournamentFormat } from '../types/tournament';
 import { getCategoryName, POT_LEVELS } from '../utils/tournamentUtils';
+import { transformUrl } from '../utils';
 
 interface TournamentFormProps {
   open: boolean;
@@ -534,7 +535,7 @@ const TournamentForm: React.FC<TournamentFormProps> = ({
                       >
                         <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2 }}>
                           <Avatar
-                            src={member.avatar}
+                            src={transformUrl(member.avatar)}
                             sx={{ bgcolor: getPotColor(member.skillLevel) }}
                           >
                             {member.name.charAt(0)}
@@ -581,7 +582,7 @@ const TournamentForm: React.FC<TournamentFormProps> = ({
                       <Card variant="outlined">
                         <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2 }}>
                           <Avatar
-                            src={participant.avatar}
+                            src={transformUrl(participant.avatar)}
                             sx={{ bgcolor: getPotColor(participant.potLevel) }}
                           >
                             {participant.name.charAt(0)}

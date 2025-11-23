@@ -79,6 +79,7 @@ import {
   formatDate,
   formatTime,
   calculateSlotPrice,
+  transformUrl,
 } from "../utils";
 import { ScheduledNotification } from "../types/notification";
 import { scheduledNotificationService } from "../services/scheduledNotificationService";
@@ -995,7 +996,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
                     <Box component="li" {...props}>
                       {option.avatar ? (
                         <Avatar
-                          src={option.avatar}
+                          src={transformUrl(option.avatar)}
                           sx={{ mr: 2, width: 32, height: 32 }}
                         />
                       ) : (
@@ -1119,7 +1120,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
                         <ListItemAvatar>
                           {member.avatar ? (
                             <Avatar
-                              src={member.avatar}
+                              src={transformUrl(member.avatar)}
                               sx={{ mr: 2, width: 32, height: 32 }}
                             />
                           ) : (
@@ -1215,7 +1216,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
                     <Box component="li" {...props}>
                       {option.avatar ? (
                         <Avatar
-                          src={option.avatar}
+                          src={transformUrl(option.avatar)}
                           sx={{ mr: 2, width: 32, height: 32 }}
                         />
                       ) : (
@@ -1308,7 +1309,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
                         <ListItemAvatar>
                           {member.avatar ? (
                             <Avatar
-                              src={member.avatar}
+                              src={transformUrl(member.avatar)}
                               sx={{ mr: 2, width: 32, height: 32 }}
                             />
                           ) : (
@@ -1588,7 +1589,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
                                   avatar={
                                     option.avatar ? (
                                       <Avatar
-                                        src={option.avatar}
+                                        src={transformUrl(option.avatar)}
                                         sx={{ mr: 2, width: 32, height: 32 }}
                                       />
                                     ) : (
@@ -1626,7 +1627,7 @@ const SessionForm: React.FC<SessionFormProps> = ({
                               <Box component="li" {...props}>
                                 {option.avatar ? (
                                   <Avatar
-                                    src={option.avatar}
+                                    src={transformUrl(option.avatar)}
                                     sx={{ mr: 2, width: 32, height: 32 }}
                                   />
                                 ) : (

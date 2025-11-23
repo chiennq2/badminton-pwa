@@ -32,6 +32,7 @@ import {
   Fastfood,
   AttachMoney,
 } from '@mui/icons-material';
+import { transformUrl } from '../utils';
 
 // Type definitions (copy from your project)
 interface SessionExpense {
@@ -458,7 +459,7 @@ const ExpenseUpdateDialog: React.FC<ExpenseUpdateDialogProps> = ({
                             {...getTagProps({ index })}
                             avatar={
                               option.avatar ? (
-                                <Avatar src={option.avatar} sx={{ width: 24, height: 24 }} />
+                                <Avatar src={transformUrl(option.avatar)} sx={{ width: 24, height: 24 }} />
                               ) : (
                                 <Avatar
                                   sx={{
@@ -479,7 +480,7 @@ const ExpenseUpdateDialog: React.FC<ExpenseUpdateDialogProps> = ({
                       renderOption={(props, option) => (
                         <Box component="li" {...props}>
                           {option.avatar ? (
-                            <Avatar src={option.avatar} sx={{ mr: 1, width: 24, height: 24 }} />
+                            <Avatar src={transformUrl(option.avatar)} sx={{ mr: 1, width: 24, height: 24 }} />
                           ) : (
                             <Avatar sx={{ mr: 1, width: 24, height: 24 }}>
                               {option.name.charAt(0).toUpperCase()}

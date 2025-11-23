@@ -33,6 +33,7 @@ import {
   calculateMemberSettlement,
   convertTimestampToDate,
   getLocalStorageItem,
+  transformUrl,
 } from "../utils";
 import { Session } from "../types";
 
@@ -571,7 +572,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     <Box sx={{ display: "flex", alignItems: "center" }}>
                       {payment.avatar ? (
                           <Avatar
-                            src={payment.avatar}
+                            src={transformUrl(payment.avatar)}
                             sx={{ mr:1, width: 45, height: 45 }}
                           />
                         ) : (

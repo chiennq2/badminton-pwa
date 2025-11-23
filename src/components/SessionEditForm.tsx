@@ -107,6 +107,7 @@ import {
   getSafeDateForPicker,
   getCurrentUserLogin,
   calculateSlotPrice,
+  transformUrl,
 } from "../utils";
 import { Snackbar } from "@mui/material"; // Thêm vào imports nếu chưa có
 import { useResponsive } from "../hooks/useResponsive";
@@ -1212,7 +1213,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                     <Box component="li" {...props}>
                       {option.avatar ? (
                         <Avatar
-                          src={option.avatar}
+                          src={transformUrl(option.avatar)}
                           sx={{ mr: 2, width: 32, height: 32 }}
                         />
                       ) : (
@@ -1349,7 +1350,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                   width: 36,
                                   height: 36,
                                 }}
-                                src={member.avatar}
+                                src={transformUrl(member.avatar)}
                               >
                                 {member.isCustom ? (
                                   <Person />
@@ -1685,7 +1686,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                     <Box component="li" {...props}>
                       {option.avatar ? (
                         <Avatar
-                          src={option.avatar}
+                          src={transformUrl(option.avatar)}
                           sx={{ mr:2, width: 32, height: 32 }}
                         />
                       ) : (
@@ -1843,7 +1844,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                   {/* Avatar với số thứ tự */}
                                   {member.avatar ? (
                                     <Avatar
-                                      src={member.avatar}
+                                      src={transformUrl(member.avatar)}
                                       sx={{mr:2, width: 32, height: 32 }}
                                     />
                                   ) : (
@@ -2183,7 +2184,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                 avatar={
                                   option.avatar ? (
                                     <Avatar
-                                      src={option.avatar}
+                                      src={transformUrl(option.avatar)}
                                       sx={{mr:2, width: 32, height: 32 }}
                                     />
                                   ) : (
@@ -2205,7 +2206,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                             <Box component="li" {...props}>
                               {option.avatar ? (
                                 <Avatar
-                                  src={option.avatar}
+                                  src={transformUrl(option.avatar)}
                                   sx={{mr:2, width: 32, height: 32 }}
                                 />
                               ) : (
@@ -2491,7 +2492,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                 >
                                   {member.avatar ? (
                                     <Avatar
-                                      src={member.avatar}
+                                      src={transformUrl(member.avatar)}
                                       sx={{mr:2, width: 32, height: 32 }}
                                     />
                                   ) : (

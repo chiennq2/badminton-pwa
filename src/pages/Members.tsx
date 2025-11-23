@@ -43,7 +43,7 @@ import * as Yup from 'yup';
 import dayjs from 'dayjs';
 import { useMembers, useCreateMember, useUpdateMember, useDeleteMember } from '../hooks';
 import { Member } from '../types';
-import { formatDate, validatePhone } from '../utils';
+import { formatDate, transformUrl, validatePhone } from '../utils';
 
 const skillLevels = ['Pot 5', 'Pot 4', 'Pot 3', 'Pot 2', 'Pot 1'];
 
@@ -171,7 +171,7 @@ const Members: React.FC = () => {
       minWidth: 180,
       renderCell: (params) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Avatar src={params.row.avatar} sx={{ width: 30, height: 30 }}>
+          <Avatar src={transformUrl(params.row.avatar)} sx={{ width: 30, height: 30 }}>
             {params.value?.charAt(0).toUpperCase()}
           </Avatar>
           <Typography variant="body2">{params.value}</Typography>
@@ -282,7 +282,7 @@ const Members: React.FC = () => {
               <Card key={m.id} sx={{ mb: 1.5, mx: 1, p: 1, borderRadius: 2, boxShadow: 2, '&:hover': { boxShadow: 4 } }}>
                 <ListItem>
                   <ListItemAvatar>
-                    <Avatar src={m.avatar} sx={{ bgcolor: 'primary.main' }}>
+                    <Avatar src={transformUrl(m.avatar)} sx={{ bgcolor: 'primary.main' }}>
                       {m.name?.charAt(0).toUpperCase()}
                     </Avatar>
                   </ListItemAvatar>

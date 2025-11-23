@@ -64,7 +64,7 @@ import {
   generateBalancedTeams,
 } from '../utils/tournamentUtils';
 import { formatDateOnly } from '../utils/dateUtils';
-import { convertFirestoreTimestamp } from '../utils';
+import { convertFirestoreTimestamp, transformUrl } from '../utils';
 import TournamentForm from '../components/TournamentForm';
 import TournamentDetail from '../components/TournamentDetail';
 import { SwapHoriz } from '@mui/icons-material';
@@ -885,7 +885,7 @@ const Tournaments: React.FC = () => {
                     <Box sx={{ mt: 2 }}>
                       <AvatarGroup max={5}>
                         {tournament.participants.slice(0, 5).map(p => (
-                          <Avatar key={p.id} alt={p.name} src={p.avatar} sx={{ width: 32, height: 32 }}>
+                          <Avatar key={p.id} alt={p.name} src={transformUrl(p.avatar)} sx={{ width: 32, height: 32 }}>
                             {p.name.charAt(0)}
                           </Avatar>
                         ))}

@@ -54,7 +54,7 @@ import {
   TournamentParticipant,
   TournamentTeam,
 } from '../types/tournament';
-import { formatDateTime } from '../utils';
+import { formatDateTime, transformUrl } from '../utils';
 import { formatDateOnly } from '../utils/dateUtils';
 import { validateMatchScore, getCategoryName } from '../utils/tournamentUtils';
 import BracketView from './BracketView';
@@ -537,7 +537,7 @@ const TournamentDetail: React.FC<TournamentDetailProps> = ({
                       }}
                     >
                       <Avatar
-                        src={participant.avatar}
+                        src={transformUrl(participant.avatar)}
                         sx={{
                           bgcolor: getPotColor(participant.potLevel),
                           width: isMobile ? 36 : 40,

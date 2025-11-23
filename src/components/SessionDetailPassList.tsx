@@ -55,6 +55,7 @@ import {
   DropResult,
 } from '@hello-pangea/dnd';
 import { CustomMember, Member, Session } from '../types';
+import { transformUrl } from '../utils';
 
 
 interface SessionDetailPassListProps {
@@ -375,7 +376,7 @@ const handlePassMember = async (memberId: string) => {
                         }}
                       >
                         {member.avatar ? (
-                          <Avatar src={member.avatar} sx={{ mr: 2, width: 32, height: 32 }} />
+                          <Avatar src={transformUrl(member.avatar)} sx={{ mr: 2, width: 32, height: 32 }} />
                         ) : (
                           <Avatar
                             sx={{
@@ -534,7 +535,7 @@ const handlePassMember = async (memberId: string) => {
                       }}
                     >
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-                        <Avatar sx={{ bgcolor: 'warning.dark', mr: 2, width: 32, height: 32 }} src={member.avatar}>
+                        <Avatar sx={{ bgcolor: 'warning.dark', mr: 2, width: 32, height: 32 }} src={transformUrl(member.avatar)}>
                           {index + 1}
                         </Avatar>
                         <Box flex={1}>
@@ -654,7 +655,7 @@ const handlePassMember = async (memberId: string) => {
                             : 'background.paper',
                       }}
                     >
-                      <Avatar sx={{ bgcolor: 'info.main', mr: 2, width: 32, height: 32 }} src={member.avatar}>
+                      <Avatar sx={{ bgcolor: 'info.main', mr: 2, width: 32, height: 32 }} src={transformUrl(member.avatar)}>
                         {member.memberName?.charAt(0).toUpperCase() || index + 1}
                       </Avatar>
                       <Box sx={{ flex: 1 }}>
@@ -735,7 +736,7 @@ const handlePassMember = async (memberId: string) => {
                 renderOption={(props, option) => (
                   <Box component="li" {...props}>
                     {option.avatar ? (
-                      <Avatar src={option.avatar} sx={{ mr: 2, width: 32, height: 32 }} />
+                      <Avatar src={transformUrl(option.avatar)} sx={{ mr: 2, width: 32, height: 32 }} />
                     ) : (
                       <Avatar sx={{ mr: 2, width: 32, height: 32 }}>
                         {option.name.charAt(0).toUpperCase()}
@@ -869,7 +870,7 @@ const handlePassMember = async (memberId: string) => {
 
                                 {/* Avatar với số thứ tự */}
                                 {member.avatar ? (
-                                  <Avatar src={member.avatar} sx={{ mr: 2, width: 32, height: 32 }} />
+                                  <Avatar src={transformUrl(member.avatar)} sx={{ mr: 2, width: 32, height: 32 }} />
                                 ) : (
                                   <Avatar
                                     sx={{

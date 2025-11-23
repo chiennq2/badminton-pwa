@@ -34,7 +34,7 @@ import {
   CheckCircle,
   Edit,
 } from "@mui/icons-material";
-import { formatCurrency, calculateMemberSettlement, generateDetailedSettlements } from "../utils";
+import { formatCurrency, calculateMemberSettlement, generateDetailedSettlements, transformUrl } from "../utils";
 import { Session, SessionExpense } from "../types";
 import { useCourts, useUpdateSession } from "../hooks";
 import ExpenseUpdateDialog from "./ExpenseUpdateDialog";
@@ -423,7 +423,7 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
                       <Box sx={{ display: "flex", alignItems: "center" }}>
                           {payment.avatar ? (
                               <Avatar
-                                src={payment.avatar}
+                                src={transformUrl(payment.avatar)}
                                 sx={{ mr:1, width: 32, height: 32 }}
                               />
                             ) : (
