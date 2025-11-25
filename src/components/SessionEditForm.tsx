@@ -408,8 +408,10 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
     // Calculate price slot
     if (!formik.values.courtId) return;
     const priceCourts = courts?.filter(c => c.id === formik.values.courtId);
-    const priceSlot = calculateSlotPrice(priceCourts[0].pricePerHour, formik.values.startTime, formik.values.endTime, settings?.defaultMaxSlot);
-    formik.setFieldValue("priceSlot", priceSlot);
+    if (priceCourts && priceCourts.length > 0) {
+      const priceSlot = calculateSlotPrice(priceCourts[0].pricePerHour, formik.values.startTime, formik.values.endTime, settings?.defaultMaxSlot);
+      formik.setFieldValue("priceSlot", priceSlot);
+    }
   }, [courts, formik.values.courtId, formik.values.startTime, formik.values.endTime]);
 
   const togglePaymentStatus = (memberId: string) => {

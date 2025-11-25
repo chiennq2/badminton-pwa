@@ -231,7 +231,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             <Groups sx={{ mr: 1, color: "success.main", fontSize: 20 }} />
             <Typography variant="body1" color="#000000" sx={{ fontSize: 20 }}>
               <strong>Có mặt:</strong> {presentMembers.length} /{" "}
-              {memberPayments.length} người
+              {session.currentParticipants} người
             </Typography>
           </Box>
         </Box>
