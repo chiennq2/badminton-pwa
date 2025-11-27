@@ -35,6 +35,8 @@ import {
   InputAdornment,
   ToggleButtonGroup,
   ToggleButton,
+  Tabs,
+  Tab,
 } from "@mui/material";
 import {
   DataGrid,
@@ -61,6 +63,7 @@ import {
   PriceChange,
   VideogameAssetOff,
   VideogameAsset,
+  Map as MapIcon,
 } from "@mui/icons-material";
 import { useFormik } from "formik";
 import * as Yup from "yup";
@@ -72,6 +75,27 @@ import {
 } from "../hooks";
 import { Court } from "../types";
 import { formatCurrency, exportToCsv, formatDate } from "../utils";
+import MapDisplay from "../components/MapDisplay";
+import GMapDisplay from "../components/GMapDislay";
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`court-tabpanel-${index}`}
+      aria-labelledby={`court-tab-${index}`}
+    >
+      {value === index && <Box sx={{ pt: 2 }}>{children}</Box>}
+    </div>
+  );
+};
 
 const Courts: React.FC = () => {
   const theme = useTheme();
@@ -94,6 +118,8 @@ const Courts: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<
     "all" | "active" | "inactive"
   >("all");
+  const [tabValue, setTabValue] = useState(0);
+  const [viewTabValue, setViewTabValue] = useState(0);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
@@ -193,6 +219,7 @@ const Courts: React.FC = () => {
       setEditingCourt(null);
       formik.resetForm();
     }
+    setTabValue(0); // Reset to first tab
     setOpen(true);
     handleMenuClose();
   };
@@ -201,11 +228,13 @@ const Courts: React.FC = () => {
     setOpen(false);
     setEditingCourt(null);
     formik.resetForm();
+    setTabValue(0);
   };
 
   const handleView = (court: Court) => {
     setViewingCourt(court);
     setViewDialogOpen(true);
+    setViewTabValue(0); // Reset to first tab
     handleMenuClose();
   };
 
@@ -279,43 +308,39 @@ const Courts: React.FC = () => {
       field: "location",
       headerName: "Địa chỉ",
       flex: 1.5,
-      minWidth: 250,
+      minWidth: 220,
       renderCell: (params) => (
         <Box sx={{ display: "flex", alignItems: "center" }}>
           <LocationOn
             fontSize="small"
             sx={{ mr: 1, color: "text.secondary" }}
           />
-          <Typography variant="body2">{params.value}</Typography>
-        </Box>
-      ),
-    },
-    {
-      field: "pricePerHour",
-      headerName: "Giá/Giờ",
-      width: 150,
-      renderCell: (params) => (
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          <AttachMoney
-            fontSize="small"
-            sx={{ mr: 0.5, color: "success.main" }}
-          />
-          <Typography variant="body2" fontWeight="medium" color="success.main">
-            {formatCurrency(params.value)}
+          <Typography variant="body2" color="text.secondary">
+            {params.value}
           </Typography>
         </Box>
       ),
     },
     {
+      field: "pricePerHour",
+      headerName: "Giá/giờ",
+      width: 140,
+      renderCell: (params) => (
+        <Typography variant="body2" fontWeight="medium" color="success.main">
+          {formatCurrency(params.value)}
+        </Typography>
+      ),
+    },
+    {
       field: "isActive",
       headerName: "Trạng thái",
-      width: 120,
+      width: 140,
       renderCell: (params) => (
         <Chip
           label={params.value ? "Hoạt động" : "Ngừng"}
           color={params.value ? "success" : "error"}
           size="small"
-          variant={params.value ? "filled" : "outlined"}
+          icon={params.value ? <VideogameAsset /> : <VideogameAssetOff />}
         />
       ),
     },
@@ -323,499 +348,313 @@ const Courts: React.FC = () => {
       field: "actions",
       type: "actions",
       headerName: "Thao tác",
-      width: 160,
+      width: 100,
       getActions: (params: GridRowParams) => [
         <GridActionsCellItem
-          icon={
-            <Tooltip title="Xem chi tiết">
-              <Visibility />
-            </Tooltip>
-          }
+          icon={<Visibility />}
           label="Xem"
           onClick={() => handleView(params.row as Court)}
+          showInMenu={false}
         />,
         <GridActionsCellItem
-          icon={
-            <Tooltip title="Chỉnh sửa">
-              <Edit />
-            </Tooltip>
-          }
+          icon={<Edit />}
           label="Sửa"
           onClick={() => handleOpen(params.row as Court)}
+          showInMenu={false}
         />,
         <GridActionsCellItem
-          icon={
-            <Tooltip title="Xóa sân">
-              <Delete />
-            </Tooltip>
-          }
+          icon={<Delete />}
           label="Xóa"
           onClick={() => handleDeleteClick(params.row as Court)}
-          showInMenu
+          showInMenu={false}
         />,
       ],
     },
   ];
 
-  if (isLoading) {
-    return (
-      <Box
-        sx={{
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          py: 8,
-        }}
-      >
-        <CircularProgress size={60} sx={{ mb: 2 }} />
-        <Typography variant="body1" color="text.secondary">
-          Đang tải danh sách sân...
-        </Typography>
-      </Box>
-    );
-  }
-
-  const activeCourts = courts?.filter((court) => court.isActive) || [];
-  const inactiveCourts = courts?.filter((court) => !court.isActive) || [];
+  // Mobile view
+  const renderMobileView = () => (
+    <List sx={{ width: "100%" }}>
+      {filteredCourts.map((court) => (
+        <React.Fragment key={court.id}>
+          <ListItem
+            alignItems="flex-start"
+            sx={{
+              bgcolor: "background.paper",
+              mb: 1,
+              borderRadius: 2,
+              border: `1px solid ${theme.palette.divider}`,
+            }}
+          >
+            <ListItemAvatar>
+              <Avatar sx={{ bgcolor: "primary.main" }}>
+                <SportsTennis />
+              </Avatar>
+            </ListItemAvatar>
+            <ListItemText
+              primary={
+                <Box
+                  sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}
+                >
+                  <Typography variant="subtitle1" fontWeight="medium">
+                    {court.name}
+                  </Typography>
+                  <Chip
+                    label={court.isActive ? "Hoạt động" : "Ngừng"}
+                    color={court.isActive ? "success" : "error"}
+                    size="small"
+                  />
+                </Box>
+              }
+              secondary={
+                <Box>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ mb: 0.5 }}
+                  >
+                    <LocationOn
+                      sx={{ fontSize: 14, verticalAlign: "middle", mr: 0.5 }}
+                    />
+                    {court.location}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    fontWeight="medium"
+                    color="success.main"
+                  >
+                    <AttachMoney
+                      sx={{ fontSize: 14, verticalAlign: "middle", mr: 0.5 }}
+                    />
+                    {formatCurrency(court.pricePerHour)}/giờ
+                  </Typography>
+                </Box>
+              }
+            />
+            <ListItemSecondaryAction>
+              <IconButton
+                edge="end"
+                onClick={(e) => handleMenuOpen(e, court)}
+              >
+                <MoreVert />
+              </IconButton>
+            </ListItemSecondaryAction>
+          </ListItem>
+        </React.Fragment>
+      ))}
+    </List>
+  );
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 2, md: 3 } }}>
       {/* Header */}
       <Box
         sx={{
           display: "flex",
+          flexDirection: { xs: "column", sm: "row" },
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: { xs: "flex-start", sm: "center" },
           mb: 3,
-          flexWrap: "wrap",
           gap: 2,
         }}
       >
         <Box>
-          <Typography
-            variant="h4"
-            component="h1"
-            fontWeight="bold"
-            gutterBottom
-          >
-            Quản lý sân cầu lông
+          <Typography variant="h4" gutterBottom fontWeight="bold">
+            <SportsTennis sx={{ mr: 1, verticalAlign: "middle" }} />
+            Quản lý Sân
           </Typography>
-          {!isMobile && (
-            <Typography variant="body1" color="text.secondary">
-              Quản lý thông tin các sân cầu lông, giá cả và trạng thái hoạt động
-            </Typography>
-          )}
+          <Typography variant="body2" color="text.secondary">
+            Quản lý thông tin các sân cầu lông
+          </Typography>
         </Box>
-        {!isMobile && (
+
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => handleOpen()}
-            size="large"
+            variant="outlined"
+            startIcon={<FilterList />}
+            onClick={() => setFilterDialogOpen(true)}
           >
-            Thêm sân mới
+            Lọc
           </Button>
-        )}
+          <Button
+            variant="outlined"
+            startIcon={<FileDownload />}
+            onClick={handleExport}
+          >
+            Xuất CSV
+          </Button>
+        </Box>
       </Box>
 
-      {/* Statistics Cards */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={3}>
-          <Card>
-            <CardContent sx={{ textAlign: "center", p: { xs: 2, sm: 3 } }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 1, // khoảng cách giữa icon và text
-                  mb: 1,
-                }}
-              >
-                <SportsTennis
-                  sx={{
-                    fontSize: { xs: 30, sm: 40 },
-                    color: "primary.main",
-                    mb: 1,
-                  }}
-                />
-                <Typography variant="h4" fontWeight="bold">
-                  {courts?.length || 0}
-                </Typography>
-              </Box>
-              <Typography variant="caption" color="text.secondary">
-                Tổng số sân
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+      {/* Search */}
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          placeholder="Tìm kiếm theo tên hoặc địa chỉ sân..."
+          value={searchText}
+          onChange={(e) => setSearchText(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search />
+              </InputAdornment>
+            ),
+            endAdornment: searchText && (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setSearchText("")}>
+                  <Close />
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
 
-        <Grid item xs={6} sm={3}>
-          <Card>
-            <CardContent sx={{ textAlign: "center", p: { xs: 2, sm: 3 } }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 1, // khoảng cách giữa icon và text
-                  mb: 1,
-                }}
-              >
-                <VideogameAsset
-                  sx={{
-                    fontSize: { xs: 30, sm: 40 },
-                    color: "primary.main",
-                    mb: 1,
-                  }}
-                />
-                <Typography variant="h4" fontWeight="bold" color="success.main">
-                  {activeCourts.length}
-                </Typography>
-              </Box>
-              <Typography variant="caption" color="text.secondary">
-                Hoạt động
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={6} sm={3}>
-          <Card>
-            <CardContent sx={{ textAlign: "center", p: { xs: 2, sm: 3 } }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 1, // khoảng cách giữa icon và text
-                  mb: 1,
-                }}
-              >
-                <VideogameAssetOff
-                  sx={{
-                    fontSize: { xs: 30, sm: 40 },
-                    color: "primary.main",
-                    mb: 1,
-                  }}
-                />
-                <Typography variant="h4" fontWeight="bold" color="error.main">
-                  {inactiveCourts.length}
-                </Typography>
-              </Box>
-              <Typography variant="caption" color="text.secondary">
-                Ngừng
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={6} sm={3}>
-          <Card>
-            <CardContent sx={{ textAlign: "center", p: { xs: 2, sm: 3 } }}>
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 1, // khoảng cách giữa icon và text
-                  mb: 1,
-                }}
-              >
-                <PriceChange
-                  sx={{
-                    fontSize: { xs: 30, sm: 40 },
-                    color: "primary.main",
-                    mb: 1,
-                  }}
-                />
-                <Typography variant="h6" fontWeight="bold" color="warning.main">
-                  {activeCourts.length > 0
-                    ? formatCurrency(
-                        activeCourts.reduce(
-                          (sum, court) => sum + court.pricePerHour,
-                          0
-                        ) / activeCourts.length
-                      )
-                    : formatCurrency(0)}
-                </Typography>
-              </Box>
-              <Typography variant="caption" color="text.secondary">
-                Giá TB
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Mobile Search and Filter */}
-      {isMobile && (
-        <Box sx={{ mb: 2, display: "flex", gap: 1 }}>
-          <TextField
-            fullWidth
+      {/* Filter Chips */}
+      {(searchText || statusFilter !== "all") && (
+        <Box sx={{ mb: 2, display: "flex", gap: 1, flexWrap: "wrap" }}>
+          {searchText && (
+            <Chip
+              label={`Tìm kiếm: "${searchText}"`}
+              onDelete={() => setSearchText("")}
+              size="small"
+            />
+          )}
+          {statusFilter !== "all" && (
+            <Chip
+              label={`Trạng thái: ${
+                statusFilter === "active" ? "Hoạt động" : "Ngừng hoạt động"
+              }`}
+              onDelete={() => setStatusFilter("all")}
+              size="small"
+            />
+          )}
+          <Chip
+            label="Xóa tất cả bộ lọc"
+            onClick={handleClearFilters}
             size="small"
-            placeholder="Tìm kiếm sân..."
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              ),
-              endAdornment: searchText && (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchText("")}>
-                    <Close fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
+            variant="outlined"
           />
-          <IconButton
-            color="primary"
-            onClick={() => setFilterDialogOpen(true)}
-            sx={{ border: 1, borderColor: "divider" }}
-          >
-            <FilterList />
-          </IconButton>
         </Box>
       )}
 
-      {/* Mobile List View */}
-      {isMobile ? (
-        <Box>
-          {filteredCourts.length === 0 ? (
-            <Alert severity="info">Không tìm thấy sân nào</Alert>
-          ) : (
-            <List sx={{ bgcolor: "background.paper", borderRadius: 2 }}>
-              {filteredCourts.map((court) => (
-                <Card key={court.id} sx={{ mb: 1 }}>
-                  <ListItem>
-                    <ListItemAvatar>
-                      <Avatar
-                        sx={{
-                          bgcolor: court.isActive ? "primary.main" : "grey.400",
-                        }}
-                      >
-                        <SportsTennis />
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Box
-                          sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                            flexWrap: "wrap",
-                          }}
-                        >
-                          <Typography variant="body2" fontWeight="medium">
-                            {court.name}
-                          </Typography>
-                          <Chip
-                            label={court.isActive ? "Hoạt động" : "Ngừng"}
-                            color={court.isActive ? "success" : "default"}
-                            size="small"
-                            sx={{ height: 20 }}
-                          />
-                        </Box>
-                      }
-                      secondary={
-                        <Box sx={{ mt: 0.5 }}>
-                          <Typography
-                            variant="caption"
-                            display="block"
-                            color="text.secondary"
-                          >
-                            <LocationOn
-                              sx={{
-                                fontSize: 12,
-                                mr: 0.5,
-                                verticalAlign: "middle",
-                              }}
-                            />
-                            {court.location}
-                          </Typography>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 1,
-                              mt: 0.5,
-                            }}
-                          >
-                            <Chip
-                              label={formatCurrency(court.pricePerHour)}
-                              color="success"
-                              size="small"
-                              sx={{ height: 20, fontSize: "0.7rem" }}
-                            />
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                            >
-                              {formatDate(court.createdAt)}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      }
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton
-                        edge="end"
-                        onClick={(e) => handleMenuOpen(e, court)}
-                      >
-                        <MoreVert />
-                      </IconButton>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                </Card>
-              ))}
-            </List>
-          )}
+      {/* Data Grid or Mobile List */}
+      {isLoading ? (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            height: 400,
+          }}
+        >
+          <CircularProgress />
         </Box>
+      ) : isMobile ? (
+        renderMobileView()
       ) : (
-        /* Desktop DataGrid */
-        <Card>
-          <CardContent>
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                mb: 2,
-              }}
-            >
-              <Typography variant="h6" fontWeight="bold">
-                Danh sách sân ({filteredCourts.length})
-              </Typography>
-              <Button
-                variant="outlined"
-                startIcon={<FileDownload />}
-                onClick={handleExport}
-                size="small"
-              >
-                Xuất CSV
-              </Button>
-            </Box>
-
-            <Box sx={{ height: 600, width: "100%" }}>
-              <DataGrid
-                rows={filteredCourts}
-                columns={columns}
-                slots={{ toolbar: GridToolbar }}
-                slotProps={{
-                  toolbar: {
-                    showQuickFilter: true,
-                    quickFilterProps: {
-                      debounceMs: 500,
-                      placeholder: "Tìm kiếm sân...",
-                    },
-                  },
-                }}
-                pageSizeOptions={[10, 25, 50]}
-                initialState={{
-                  pagination: {
-                    paginationModel: { pageSize: 10 },
-                  },
-                }}
-                checkboxSelection
-                disableRowSelectionOnClick
-                sx={{
-                  "& .MuiDataGrid-cell": {
-                    borderColor: "divider",
-                  },
-                  "& .MuiDataGrid-columnHeaders": {
-                    backgroundColor: "action.hover",
-                    fontWeight: 600,
-                  },
-                }}
-              />
-            </Box>
-          </CardContent>
+        <Card sx={{ boxShadow: 3 }}>
+          <DataGrid
+            rows={filteredCourts}
+            columns={columns}
+            initialState={{
+              pagination: {
+                paginationModel: { page: 0, pageSize: 10 },
+              },
+            }}
+            pageSizeOptions={[5, 10, 25, 50]}
+            checkboxSelection
+            disableRowSelectionOnClick
+            slots={{ toolbar: GridToolbar }}
+            slotProps={{
+              toolbar: {
+                showQuickFilter: true,
+                quickFilterProps: { debounceMs: 500 },
+              },
+            }}
+            autoHeight
+            sx={{
+              "& .MuiDataGrid-row:hover": {
+                backgroundColor: theme.palette.action.hover,
+              },
+            }}
+          />
         </Card>
       )}
 
-      {/* FAB (Mobile) */}
-      {isMobile && (
-        <Fab
-          color="primary"
-          aria-label="add court"
-          onClick={() => handleOpen()}
-          sx={{ position: "fixed", bottom: 24, right: 24 }}
-        >
-          <Add />
-        </Fab>
-      )}
+      {/* Floating Action Button */}
+      <Fab
+        color="primary"
+        aria-label="add"
+        sx={{
+          position: "fixed",
+          bottom: 16,
+          right: 16,
+        }}
+        onClick={() => handleOpen()}
+      >
+        <Add />
+      </Fab>
 
-      {/* Mobile Menu */}
+      {/* Menu */}
       <Menu
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
         onClose={handleMenuClose}
       >
         <MenuItem onClick={() => selectedCourt && handleView(selectedCourt)}>
-          <Visibility sx={{ mr: 2 }} fontSize="small" />
+          <Visibility sx={{ mr: 1 }} fontSize="small" />
           Xem chi tiết
         </MenuItem>
         <MenuItem onClick={() => selectedCourt && handleOpen(selectedCourt)}>
-          <Edit sx={{ mr: 2 }} fontSize="small" />
-          Sửa
+          <Edit sx={{ mr: 1 }} fontSize="small" />
+          Chỉnh sửa
         </MenuItem>
         <Divider />
         <MenuItem
           onClick={() => selectedCourt && handleDeleteClick(selectedCourt)}
           sx={{ color: "error.main" }}
         >
-          <Delete sx={{ mr: 2 }} fontSize="small" color="error" />
+          <Delete sx={{ mr: 1 }} fontSize="small" />
           Xóa
         </MenuItem>
       </Menu>
 
-      {/* Mobile Filter Dialog */}
+      {/* Filter Dialog */}
       <Dialog
         open={filterDialogOpen}
         onClose={() => setFilterDialogOpen(false)}
-        fullWidth
         maxWidth="xs"
+        fullWidth
       >
         <DialogTitle>Bộ lọc</DialogTitle>
         <DialogContent>
-          <Box sx={{ pt: 2, display: "flex", flexDirection: "column", gap: 2 }}>
-            <Typography variant="body2" fontWeight="medium">
-              Trạng thái
-            </Typography>
-            <ToggleButtonGroup
-              value={statusFilter}
-              exclusive
-              onChange={(e, newValue) => newValue && setStatusFilter(newValue)}
-              fullWidth
-              size="small"
-            >
-              <ToggleButton value="all">Tất cả</ToggleButton>
-              <ToggleButton value="active">Hoạt động</ToggleButton>
-              <ToggleButton value="inactive">Ngừng</ToggleButton>
-            </ToggleButtonGroup>
+          <Box sx={{ pt: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel>Trạng thái</InputLabel>
+              <Select
+                value={statusFilter}
+                label="Trạng thái"
+                onChange={(e) =>
+                  setStatusFilter(e.target.value as "all" | "active" | "inactive")
+                }
+              >
+                <MenuItem value="all">Tất cả</MenuItem>
+                <MenuItem value="active">Hoạt động</MenuItem>
+                <MenuItem value="inactive">Ngừng hoạt động</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 2, flexDirection: "column", gap: 1 }}>
-          <Button onClick={handleClearFilters} fullWidth>
+        <DialogActions>
+          <Button onClick={() => setFilterDialogOpen(false)}>Đóng</Button>
+          <Button onClick={handleClearFilters} variant="outlined">
             Xóa bộ lọc
-          </Button>
-          <Button
-            onClick={() => setFilterDialogOpen(false)}
-            variant="contained"
-            fullWidth
-          >
-            Áp dụng
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Dialog */}
+      {/* Create/Edit Dialog with Tabs */}
       <Dialog
         open={open}
         onClose={handleClose}
@@ -824,120 +663,156 @@ const Courts: React.FC = () => {
         fullScreen={isMobile}
       >
         <form onSubmit={formik.handleSubmit}>
-          <DialogTitle sx={{ pb: 1 }}>
+          <DialogTitle>
             <Box sx={{ display: "flex", alignItems: "center" }}>
               <SportsTennis sx={{ mr: 1, color: "primary.main" }} />
-              {editingCourt ? "Cập nhật thông tin sân" : "Thêm sân mới"}
+              {editingCourt ? "Chỉnh sửa sân" : "Thêm sân mới"}
             </Box>
           </DialogTitle>
+          
+          <Box sx={{ borderBottom: 1, borderColor: "divider", px: 3 }}>
+            <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
+              <Tab label="Thông tin" icon={<Info />} iconPosition="start" />
+              <Tab label="Bản đồ" icon={<MapIcon />} iconPosition="start" />
+            </Tabs>
+          </Box>
+
           <DialogContent>
-            <Grid container spacing={2} sx={{ pt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  name="name"
-                  label="Tên sân *"
-                  placeholder="VD: Sân cầu lông ABC"
-                  value={formik.values.name}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={formik.touched.name && Boolean(formik.errors.name)}
-                  helperText={formik.touched.name && formik.errors.name}
-                  InputProps={{
-                    startAdornment: (
-                      <SportsTennis sx={{ mr: 1, color: "text.secondary" }} />
-                    ),
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  name="location"
-                  label="Địa chỉ *"
-                  placeholder="VD: 123 Đường ABC, Quận XYZ"
-                  value={formik.values.location}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={
-                    formik.touched.location && Boolean(formik.errors.location)
-                  }
-                  helperText={formik.touched.location && formik.errors.location}
-                  InputProps={{
-                    startAdornment: (
-                      <LocationOn sx={{ mr: 1, color: "text.secondary" }} />
-                    ),
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  name="pricePerHour"
-                  label="Giá theo giờ (VNĐ) *"
-                  type="number"
-                  value={formik.values.pricePerHour}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={
-                    formik.touched.pricePerHour &&
-                    Boolean(formik.errors.pricePerHour)
-                  }
-                  helperText={
-                    formik.touched.pricePerHour && formik.errors.pricePerHour
-                  }
-                  InputProps={{
-                    startAdornment: (
-                      <AttachMoney sx={{ mr: 1, color: "text.secondary" }} />
-                    ),
-                  }}
-                />
-              </Grid>
-
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>Trạng thái *</InputLabel>
-                  <Select
-                    name="isActive"
-                    value={formik.values.isActive ? "true" : "false"}
-                    onChange={(event) => {
-                      formik.setFieldValue(
-                        "isActive",
-                        event.target.value === "true"
-                      );
+            <TabPanel value={tabValue} index={0}>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    name="name"
+                    label="Tên sân"
+                    placeholder="Ví dụ: Sân A1, Sân VIP..."
+                    value={formik.values.name}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    error={formik.touched.name && Boolean(formik.errors.name)}
+                    helperText={formik.touched.name && formik.errors.name}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SportsTennis />
+                        </InputAdornment>
+                      ),
                     }}
-                    label="Trạng thái *"
-                  >
-                    <MenuItem value="true">Hoạt động</MenuItem>
-                    <MenuItem value="false">Ngừng hoạt động</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
+                  />
+                </Grid>
 
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  name="description"
-                  label="Mô tả"
-                  placeholder="Mô tả về sân, tiện ích..."
-                  multiline
-                  rows={4}
-                  value={formik.values.description}
-                  onChange={formik.handleChange}
-                  onBlur={formik.handleBlur}
-                  error={
-                    formik.touched.description &&
-                    Boolean(formik.errors.description)
-                  }
-                  helperText={
-                    formik.touched.description && formik.errors.description
-                  }
-                />
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    name="location"
+                    label="Địa chỉ"
+                    placeholder="Nhập địa chỉ đầy đủ của sân"
+                    value={formik.values.location}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    error={
+                      formik.touched.location && Boolean(formik.errors.location)
+                    }
+                    helperText={formik.touched.location && formik.errors.location}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <LocationOn />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    name="pricePerHour"
+                    label="Giá theo giờ"
+                    type="number"
+                    value={formik.values.pricePerHour}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    error={
+                      formik.touched.pricePerHour &&
+                      Boolean(formik.errors.pricePerHour)
+                    }
+                    helperText={
+                      formik.touched.pricePerHour && formik.errors.pricePerHour
+                    }
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <AttachMoney />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">VNĐ</InputAdornment>
+                      ),
+                    }}
+                  />
+                </Grid>
+
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth>
+                    <InputLabel>Trạng thái</InputLabel>
+                    <Select
+                      name="isActive"
+                      value={String(formik.values.isActive)}
+                      label="Trạng thái"
+                      onChange={(e) =>
+                        formik.setFieldValue(
+                          "isActive",
+                          e.target.value === "true"
+                        )
+                      }
+                    >
+                      <MenuItem value="true">Hoạt động</MenuItem>
+                      <MenuItem value="false">Ngừng hoạt động</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    name="description"
+                    label="Mô tả"
+                    placeholder="Mô tả về sân, tiện ích..."
+                    multiline
+                    rows={4}
+                    value={formik.values.description}
+                    onChange={formik.handleChange}
+                    onBlur={formik.handleBlur}
+                    error={
+                      formik.touched.description &&
+                      Boolean(formik.errors.description)
+                    }
+                    helperText={
+                      formik.touched.description && formik.errors.description
+                    }
+                  />
+                </Grid>
               </Grid>
-            </Grid>
+            </TabPanel>
+
+            <TabPanel value={tabValue} index={1}>
+              <Box sx={{ mb: 2 }}>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <Typography variant="body2">
+                    Bản đồ sẽ hiển thị vị trí dựa trên địa chỉ bạn nhập. 
+                    {!formik.values.location && " Vui lòng nhập địa chỉ ở tab Thông tin."}
+                  </Typography>
+                </Alert>
+              </Box>
+              <GMapDisplay 
+                address={formik.values.location}
+                height={isMobile ? 300 : 400}
+                zoom={16}
+              />
+            </TabPanel>
           </DialogContent>
+          
           <DialogActions
             sx={{ p: 2, flexDirection: { xs: "column", sm: "row" }, gap: 1 }}
           >
@@ -965,11 +840,11 @@ const Courts: React.FC = () => {
         </form>
       </Dialog>
 
-      {/* View Dialog */}
+      {/* View Dialog with Tabs */}
       <Dialog
         open={viewDialogOpen}
         onClose={() => setViewDialogOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
         fullScreen={isMobile}
       >
@@ -979,100 +854,121 @@ const Courts: React.FC = () => {
             Chi tiết sân
           </Box>
         </DialogTitle>
+
+        <Box sx={{ borderBottom: 1, borderColor: "divider", px: 3 }}>
+          <Tabs value={viewTabValue} onChange={(e, v) => setViewTabValue(v)}>
+            <Tab label="Thông tin" icon={<Info />} iconPosition="start" />
+            <Tab label="Bản đồ" icon={<MapIcon />} iconPosition="start" />
+          </Tabs>
+        </Box>
+
         <DialogContent>
           {viewingCourt && (
-            <Box sx={{ pt: 1 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Typography variant="h6" gutterBottom>
-                    {viewingCourt.name}
-                  </Typography>
-                  <Chip
-                    label={viewingCourt.isActive ? "Hoạt động" : "Ngừng"}
-                    color={viewingCourt.isActive ? "success" : "error"}
-                    size="small"
-                  />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    <LocationOn
-                      sx={{ fontSize: 16, verticalAlign: "middle", mr: 0.5 }}
-                    />
-                    Địa chỉ:
-                  </Typography>
-                  <Typography variant="body1">
-                    {viewingCourt.location}
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    gutterBottom
-                  >
-                    <AttachMoney
-                      sx={{ fontSize: 16, verticalAlign: "middle", mr: 0.5 }}
-                    />
-                    Giá:
-                  </Typography>
-                  <Typography
-                    variant="body1"
-                    fontWeight="medium"
-                    color="success.main"
-                  >
-                    {formatCurrency(viewingCourt.pricePerHour)}/giờ
-                  </Typography>
-                </Grid>
-
-                {viewingCourt.description && (
-                  <Grid item xs={12}>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      gutterBottom
-                    >
-                      <Info
-                        sx={{ fontSize: 16, verticalAlign: "middle", mr: 0.5 }}
+            <>
+              <TabPanel value={viewTabValue} index={0}>
+                <Box sx={{ pt: 1 }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12}>
+                      <Typography variant="h6" gutterBottom>
+                        {viewingCourt.name}
+                      </Typography>
+                      <Chip
+                        label={viewingCourt.isActive ? "Hoạt động" : "Ngừng"}
+                        color={viewingCourt.isActive ? "success" : "error"}
+                        size="small"
                       />
-                      Mô tả:
-                    </Typography>
-                    <Typography variant="body1">
-                      {viewingCourt.description}
-                    </Typography>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        gutterBottom
+                      >
+                        <LocationOn
+                          sx={{ fontSize: 16, verticalAlign: "middle", mr: 0.5 }}
+                        />
+                        Địa chỉ:
+                      </Typography>
+                      <Typography variant="body1">
+                        {viewingCourt.location}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12}>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        gutterBottom
+                      >
+                        <AttachMoney
+                          sx={{ fontSize: 16, verticalAlign: "middle", mr: 0.5 }}
+                        />
+                        Giá:
+                      </Typography>
+                      <Typography
+                        variant="body1"
+                        fontWeight="medium"
+                        color="success.main"
+                      >
+                        {formatCurrency(viewingCourt.pricePerHour)}/giờ
+                      </Typography>
+                    </Grid>
+
+                    {viewingCourt.description && (
+                      <Grid item xs={12}>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          gutterBottom
+                        >
+                          <Info
+                            sx={{ fontSize: 16, verticalAlign: "middle", mr: 0.5 }}
+                          />
+                          Mô tả:
+                        </Typography>
+                        <Typography variant="body1">
+                          {viewingCourt.description}
+                        </Typography>
+                      </Grid>
+                    )}
+
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 1 }} />
+                    </Grid>
+
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">
+                        Ngày tạo:
+                      </Typography>
+                      <Typography variant="body2">
+                        {formatDate(viewingCourt.createdAt)}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={6}>
+                      <Typography variant="caption" color="text.secondary">
+                        Cập nhật:
+                      </Typography>
+                      <Typography variant="body2">
+                        {formatDate(viewingCourt.updatedAt)}
+                      </Typography>
+                    </Grid>
                   </Grid>
-                )}
+                </Box>
+              </TabPanel>
 
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 1 }} />
-                </Grid>
-
-                <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Ngày tạo:
-                  </Typography>
-                  <Typography variant="body2">
-                    {formatDate(viewingCourt.createdAt)}
-                  </Typography>
-                </Grid>
-
-                <Grid item xs={6}>
-                  <Typography variant="caption" color="text.secondary">
-                    Cập nhật:
-                  </Typography>
-                  <Typography variant="body2">
-                    {formatDate(viewingCourt.updatedAt)}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </Box>
+              <TabPanel value={viewTabValue} index={1}>
+                <GMapDisplay 
+                  address={viewingCourt.location}
+                  height={isMobile ? 300 : 400}
+                  zoom={16}
+                />
+              </TabPanel>
+            </>
           )}
         </DialogContent>
+        
         <DialogActions
           sx={{ p: 2, flexDirection: { xs: "column", sm: "row" }, gap: 1 }}
         >
