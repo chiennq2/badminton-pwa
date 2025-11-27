@@ -281,7 +281,7 @@ const displayed = (tab === 0 ? activeSessions : completedSessions)
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     <People fontSize="small" color="action" />
                     <Typography variant="body2">
-                      {session.currentParticipants}/{session.maxParticipants}
+                      {session.members.filter((m) => m.isPresent).length}/{session.currentParticipants}
                     </Typography>
                   </Box>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>

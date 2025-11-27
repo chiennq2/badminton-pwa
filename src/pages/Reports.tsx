@@ -32,7 +32,7 @@ import { FilterList, Analytics, Assessment } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import { useSessions, useMembers, useCourts } from '../hooks';
 import { useAuth } from '../contexts/AuthContext';
-import { Session, ReportFilter } from '../types';
+import { Session, ReportFilter, SessionMember } from '../types';
 import { formatCurrency, formatDate, exportToCsv } from '../utils';
 
 // Register Chart.js components
@@ -209,14 +209,16 @@ const Reports: React.FC = () => {
   const handleExportSessions = () => {
     const exportData = filteredSessions.map(session => {
       const court = courts?.find(c => c.id === session.courtId);
+      const presentMembers = session.members.filter((m) => m.isPresent);
+
       return {
         'Tên lịch': session.name,
         'Ngày': formatDate(session.date),
         'Giờ bắt đầu': session.startTime,
         'Giờ kết thúc': session.endTime,
         'Sân': court?.name || 'Unknown',
-        'Số người tham gia': session.currentParticipants,
-        'Số người tối đa': session.maxParticipants,
+        'Số người tham gia': presentMembers.length,
+        'Số người tối đa': session.currentParticipants,
         'Tổng chi phí': session.totalCost,
         'Chi phí/người': session.costPerPerson,
         'Trạng thái': session.status,
@@ -241,7 +243,7 @@ const Reports: React.FC = () => {
       field: 'currentParticipants', 
       headerName: 'Số người', 
       width: 100,
-      renderCell: (params) => `${params.value}/${params.row.maxParticipants}`,
+      renderCell: (params) => `${params.row.members.filter((m: SessionMember) => m.isPresent).length}/${params.value}`,
     },
     { 
       field: 'totalCost', 

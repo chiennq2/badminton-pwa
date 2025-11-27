@@ -1352,7 +1352,7 @@ const SessionEditForm: React.FC<SessionEditFormProps> = ({
                                   width: 36,
                                   height: 36,
                                 }}
-                                src={transformUrl(member.avatar)}
+                                src={transformUrl(member.avatar ?? "")}
                               >
                                 {member.isCustom ? (
                                   <Person />

@@ -339,7 +339,7 @@ const Sessions: React.FC = () => {
               variant="body2"
               sx={{ fontSize: { xs: "0.75rem", sm: "0.875rem" } }}
             >
-              {params.value}/{params.row.maxParticipants}
+              {presentCount}/{params.value}
               {params.row.status === "completed" && (
                 <Typography
                   variant="caption"
@@ -349,7 +349,7 @@ const Sessions: React.FC = () => {
                     fontSize: { xs: "0.65rem", sm: "0.75rem" },
                   }}
                 >
-                  {presentCount} có mặt
+                  {/* {presentCount} có mặt */}
                 </Typography>
               )}
             </Typography>

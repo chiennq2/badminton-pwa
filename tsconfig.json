@@ -19,6 +19,6 @@
     "types": ["vite/client"]
 
   },
-  "include": ["src"],
+  "include": ["src", "node_modules/@types/google.maps/index.d.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

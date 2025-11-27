@@ -134,13 +134,13 @@ const Dashboard: React.FC = () => {
           <StatCard title="Sân hoạt động" value={activeCourts.length} icon={<SportsTennis />} color="primary" subtitle={`Tổng ${courts?.length || 0} sân`} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard title="Thành viên" value={activeMembers.length} icon={<People />} color="success" subtitle={`Tổng ${members?.length || 0} thành viên`} />
+          <StatCard title="Thành viên hoạt động" value={activeMembers.length} icon={<People />} color="success" subtitle={`Tổng ${members?.length || 0} thành viên`} />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <StatCard title="Nhóm" value={groups?.length || 0} icon={<Groups />} color="info" />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard title="Chi phí" value={formatCurrency(totalRevenue)} icon={<TrendingUp />} color="warning" subtitle={`${completedSessions.length} lịch hoàn thành`} />
+          <StatCard title="Chi phí" value={formatCurrency(totalRevenue)} icon={<TrendingUp />} color="warning" />
         </Grid>
       </Grid>
 
