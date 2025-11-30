@@ -439,9 +439,9 @@ const SessionDetail: React.FC = () => {
 
       showSnackbar("Đang tạo ảnh...", "success");
 
-      // ✅ QUAN TRỌNG: Đặt width cố định để giữ tỉ lệ giống desktop
-      const FIXED_WIDTH = 1200;
-      const PADDING = 40;
+      // ✅ QUAN TRỌNG: Đặt width cho khổ ngang (landscape)
+      const FIXED_WIDTH = 1920;
+      const PADDING = 30;
 
       element.style.position = "fixed";
       element.style.left = "0";
@@ -449,7 +449,7 @@ const SessionDetail: React.FC = () => {
       element.style.zIndex = "9999";
       element.style.backgroundColor = "#ffffff";
       element.style.padding = `${PADDING}px`;
-      element.style.width = `${FIXED_WIDTH}px`; // ✅ Width cố định
+      element.style.width = `${FIXED_WIDTH}px`; // ✅ Width cho khổ ngang
       element.style.maxWidth = "none";
       element.style.minHeight = "auto";
       element.style.overflow = "visible";

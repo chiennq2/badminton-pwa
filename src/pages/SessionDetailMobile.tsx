@@ -361,8 +361,8 @@ const SessionDetailMobile: React.FC = () => {
 
       showSnackbar("Đang tạo ảnh...", "success");
 
-      const FIXED_WIDTH = 1200;
-      const PADDING = 40;
+      const FIXED_WIDTH = 1920;
+      const PADDING = 30;
 
       element.style.position = "fixed";
       element.style.left = "0";
@@ -431,8 +431,8 @@ const SessionDetailMobile: React.FC = () => {
 
       showSnackbar("Đang tạo ảnh...", "success");
 
-      const FIXED_WIDTH = 1200;
-      const PADDING = 40;
+      const FIXED_WIDTH = 1920;
+      const PADDING = 30;
 
       element.style.position = "fixed";
       element.style.left = "0";
