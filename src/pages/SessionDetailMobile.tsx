@@ -1070,7 +1070,7 @@ const SessionDetailMobile: React.FC = () => {
             Xác nhận hoàn thành lịch đánh. Chi phí sẽ được chia đều cho các thành viên có mặt.
           </Alert>
 
-          <Stack spacing={1.5} sx={{ mb: 2 }}>
+          {/* <Stack spacing={1.5} sx={{ mb: 2 }}>
             <Paper sx={{ p: 1.5, backgroundColor: 'action.hover', borderRadius: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                 <Typography variant="body2">Thành viên có mặt:</Typography>
@@ -1092,7 +1092,7 @@ const SessionDetailMobile: React.FC = () => {
                 </Typography>
               </Box>
             </Paper>
-          </Stack>
+          </Stack> */}
 
           {settlements.length > 0 && (
             <Box>

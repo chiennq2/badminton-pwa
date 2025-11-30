@@ -78,10 +78,13 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
         return {
           id: sessionMember.memberId,
           name: sessionMember.memberName || member?.name || "Unknown",
+          isWoman: sessionMember.isWoman,
           avatar: sessionMember.avatar || '',
           isCustom: sessionMember.isCustom || !member,
           isPresent: sessionMember.isPresent,
           baseCost: settlement.baseCost,
+          priceSlot: session.priceSlot,
+          replacementNote: sessionMember.replacementNote,
           additionalCostsMap,
           total: settlement.total,
           isPaid:
@@ -105,6 +108,12 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
   
     const totalBaseCost = memberPayments.reduce((sum, m) => sum + m.baseCost, 0);
     const grandTotal = memberPayments.reduce((sum, m) => sum + m.total, 0);
+    const totalPriceSlotPass = memberPayments.reduce((sum, m) => {
+      if (m.replacementNote?.trim().length > 0) {
+        return sum + m.priceSlot;
+      }
+      return sum;
+    }, 0);
   
     const handleExpenseUpdate = async (expenses: SessionExpense[]) => {
         try {
@@ -304,13 +313,13 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
                               sx={{ mr:1, width: 32, height: 32 }}
                             />
                           ) : (
-                            <Avatar sx={{mr:1, width: 36, height: 36 }}>
+                            <Avatar sx={{mr:1, width: 36, height: 36}}>
                             {payment.name.charAt(0).toUpperCase()}
                           </Avatar>
                         )}
 
                       <Box flex={1}>
-                        <Typography variant="subtitle2" fontWeight="bold">
+                        <Typography variant="subtitle2" fontWeight="bold" sx={{color: payment.isWoman ? '#ef7be0' : '#4b9aff'}}>
                           {payment.name}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
@@ -323,6 +332,14 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
                             size="small"
                             sx={{ height: 18, fontSize: '0.688rem' }}
                           />
+                          
+                          {payment.replacementNote?.length > 0 && 
+                            <Chip 
+                              label={payment.replacementNote} 
+                              size="small" 
+                              sx={{ height: 18, fontSize: '0.688rem' }} 
+                            />}
+
                           {payment.isPaid && (
                             <Chip 
                               label="Đã thanh toán" 
@@ -348,6 +365,16 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
                           {formatCurrency(payment.baseCost)}
                         </Typography>
                       </Box>
+                      {payment?.replacementNote?.length > 0 && (
+                        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
+                          <Typography variant="caption" color="text.secondary">
+                            Slot Pass:
+                          </Typography>
+                          <Typography variant="body2" fontWeight="medium">
+                            {formatCurrency(payment.priceSlot)}
+                          </Typography>
+                        </Box>
+                      )}
   
                       {additionalExpenses.map((expense, idx) => {
                         const amount = payment.additionalCostsMap.get(expense.name) || 0;
@@ -371,7 +398,7 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
                           Tổng:
                         </Typography>
                         <Typography variant="h6" fontWeight="bold" color="primary.main">
-                          {formatCurrency(payment.total)}
+                          {formatCurrency(payment.total + (payment.replacementNote?.length > 0 ? payment.priceSlot : 0))}
                         </Typography>
                       </Box>
                     </Stack>
@@ -457,7 +484,7 @@ const ExpenseDetailMobile: React.FC<ExpenseDetailProps> = ({
                     </Typography>
                   </Box>
                   <Typography variant="h5" fontWeight="bold" color="primary.main">
-                    {formatCurrency(grandTotal)}
+                    {formatCurrency(grandTotal + (totalPriceSlotPass))}
                   </Typography>
                 </Box>
               </Paper>

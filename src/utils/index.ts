@@ -276,6 +276,10 @@ export const generateDetailedSettlements = (
       }
     });
 
+    // Thêm tiền sân cho thành viên này nếu nhận slot pass
+    const priceSlotPass = sessionMember?.replacementNote?.trim().length > 0 ? session.priceSlot ?? 0 : 0;
+    totalAmount += priceSlotPass;
+
     // Chỉ tạo settlement nếu có số tiền cần thanh toán
     if (totalAmount > 0) {
       settlements.push({
