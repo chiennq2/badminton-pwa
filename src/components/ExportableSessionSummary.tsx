@@ -140,9 +140,9 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
   return (
     <Box
       sx={{
-        width: "1200px",
+        width: "1920px",
         backgroundColor: "white",
-        p: 4,
+        p: 3,
         fontFamily: "Arial, sans-serif",
         boxSizing: "border-box",
       }}
