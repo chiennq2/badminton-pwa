@@ -115,12 +115,14 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
           )?.isPaid || false,
         replacementNote: sessionMember.replacementNote,
         isWoman: sessionMember.isWoman,
+        priceSlot: session.priceSlot,
       };
     });
   }, [relevantMembers, session, members]);
 
   const totalBaseCost = memberPayments.reduce((sum, m) => sum + m.baseCost, 0);
   const grandTotal = memberPayments.reduce((sum, m) => sum + m.total, 0);
+  const totalPriceSlotPass = memberPayments.reduce((sum, m) => sum + (m.replacementNote?.trim().length > 0 ? session.priceSlot ?? 0 : 0), 0);
 
   // Tính tổng cho từng cột chi phí bổ sung
   const additionalColumnTotals = useMemo(() => {
@@ -231,7 +233,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             <Groups sx={{ mr: 1, color: "success.main", fontSize: 20 }} />
             <Typography variant="body1" color="#000000" sx={{ fontSize: 20 }}>
               <strong>Có mặt:</strong> {presentMembers.length} /{" "}
-              {session.currentParticipants} người
+              {session.maxParticipants} người
             </Typography>
           </Box>
         </Box>
@@ -360,6 +362,26 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   </Typography>
                 </Box>
               )}
+              
+              {/* Tiền slot */} 
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    py: 0.5,
+                  }}
+                >
+                  <Typography
+                    variant="body2"
+                    color="#000000"
+                    sx={{ fontSize: 20 }}
+                  >
+                    💵 Tiền 1 Slot Pass
+                  </Typography>
+                  <Typography variant="body2" color="#ff4500" sx={{ fontSize: 20 }}> {formatCurrency(session.priceSlot)} </Typography>
+
+                </Box>
               {/* Tổng cộng nếu có cả 2 */}
               {courtExpense && shuttlecockExpense && (
                 <>
@@ -450,7 +472,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
       })()}
       <Divider sx={{ my: 2 }} />
 
-      {session.priceSlot > 0 && (
+      {/* {session.priceSlot > 0 && (
         <Box
           sx={{
             display: "flex",
@@ -485,7 +507,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
             </Typography>
           </Typography>
         </Box>
-      )}
+      )} */}
 
       <Divider sx={{ my: 2 }} />
       {/* Payment Table */}
@@ -514,7 +536,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   Thành viên
                 </TableCell>
                 <TableCell
-                  align="right"
+                  align="center"
                   sx={{
                     fontWeight: "bold",
                     border: "1px solid #ddd",
@@ -522,14 +544,25 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     fontSize: 25,
                   }}
                 >
-                  Sân + Cầu
+                  Sân|Cầu
+                </TableCell>
+                <TableCell
+                  align="center"
+                  sx={{
+                    fontWeight: "bold",
+                    border: "1px solid #ddd",
+                    color: "#000000",
+                    fontSize: 25,
+                  }}
+                >
+                  Slot
                 </TableCell>
 
                 {/* Các cột chi phí bổ sung */}
                 {additionalExpenses.map((expense) => (
                   <TableCell
                     key={expense.id}
-                    align="right"
+                    align="center"
                     sx={{
                       fontWeight: "bold",
                       border: "1px solid #ddd",
@@ -542,7 +575,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                 ))}
 
                 <TableCell
-                  align="right"
+                  align="center"
                   sx={{
                     fontWeight: "bold",
                     border: "1px solid #ddd",
@@ -550,7 +583,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     fontSize: 25,
                   }}
                 >
-                  Tổng cộng
+                  Tổng
                 </TableCell>
                 <TableCell
                   align="center"
@@ -626,6 +659,31 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                   >
                     {formatCurrency(payment.baseCost)}
                   </TableCell>
+                  {payment.replacementNote?.trim().length > 0 ? (
+                    <TableCell
+                      align="right"
+                      sx={{
+                        border: "1px solid #ddd",
+                        fontWeight: "bold",
+                        color: "#ff4500",
+                        fontSize: 25,
+                      }}
+                    >
+                      {formatCurrency(session.priceSlot ?? 0)}
+                    </TableCell>
+                  ) : (
+                    <TableCell
+                      align="right"
+                      sx={{
+                        border: "1px solid #ddd",
+                        fontWeight: "bold",
+                        color: "#ff4500",
+                        fontSize: 25,
+                      }}
+                    >
+                      -
+                    </TableCell>
+                  )}
 
                   {/* Các cột chi phí bổ sung */}
                   {additionalExpenses.map((expense) => {
@@ -655,7 +713,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                       fontSize: 25,
                     }}
                   >
-                    {formatCurrency(payment.total)}
+                    {formatCurrency(payment.total + (payment.replacementNote?.trim().length > 0 ? session.priceSlot ?? 0 : 0))}
                   </TableCell>
 
                   <TableCell align="center" sx={{ border: "1px solid #ddd" }}>
@@ -692,6 +750,17 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                 >
                   {formatCurrency(totalBaseCost)}
                 </TableCell>
+                <TableCell
+                  align="right"
+                  sx={{
+                    fontWeight: "bold",
+                    border: "1px solid #ddd",
+                    color: "#000000",
+                    fontSize: 25,
+                  }}
+                >
+                  {formatCurrency(totalPriceSlotPass)}
+                </TableCell>
 
                 {additionalExpenses.map((expense) => {
                   const total = additionalColumnTotals.get(expense.name) || 0;
@@ -720,7 +789,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
                     fontSize: 25,
                   }}
                 >
-                  {formatCurrency(grandTotal)}
+                  {formatCurrency(grandTotal + (totalPriceSlotPass))}
                 </TableCell>
 
                 <TableCell align="center" sx={{ border: "1px solid #ddd" }}>
@@ -753,8 +822,7 @@ const ExportableSessionSummary: React.FC<ExportableSessionSummaryProps> = ({
       >
         <Typography variant="body2" color="#000000" sx={{ fontSize: 20 }}>
           💡 <strong>Ghi chú:</strong> 📝 Sân + Cầu chia đều cho người có mặt.
-          Chi phí bổ sung chỉ tính cho người tham gia. Tiền slot vui lòng tự
-          thanh toán với chủ slot!
+          Chi phí bổ sung chỉ tính cho người tham gia. 
         </Typography>
       </Box>
 

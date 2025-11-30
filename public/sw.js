@@ -1,3 +1,4 @@
+const __APP_VERSION__ = `1.0.${new Date().getTime()}`;
 const CACHE_NAME = `badminton-pwa-${__APP_VERSION__}`;
 const STATIC_CACHE_URLS = [
   '/favicon.ico',

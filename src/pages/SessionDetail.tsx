@@ -1279,7 +1279,7 @@ const SessionDetail: React.FC = () => {
             thành viên có mặt.
           </Typography>
 
-          <Box sx={{ mt: 2, mb: 2 }}>
+          {/* <Box sx={{ mt: 2, mb: 2 }}>
             <Typography variant="subtitle2" gutterBottom>
               Thành viên có mặt: {presentMembers.length} người
             </Typography>
@@ -1289,7 +1289,7 @@ const SessionDetail: React.FC = () => {
             <Typography variant="subtitle2" gutterBottom>
               Chi phí mỗi người: {formatCurrency(session.costPerPerson)}
             </Typography>
-          </Box>
+          </Box> */}
 
           {settlements.length > 0 && (
             <Box sx={{ height: 300, width: "100%" }}>

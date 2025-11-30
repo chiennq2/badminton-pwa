@@ -119,10 +119,14 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
       return {
         id: sessionMember.memberId,
         name: sessionMember.memberName || member?.name || "Unknown",
+        isWoman: sessionMember?.isWoman || false,
         avatar: sessionMember.avatar || '',
         isCustom: sessionMember.isCustom || !member,
         isPresent: sessionMember.isPresent,
         baseCost: settlement.baseCost,
+        priceSlot: session.priceSlot,
+        replacementNote: sessionMember.replacementNote,
+        additionalCosts: settlement.additionalCosts,
         additionalCostsMap, // Map: tên khoản chi -> số tiền
         total: settlement.total,
         isPaid:
@@ -148,6 +152,12 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
   // Tính tổng
   const totalBaseCost = memberPayments.reduce((sum, m) => sum + m.baseCost, 0);
   const grandTotal = memberPayments.reduce((sum, m) => sum + m.total, 0);
+  const totalPriceSlotPass = memberPayments.reduce((sum, m) => {
+    if (m.replacementNote?.trim().length > 0) {
+      return sum + m.priceSlot;
+    }
+    return sum;
+  }, 0);
 
   // Tính tổng cho từng cột chi phí bổ sung
   const additionalColumnTotals = useMemo(() => {
@@ -391,6 +401,9 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
                   <TableCell align="right">
                     <strong>Sân + Cầu</strong>
                   </TableCell>
+                  <TableCell align="right">
+                    <strong>Slot Pass</strong>
+                  </TableCell>
                   {additionalExpenses.map((expense, idx) => (
                     <TableCell key={idx} align="right">
                       <Tooltip title={expense.description || expense.name}>
@@ -433,7 +446,7 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
                           )}
 
                         <Box>
-                          <Typography variant="body2">
+                          <Typography variant="body2" sx={{color: payment.isWoman ? '#ef7be0' : '#4b9aff'}}>
                             {payment.name}
                           </Typography>
                           {payment.isCustom && (
@@ -463,6 +476,27 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
                         {formatCurrency(payment.baseCost)}
                       </Typography>
                     </TableCell>
+
+                    {payment?.replacementNote?.length > 0 ? (
+                    <TableCell align="right">
+                      <Typography
+                        variant="body2"
+                        color="text.primary"
+                      >
+                        {formatCurrency(payment.priceSlot)}
+                      </Typography>
+                    </TableCell>
+                    ) : (
+                      <TableCell align="right">
+                        <Typography
+                          variant="body2"
+                          color="text.disabled"
+                        >
+                          -
+                        </Typography>
+                        </TableCell>
+                    )}
+
                     {additionalExpenses.map((expense, idx) => {
                       const amount =
                         payment.additionalCostsMap.get(expense.name) || 0;
@@ -486,7 +520,7 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
                         fontWeight="bold"
                         color="primary.main"
                       >
-                        {formatCurrency(payment.total)}
+                        {formatCurrency(payment.total + (payment.replacementNote?.length > 0 ? payment.priceSlot : 0))}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
@@ -569,6 +603,11 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
                       {formatCurrency(totalBaseCost)}
                     </Typography>
                   </TableCell>
+                  <TableCell align="right">
+                    <Typography variant="body2" fontWeight="bold">
+                      {formatCurrency(totalPriceSlotPass)}
+                    </Typography>
+                  </TableCell>
                   {additionalExpenses.map((expense, idx) => (
                     <TableCell key={idx} align="right">
                       <Typography variant="body2" fontWeight="bold">
@@ -580,7 +619,7 @@ const ExpenseDetail: React.FC<ExpenseDetailProps> = ({
                   ))}
                   <TableCell align="right">
                     <Typography variant="h6" fontWeight="bold">
-                      {formatCurrency(grandTotal)}
+                      {formatCurrency(grandTotal + (totalPriceSlotPass))}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">-</TableCell>
